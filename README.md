@@ -164,6 +164,7 @@ timing — see the note on pace below.
   your own machine, with no remote black box deciding what you see.
 - **Channels** for different topics, so conversations can be organized
   without central moderators.
+- **Multilanguage support** — full UI localization so Agora can be used in languages other than English, making the platform accessible to a wider global audience.
 - **Group chat.**
 - **Android app** — a native mobile client distributed as an APK, so people can use Agora without needing a desktop.
 - **Sending pictures** in messages and posts.
