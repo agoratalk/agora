@@ -294,6 +294,10 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .blocked-user-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:1px}
 #blocked-empty{font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:center;padding:16px 0}
 
+/* ── Blocked-by notice ── */
+#blocked-by-notice{display:none;padding:10px 20px;background:rgba(224,96,112,.08);border-top:1px solid var(--danger);font-family:var(--mono);font-size:11px;color:var(--danger);text-align:center;flex-shrink:0}
+#blocked-by-notice.show{display:block}
+
 /* ── Blocklist sharing ── */
 .btn-publish-blocklist{margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--bg3);border:1px solid var(--accent2);border-radius:4px;padding:5px 12px;cursor:pointer;transition:all .15s;width:100%}
 .btn-publish-blocklist:hover{background:var(--accent2);color:var(--bg0)}
@@ -304,6 +308,11 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .blocklist-entry-more{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:2px}
 .btn-import-blocklist{background:var(--bg3);border:1px solid var(--accent2);border-radius:5px;color:var(--accent2);font-family:var(--mono);font-size:10px;padding:5px 14px;cursor:pointer;transition:all .15s;margin-top:8px}
 .btn-import-blocklist:hover{background:var(--accent2);color:var(--bg0)}
+.blocklist-btn-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.btn-subscribe-blocklist{background:var(--bg3);border:1px solid var(--accent);border-radius:5px;color:var(--accent);font-family:var(--mono);font-size:10px;padding:5px 14px;cursor:pointer;transition:all .15s}
+.btn-subscribe-blocklist:hover{background:var(--accent);color:var(--bg0)}
+.btn-subscribe-blocklist.subscribed{border-color:var(--green);color:var(--green)}
+.btn-subscribe-blocklist.subscribed:hover{background:var(--danger);border-color:var(--danger);color:#fff}
 </style>
 </head>
 <body>
@@ -395,6 +404,7 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
         <button class="chat-block-btn" id="chat-block-btn" onclick="toggleBlockActivePeer()" title="Block/unblock this user">Block</button>
       </div>
       <div id="messages" style="display:none"></div>
+      <div id="blocked-by-notice">🚫 This user has blocked you — your messages will not reach them</div>
       <div id="input-bar" style="display:none">
         <textarea id="msg-input" rows="1" placeholder="Type a message…"></textarea>
         <div id="dm-attach-preview" class="attach-preview" style="display:none">
@@ -509,6 +519,8 @@ let peers = [];
 let posts = [];         // { post_id, sender_pubkey, sender_fingerprint, content, timestamp, like_count, is_own }
 let likedPostIds = new Set(); // post_ids we've liked this session
 let blockedPubkeys = new Set(); // pubkeys the local user has blocked
+let blockedByPubkeys = new Set(); // pubkeys of users who have blocked us
+let subscribedToBlocklists = new Set(); // pubkeys whose blocklists we auto-import
 let activePeer = null;
 let messages = [];
 let notifications = [];
@@ -530,6 +542,8 @@ let embedUserCleared = false;
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
   loadBlockList();
+  loadBlockedByList();
+  loadSubscriptions();
   if (!window.agora) {
     setConnected(false);
     loadDemoData();
@@ -540,6 +554,8 @@ async function init() {
   await refreshPeers();
   await refreshPosts();
   setConnected(true);
+  // Re-broadcast our blocklist every 30 minutes so subscribers receive fresh updates
+  setInterval(() => { if (blockedPubkeys.size > 0) publishBlocklist(true); }, 30 * 60 * 1000);
 }
 
 // ── Block list persistence ─────────────────────────────────────────────────────
@@ -556,6 +572,73 @@ function saveBlockList() {
   updateBlockedIndicator();
 }
 
+const BLOCK_SIGNAL = 'agora:blocked:v1:';
+
+function loadBlockedByList() {
+  try {
+    const saved = localStorage.getItem('agora_blocked_by');
+    if (saved) blockedByPubkeys = new Set(JSON.parse(saved));
+  } catch {}
+}
+
+function saveBlockedByList() {
+  try { localStorage.setItem('agora_blocked_by', JSON.stringify([...blockedByPubkeys])); } catch {}
+}
+
+function loadSubscriptions() {
+  try {
+    const saved = localStorage.getItem('agora_blocklist_subs');
+    if (saved) subscribedToBlocklists = new Set(JSON.parse(saved));
+  } catch {}
+}
+
+function saveSubscriptions() {
+  try { localStorage.setItem('agora_blocklist_subs', JSON.stringify([...subscribedToBlocklists])); } catch {}
+}
+
+// Core import logic shared by manual import, subscribe, and auto-update.
+// Sends block signals and adds pubkeys; returns count added.
+function importBlocklistPubkeys(pubkeys, silent = false) {
+  let added = 0;
+  for (const pk of pubkeys) {
+    if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !blockedPubkeys.has(pk)) {
+      if (window.agora?.request) {
+        window.agora.request('send_dm', { recipient: pk, content: BLOCK_SIGNAL }).catch(() => {});
+      }
+      blockedPubkeys.add(pk);
+      added++;
+    }
+  }
+  if (added > 0) {
+    saveBlockList();
+    renderPeerList();
+    renderFeed();
+    if (!silent) toast(`Imported ${added} blocked user(s)`, 'success');
+  }
+  return added;
+}
+
+function subscribeToBlocklist(senderPubkey) {
+  subscribedToBlocklists.add(senderPubkey);
+  saveSubscriptions();
+  // Immediately import the most recent blocklist post from this peer that we already have
+  const latest = posts
+    .filter(p => p.sender_pubkey === senderPubkey)
+    .map(p => ({ p, bl: parseBlocklistPost(p.content) }))
+    .filter(x => x.bl)
+    .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
+  if (latest) importBlocklistPubkeys(latest.bl.pubkeys, true);
+  toast('Subscribed — blocklist will auto-update when they re-broadcast', 'success');
+  renderFeed();
+}
+
+function unsubscribeFromBlocklist(senderPubkey) {
+  subscribedToBlocklists.delete(senderPubkey);
+  saveSubscriptions();
+  toast('Unsubscribed from blocklist', 'info');
+  renderFeed();
+}
+
 function updateBlockedIndicator() {
   const n = blockedPubkeys.size;
   const btn = document.getElementById('blocked-indicator');
@@ -565,6 +648,10 @@ function updateBlockedIndicator() {
 }
 
 function blockPeer(pubkey) {
+  // Send a silent signal to the blocked peer's client so their UI knows not to contact us
+  if (window.agora?.request) {
+    window.agora.request('send_dm', { recipient: pubkey, content: BLOCK_SIGNAL }).catch(() => {});
+  }
   blockedPubkeys.add(pubkey);
   saveBlockList();
   // If currently viewing this peer's chat, clear it
@@ -574,6 +661,7 @@ function blockPeer(pubkey) {
     document.getElementById('chat-header').style.display = 'none';
     document.getElementById('messages').style.display = 'none';
     document.getElementById('input-bar').style.display = 'none';
+    document.getElementById('blocked-by-notice').classList.remove('show');
   }
   renderPeerList();
   renderFeed();
@@ -616,6 +704,14 @@ function updateChatBlockBtn() {
   btn.title = isBlocked ? 'Unblock this user' : 'Block this user';
 }
 
+function updateInputBarBlockedBy() {
+  const notice = document.getElementById('blocked-by-notice');
+  const bar = document.getElementById('input-bar');
+  const isBlockedBy = activePeer && blockedByPubkeys.has(activePeer);
+  if (notice) notice.classList.toggle('show', !!isBlockedBy);
+  if (bar) bar.style.display = isBlockedBy ? 'none' : (activePeer ? 'flex' : 'none');
+}
+
 function openBlockedModal() {
   renderBlockedModal();
   document.getElementById('blocked-modal').classList.add('open');
@@ -647,8 +743,8 @@ function renderBlockedModal() {
 // ── Blocklist sharing ──────────────────────────────────────────────────────────
 const BLOCKLIST_MAGIC = 'agora:blocklist:v1:';
 
-async function publishBlocklist() {
-  if (blockedPubkeys.size === 0) { toast('No blocked users to publish', 'error'); return; }
+async function publishBlocklist(silent = false) {
+  if (blockedPubkeys.size === 0) { if (!silent) toast('No blocked users to publish', 'error'); return; }
   // Build a names map from whatever display info we have locally
   const names = {};
   for (const pk of blockedPubkeys) {
@@ -659,10 +755,12 @@ async function publishBlocklist() {
   const payload = JSON.stringify({ pubkeys: [...blockedPubkeys], names });
   const content = BLOCKLIST_MAGIC + payload;
   const resp = await window.agora?.request('broadcast', { content });
-  if (resp?.error) { toast('Failed to publish: ' + resp.error, 'error'); return; }
-  closeModal('blocked-modal');
-  toast('Blocklist published to the network', 'success');
-  await refreshPosts();
+  if (resp?.error) { if (!silent) toast('Failed to publish: ' + resp.error, 'error'); return; }
+  if (!silent) {
+    closeModal('blocked-modal');
+    toast('Blocklist published to the network', 'success');
+    await refreshPosts();
+  }
 }
 
 function parseBlocklistPost(content) {
@@ -674,21 +772,8 @@ function importBlocklist(pubkeysJson) {
   let pubkeys;
   try { pubkeys = JSON.parse(pubkeysJson); } catch { toast('Invalid blocklist data', 'error'); return; }
   if (!Array.isArray(pubkeys)) { toast('Invalid blocklist data', 'error'); return; }
-  let added = 0;
-  for (const pk of pubkeys) {
-    if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !blockedPubkeys.has(pk)) {
-      blockedPubkeys.add(pk);
-      added++;
-    }
-  }
-  if (added > 0) {
-    saveBlockList();
-    renderPeerList();
-    renderFeed();
-    toast(`Imported ${added} blocked user(s)`, 'success');
-  } else {
-    toast('Nothing new to import — all already blocked', 'info');
-  }
+  const added = importBlocklistPubkeys(pubkeys);
+  if (added === 0) toast('Nothing new to import — all already blocked', 'info');
 }
 
 async function refreshIdentity() {
@@ -738,6 +823,15 @@ async function refreshPosts() {
     }
     posts = Array.isArray(resp?.result) ? resp.result : [];
     renderFeed();
+    // Auto-import latest blocklist from any peers we're subscribed to
+    for (const pubkey of subscribedToBlocklists) {
+      const latest = posts
+        .filter(p => p.sender_pubkey === pubkey)
+        .map(p => ({ p, bl: parseBlocklistPost(p.content) }))
+        .filter(x => x.bl)
+        .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
+      if (latest) importBlocklistPubkeys(latest.bl.pubkeys, true);
+    }
   } catch (e) {
     console.error('[feed] refreshPosts crashed:', e);
     if (list) list.innerHTML = '<div class="feed-empty">Failed to load feed:<br/>' + escHtml(String(e?.message || e)) + '</div>';
@@ -762,8 +856,17 @@ function handleDaemonEvent(ev) {
 
     case 'message': {
       const d = ev.data;
-      // Silently drop all content from blocked users
+      // Silently drop all content from users we have blocked
       if (blockedPubkeys.has(d.sender_pubkey)) break;
+      // Detect and handle block signal — the sender is telling us they blocked us
+      if (d.kind !== 'broadcast' && d.content === BLOCK_SIGNAL) {
+        blockedByPubkeys.add(d.sender_pubkey);
+        saveBlockedByList();
+        renderPeerList();
+        renderFeed();
+        if (activePeer === d.sender_pubkey) updateInputBarBlockedBy();
+        break; // do not show this system message in the chat
+      }
       // Cache sender avatar if provided
       if (d.sender_pubkey && d.sender_avatar) peerAvatars[d.sender_pubkey] = d.sender_avatar;
       if (d.kind === 'broadcast') {
@@ -785,6 +888,14 @@ function handleDaemonEvent(ev) {
         else posts.unshift(post);
         renderFeed();
         if (!post.is_own) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
+        // Auto-import if we're subscribed to this peer's blocklist
+        if (!post.is_own && subscribedToBlocklists.has(post.sender_pubkey)) {
+          const bl = parseBlocklistPost(post.content);
+          if (bl) {
+            const added = importBlocklistPubkeys(bl.pubkeys, true);
+            if (added > 0) toast(`Auto-imported ${added} new blocked user(s) from subscribed blocklist`, 'success');
+          }
+        }
       } else {
         // DM
         const msg = { kind:'dm', own:false, sender_pubkey:d.sender_pubkey, sender_fingerprint:d.sender_fingerprint, sender_username:d.sender_username, content:d.content, image:d.image||null, timestamp:d.timestamp||new Date().toISOString() };
@@ -856,7 +967,7 @@ function renderIdentityAvatar() {
 // ── Rendering ──────────────────────────────────────────────────────────────────
 function renderPeerList() {
   const list = document.getElementById('peer-list');
-  const visible = peers.filter(p => !blockedPubkeys.has(p.pubkey));
+  const visible = peers.filter(p => !blockedPubkeys.has(p.pubkey) && !blockedByPubkeys.has(p.pubkey));
   document.getElementById('peer-count') && (document.getElementById('peer-count').textContent = visible.length);
   if (visible.length === 0) {
     list.innerHTML = '<div class="peer-empty">No peers yet.<br/>Use Dial to connect.</div>';
@@ -972,7 +1083,7 @@ function renderFeed() {
   const list = document.getElementById('feed-list');
   if (!list) { console.warn('[feed] feed-list element missing'); return; }
   try {
-    const arr = Array.isArray(posts) ? posts.filter(p => !blockedPubkeys.has(p.sender_pubkey)) : [];
+    const arr = Array.isArray(posts) ? posts.filter(p => !blockedPubkeys.has(p.sender_pubkey) && !blockedByPubkeys.has(p.sender_pubkey)) : [];
     if (arr.length === 0) {
       list.innerHTML = '<div class="feed-empty">No posts yet.<br/>Be the first to post!</div>';
       return;
@@ -1009,7 +1120,11 @@ function renderFeed() {
         const moreCount = bl.pubkeys.length > 5 ? bl.pubkeys.length - 5 : 0;
         const moreHtml = moreCount > 0 ? `<div class="blocklist-entry-more">…and ${moreCount} more</div>` : '';
         const alreadyAll = bl.pubkeys.every(pk => blockedPubkeys.has(pk) || pk === myIdentity?.pubkey);
+        const isSubscribed = subscribedToBlocklists.has(p.sender_pubkey);
         const importBtn = isOwn ? '' : `<button class="btn-import-blocklist" onclick="importBlocklist(this.dataset.pubkeys)" data-pubkeys="${escHtml(JSON.stringify(bl.pubkeys))}">${alreadyAll ? 'Already imported' : `Import All (${bl.pubkeys.length})`}</button>`;
+        const subscribeBtn = isOwn ? '' : isSubscribed
+          ? `<button class="btn-subscribe-blocklist subscribed" onclick="unsubscribeFromBlocklist('${escHtml(p.sender_pubkey)}')" title="Click to unsubscribe">✓ Subscribed</button>`
+          : `<button class="btn-subscribe-blocklist" onclick="subscribeToBlocklist('${escHtml(p.sender_pubkey)}')" title="Auto-import whenever they update their blocklist">Subscribe</button>`;
         return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
           <div class="post-header">
             <div class="post-avatar${isOwn ? ' own' : ''}"${postAvatarClick}>${avatarContent(p.sender_pubkey, name)}</div>
@@ -1022,7 +1137,7 @@ function renderFeed() {
           <div class="blocklist-card-body">
             <div class="blocklist-card-title">🚫 Shared Blocklist · ${bl.pubkeys.length} user(s)</div>
             ${previewNames}${moreHtml}
-            ${importBtn}
+            <div class="blocklist-btn-row">${importBtn}${subscribeBtn}</div>
           </div>
           <div class="post-footer"><span class="post-id-tag">${escHtml(shortId)}</span></div>
         </div>`;
@@ -1138,7 +1253,6 @@ function selectPeer(pubkey, event) {
   document.getElementById('no-peer').style.display = 'none';
   document.getElementById('chat-header').style.display = 'flex';
   document.getElementById('messages').style.display = 'flex';
-  document.getElementById('input-bar').style.display = 'flex';
 
   const name = peer.username || '(unnamed)';
   const chatAvatarEl = document.getElementById('chat-avatar');
@@ -1155,9 +1269,10 @@ function selectPeer(pubkey, event) {
   document.getElementById('chat-target-name').textContent = name;
   document.getElementById('chat-target-fp').textContent = peer.fingerprint + ' · ' + peer.pubkey.slice(0,16) + '…';
   updateChatBlockBtn();
+  updateInputBarBlockedBy();
   renderMessages();
   loadDmHistory(pubkey).catch(e => console.error('[dm] history load failed:', e));
-  document.getElementById('msg-input').focus();
+  if (!blockedByPubkeys.has(pubkey)) document.getElementById('msg-input').focus();
 }
 
 async function loadDmHistory(pubkey) {
@@ -1170,6 +1285,8 @@ async function loadDmHistory(pubkey) {
   const loadedIds = new Set(messages.filter(m => m.loaded).map(m => m._key));
   messages = messages.filter(m => !m.loaded || !loadedIds.has(m._key));
   for (const r of records) {
+    // Filter out block signal messages from history so they never appear as chat bubbles
+    if (String(r.content || '') === BLOCK_SIGNAL) continue;
     const own = r.direction === 'out';
     const msg = {
       kind: 'dm',
@@ -1196,6 +1313,7 @@ async function loadDmHistory(pubkey) {
 async function sendMessage() {
   if (!activePeer) return;
   if (blockedPubkeys.has(activePeer)) { toast('Cannot send to a blocked user', 'error'); return; }
+  if (blockedByPubkeys.has(activePeer)) { toast('This user has blocked you', 'error'); return; }
   const input = document.getElementById('msg-input');
   const content = input.value.trim();
   const image = pendingDmImage;
