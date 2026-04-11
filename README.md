@@ -158,6 +158,7 @@ timing — see the note on pace below.
 - **Channels** for different topics, so conversations can be organized
   without central moderators.
 - **Group chat.**
+- **Android app** — a native mobile client distributed as an APK, so people can use Agora without needing a desktop.
 - **Sending pictures** in messages and posts.
 - **Profile pictures** and richer profile metadata.
 - **Embedding content** from other platforms (videos, links, etc.) in posts.
