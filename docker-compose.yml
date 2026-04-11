@@ -33,6 +33,90 @@ services:
     networks: [p2pnet]
     depends_on: [alice, bob]
 
+  dave:
+    build: .
+    container_name: agora-dave
+    hostname: dave
+    environment:
+      AGORA_USERNAME: dave
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8084:8080"   # browser -> http://localhost:8084
+    networks: [p2pnet]
+    depends_on: [alice]
+
+  eve:
+    build: .
+    container_name: agora-eve
+    hostname: eve
+    environment:
+      AGORA_USERNAME: eve
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8085:8080"   # browser -> http://localhost:8085
+    networks: [p2pnet]
+    depends_on: [alice]
+
+  frank:
+    build: .
+    container_name: agora-frank
+    hostname: frank
+    environment:
+      AGORA_USERNAME: frank
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8086:8080"   # browser -> http://localhost:8086
+    networks: [p2pnet]
+    depends_on: [alice]
+
+  grace:
+    build: .
+    container_name: agora-grace
+    hostname: grace
+    environment:
+      AGORA_USERNAME: grace
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8087:8080"   # browser -> http://localhost:8087
+    networks: [p2pnet]
+    depends_on: [alice]
+
+  heidi:
+    build: .
+    container_name: agora-heidi
+    hostname: heidi
+    environment:
+      AGORA_USERNAME: heidi
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8088:8080"   # browser -> http://localhost:8088
+    networks: [p2pnet]
+    depends_on: [alice]
+
+  ivan:
+    build: .
+    container_name: agora-ivan
+    hostname: ivan
+    environment:
+      AGORA_USERNAME: ivan
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8089:8080"   # browser -> http://localhost:8089
+    networks: [p2pnet]
+    depends_on: [alice]
+
+  judy:
+    build: .
+    container_name: agora-judy
+    hostname: judy
+    environment:
+      AGORA_USERNAME: judy
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8090:8080"   # browser -> http://localhost:8090
+    networks: [p2pnet]
+    depends_on: [alice]
+
 networks:
   p2pnet:
     driver: bridge

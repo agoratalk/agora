@@ -273,6 +273,37 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 #toast.success{border-color:var(--green);color:var(--green)}
 #toast.error{border-color:var(--danger);color:var(--danger)}
 #toast.like{border-color:var(--pink);color:var(--pink)}
+
+/* ── Block feature ── */
+.peer-item{position:relative}
+.peer-block-btn{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:1px solid transparent;border-radius:4px;color:var(--text-muted);font-size:9px;padding:2px 6px;cursor:pointer;font-family:var(--mono);white-space:nowrap;transition:all .15s}
+.peer-item:hover .peer-block-btn{display:block}
+.peer-block-btn:hover{border-color:var(--danger);color:var(--danger);background:rgba(224,96,112,.08)}
+.chat-block-btn{background:none;border:1px solid transparent;border-radius:4px;color:var(--text-muted);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;transition:all .15s;flex-shrink:0}
+.chat-block-btn:hover{border-color:var(--danger);color:var(--danger)}
+.chat-block-btn.is-blocked{border-color:var(--danger);color:var(--danger)}
+.chat-block-btn.is-blocked:hover{background:var(--danger);color:#fff}
+#blocked-indicator-wrap{padding-top:4px}
+#blocked-indicator{display:none;font-family:var(--mono);font-size:9px;color:var(--text-muted);text-align:left;cursor:pointer;background:none;border:none;padding:2px 0;transition:color .15s;width:100%}
+#blocked-indicator:hover{color:var(--danger)}
+#blocked-indicator.has-blocked{display:block}
+.blocked-user-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.blocked-user-row:last-child{border-bottom:none}
+.blocked-user-info{flex:1;min-width:0}
+.blocked-user-name{font-size:12px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blocked-user-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:1px}
+#blocked-empty{font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:center;padding:16px 0}
+
+/* ── Blocklist sharing ── */
+.btn-publish-blocklist{margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--bg3);border:1px solid var(--accent2);border-radius:4px;padding:5px 12px;cursor:pointer;transition:all .15s;width:100%}
+.btn-publish-blocklist:hover{background:var(--accent2);color:var(--bg0)}
+.blocklist-card-body{background:rgba(123,158,240,.06);border:1px solid var(--accent2);border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.blocklist-card-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent2);margin-bottom:8px}
+.blocklist-entry{font-family:var(--mono);font-size:10px;color:var(--text-dim);line-height:2}
+.blocklist-entry-name{color:var(--text)}
+.blocklist-entry-more{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:2px}
+.btn-import-blocklist{background:var(--bg3);border:1px solid var(--accent2);border-radius:5px;color:var(--accent2);font-family:var(--mono);font-size:10px;padding:5px 14px;cursor:pointer;transition:all .15s;margin-top:8px}
+.btn-import-blocklist:hover{background:var(--accent2);color:var(--bg0)}
 </style>
 </head>
 <body>
@@ -339,6 +370,9 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
         <input id="connect-input" type="text" placeholder="host:port"/>
         <button class="btn-sm accent" onclick="dialPeer()">Dial</button>
       </div>
+      <div id="blocked-indicator-wrap">
+        <button id="blocked-indicator" onclick="openBlockedModal()">🚫 <span id="blocked-count">0</span> blocked user(s)</button>
+      </div>
     </div>
   </div>
 
@@ -358,6 +392,7 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
           <div id="chat-target-fp">—</div>
         </div>
         <span class="chat-tag dm">E2E Encrypted DM</span>
+        <button class="chat-block-btn" id="chat-block-btn" onclick="toggleBlockActivePeer()" title="Block/unblock this user">Block</button>
       </div>
       <div id="messages" style="display:none"></div>
       <div id="input-bar" style="display:none">
@@ -452,6 +487,18 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
   </div>
 </div>
 
+<!-- Blocked users modal -->
+<div class="modal-backdrop" id="blocked-modal">
+  <div class="modal">
+    <h3>Blocked Users</h3>
+    <div id="blocked-list"><div id="blocked-empty">No blocked users</div></div>
+    <button class="btn-publish-blocklist" onclick="publishBlocklist()" title="Broadcast your blocklist so others can import it">📢 Publish Blocklist to Network</button>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn-cancel" onclick="closeModal('blocked-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -461,6 +508,7 @@ let myIdentity = null;
 let peers = [];
 let posts = [];         // { post_id, sender_pubkey, sender_fingerprint, content, timestamp, like_count, is_own }
 let likedPostIds = new Set(); // post_ids we've liked this session
+let blockedPubkeys = new Set(); // pubkeys the local user has blocked
 let activePeer = null;
 let messages = [];
 let notifications = [];
@@ -481,6 +529,7 @@ let embedUserCleared = false;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
+  loadBlockList();
   if (!window.agora) {
     setConnected(false);
     loadDemoData();
@@ -491,6 +540,155 @@ async function init() {
   await refreshPeers();
   await refreshPosts();
   setConnected(true);
+}
+
+// ── Block list persistence ─────────────────────────────────────────────────────
+function loadBlockList() {
+  try {
+    const saved = localStorage.getItem('agora_blocked');
+    if (saved) blockedPubkeys = new Set(JSON.parse(saved));
+  } catch {}
+  updateBlockedIndicator();
+}
+
+function saveBlockList() {
+  try { localStorage.setItem('agora_blocked', JSON.stringify([...blockedPubkeys])); } catch {}
+  updateBlockedIndicator();
+}
+
+function updateBlockedIndicator() {
+  const n = blockedPubkeys.size;
+  const btn = document.getElementById('blocked-indicator');
+  const cnt = document.getElementById('blocked-count');
+  if (btn) btn.classList.toggle('has-blocked', n > 0);
+  if (cnt) cnt.textContent = n;
+}
+
+function blockPeer(pubkey) {
+  blockedPubkeys.add(pubkey);
+  saveBlockList();
+  // If currently viewing this peer's chat, clear it
+  if (activePeer === pubkey) {
+    activePeer = null;
+    document.getElementById('no-peer').style.display = 'flex';
+    document.getElementById('chat-header').style.display = 'none';
+    document.getElementById('messages').style.display = 'none';
+    document.getElementById('input-bar').style.display = 'none';
+  }
+  renderPeerList();
+  renderFeed();
+  toast('User blocked', 'success');
+}
+
+function unblockPeer(pubkey) {
+  blockedPubkeys.delete(pubkey);
+  saveBlockList();
+  renderPeerList();
+  renderFeed();
+  renderBlockedModal();
+  toast('User unblocked', 'success');
+}
+
+function confirmBlockPeer(pubkey) {
+  const peer = peers.find(p => p.pubkey === pubkey);
+  const name = peer?.username || peer?.fingerprint || pubkey.slice(0, 12);
+  if (!confirm(`Block ${name}?\n\nThey will be hidden from your peers list, feed, and DMs.`)) return;
+  blockPeer(pubkey);
+}
+
+function toggleBlockActivePeer() {
+  if (!activePeer) return;
+  if (blockedPubkeys.has(activePeer)) {
+    unblockPeer(activePeer);
+    updateChatBlockBtn();
+  } else {
+    confirmBlockPeer(activePeer);
+    updateChatBlockBtn();
+  }
+}
+
+function updateChatBlockBtn() {
+  const btn = document.getElementById('chat-block-btn');
+  if (!btn || !activePeer) return;
+  const isBlocked = blockedPubkeys.has(activePeer);
+  btn.textContent = isBlocked ? 'Unblock' : 'Block';
+  btn.classList.toggle('is-blocked', isBlocked);
+  btn.title = isBlocked ? 'Unblock this user' : 'Block this user';
+}
+
+function openBlockedModal() {
+  renderBlockedModal();
+  document.getElementById('blocked-modal').classList.add('open');
+}
+
+function renderBlockedModal() {
+  const list = document.getElementById('blocked-list');
+  if (!list) return;
+  if (blockedPubkeys.size === 0) {
+    list.innerHTML = '<div id="blocked-empty">No blocked users</div>';
+    return;
+  }
+  // Build rows — try to find display info from known peers / posts
+  list.innerHTML = [...blockedPubkeys].map(pk => {
+    const peer = peers.find(p => p.pubkey === pk);
+    const post = posts.find(p => p.sender_pubkey === pk);
+    const name = peer?.username || post?.sender_username || '(unknown)';
+    const fp   = peer?.fingerprint || post?.sender_fingerprint || pk.slice(0, 24) + '…';
+    return `<div class="blocked-user-row">
+      <div class="blocked-user-info">
+        <div class="blocked-user-name">${escHtml(name)}</div>
+        <div class="blocked-user-fp">${escHtml(fp)}</div>
+      </div>
+      <button class="btn-sm" onclick="unblockPeer('${escHtml(pk)}')" title="Unblock">Unblock</button>
+    </div>`;
+  }).join('');
+}
+
+// ── Blocklist sharing ──────────────────────────────────────────────────────────
+const BLOCKLIST_MAGIC = 'agora:blocklist:v1:';
+
+async function publishBlocklist() {
+  if (blockedPubkeys.size === 0) { toast('No blocked users to publish', 'error'); return; }
+  // Build a names map from whatever display info we have locally
+  const names = {};
+  for (const pk of blockedPubkeys) {
+    const peer = peers.find(p => p.pubkey === pk);
+    const post = posts.find(p => p.sender_pubkey === pk);
+    names[pk] = peer?.username || post?.sender_username || peer?.fingerprint || post?.sender_fingerprint || '';
+  }
+  const payload = JSON.stringify({ pubkeys: [...blockedPubkeys], names });
+  const content = BLOCKLIST_MAGIC + payload;
+  const resp = await window.agora?.request('broadcast', { content });
+  if (resp?.error) { toast('Failed to publish: ' + resp.error, 'error'); return; }
+  closeModal('blocked-modal');
+  toast('Blocklist published to the network', 'success');
+  await refreshPosts();
+}
+
+function parseBlocklistPost(content) {
+  if (!content.startsWith(BLOCKLIST_MAGIC)) return null;
+  try { return JSON.parse(content.slice(BLOCKLIST_MAGIC.length)); } catch { return null; }
+}
+
+function importBlocklist(pubkeysJson) {
+  let pubkeys;
+  try { pubkeys = JSON.parse(pubkeysJson); } catch { toast('Invalid blocklist data', 'error'); return; }
+  if (!Array.isArray(pubkeys)) { toast('Invalid blocklist data', 'error'); return; }
+  let added = 0;
+  for (const pk of pubkeys) {
+    if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !blockedPubkeys.has(pk)) {
+      blockedPubkeys.add(pk);
+      added++;
+    }
+  }
+  if (added > 0) {
+    saveBlockList();
+    renderPeerList();
+    renderFeed();
+    toast(`Imported ${added} blocked user(s)`, 'success');
+  } else {
+    toast('Nothing new to import — all already blocked', 'info');
+  }
 }
 
 async function refreshIdentity() {
@@ -564,6 +762,8 @@ function handleDaemonEvent(ev) {
 
     case 'message': {
       const d = ev.data;
+      // Silently drop all content from blocked users
+      if (blockedPubkeys.has(d.sender_pubkey)) break;
       // Cache sender avatar if provided
       if (d.sender_pubkey && d.sender_avatar) peerAvatars[d.sender_pubkey] = d.sender_avatar;
       if (d.kind === 'broadcast') {
@@ -656,12 +856,13 @@ function renderIdentityAvatar() {
 // ── Rendering ──────────────────────────────────────────────────────────────────
 function renderPeerList() {
   const list = document.getElementById('peer-list');
-  document.getElementById('peer-count') && (document.getElementById('peer-count').textContent = peers.length);
-  if (peers.length === 0) {
+  const visible = peers.filter(p => !blockedPubkeys.has(p.pubkey));
+  document.getElementById('peer-count') && (document.getElementById('peer-count').textContent = visible.length);
+  if (visible.length === 0) {
     list.innerHTML = '<div class="peer-empty">No peers yet.<br/>Use Dial to connect.</div>';
     return;
   }
-  list.innerHTML = peers.map(p => {
+  list.innerHTML = visible.map(p => {
     const name = p.username || '(unnamed)';
     const active = activePeer === p.pubkey ? ' active' : '';
     const hasAvatar = !!peerAvatars[p.pubkey];
@@ -673,6 +874,7 @@ function renderPeerList() {
         <div class="peer-fp">${escHtml(p.fingerprint)}</div>
         <div class="peer-via">${escHtml((p.discovery||'').toLowerCase())}</div>
       </div>
+      <button class="peer-block-btn" onclick="event.stopPropagation();confirmBlockPeer('${escHtml(p.pubkey)}')" title="Block user">Block</button>
     </div>`;
   }).join('');
 }
@@ -770,7 +972,7 @@ function renderFeed() {
   const list = document.getElementById('feed-list');
   if (!list) { console.warn('[feed] feed-list element missing'); return; }
   try {
-    const arr = Array.isArray(posts) ? posts : [];
+    const arr = Array.isArray(posts) ? posts.filter(p => !blockedPubkeys.has(p.sender_pubkey)) : [];
     if (arr.length === 0) {
       list.innerHTML = '<div class="feed-empty">No posts yet.<br/>Be the first to post!</div>';
       return;
@@ -795,9 +997,39 @@ function renderFeed() {
       if (p.sender_pubkey && p.sender_avatar) peerAvatars[p.sender_pubkey] = p.sender_avatar;
       let timeStr = '';
       try { timeStr = formatTime(p.timestamp); } catch {}
+      const postAvatarClick = !isOwn && peerAvatars[p.sender_pubkey] ? ` onclick="openPeerAvatarViewer('${escHtml(p.sender_pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
+
+      // ── Detect shared blocklist posts ──────────────────────────────────────
+      const bl = parseBlocklistPost(content);
+      if (bl && Array.isArray(bl.pubkeys)) {
+        const previewNames = bl.pubkeys.slice(0, 5).map(pk => {
+          const n = (bl.names && bl.names[pk]) ? bl.names[pk] : pk.slice(0, 20) + '…';
+          return `<div class="blocklist-entry">🚫 <span class="blocklist-entry-name">${escHtml(n)}</span></div>`;
+        }).join('');
+        const moreCount = bl.pubkeys.length > 5 ? bl.pubkeys.length - 5 : 0;
+        const moreHtml = moreCount > 0 ? `<div class="blocklist-entry-more">…and ${moreCount} more</div>` : '';
+        const alreadyAll = bl.pubkeys.every(pk => blockedPubkeys.has(pk) || pk === myIdentity?.pubkey);
+        const importBtn = isOwn ? '' : `<button class="btn-import-blocklist" onclick="importBlocklist(this.dataset.pubkeys)" data-pubkeys="${escHtml(JSON.stringify(bl.pubkeys))}">${alreadyAll ? 'Already imported' : `Import All (${bl.pubkeys.length})`}</button>`;
+        return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
+          <div class="post-header">
+            <div class="post-avatar${isOwn ? ' own' : ''}"${postAvatarClick}>${avatarContent(p.sender_pubkey, name)}</div>
+            <div class="post-author">
+              <div class="post-author-name">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
+              <div class="post-author-fp">${escHtml(fingerprint)}</div>
+            </div>
+            <div class="post-time">${escHtml(timeStr)}</div>
+          </div>
+          <div class="blocklist-card-body">
+            <div class="blocklist-card-title">🚫 Shared Blocklist · ${bl.pubkeys.length} user(s)</div>
+            ${previewNames}${moreHtml}
+            ${importBtn}
+          </div>
+          <div class="post-footer"><span class="post-id-tag">${escHtml(shortId)}</span></div>
+        </div>`;
+      }
+
       const imageHtml = p.image ? `<div class="post-image"><img src="${escHtml(p.image)}" alt="attached image" onclick="openImageViewer(this.src)"/></div>` : '';
       const embedHtml = p.embed_url ? renderEmbedHtml(p.embed_url) : '';
-      const postAvatarClick = !isOwn && peerAvatars[p.sender_pubkey] ? ` onclick="openPeerAvatarViewer('${escHtml(p.sender_pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
       return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
         <div class="post-header">
           <div class="post-avatar${isOwn ? ' own' : ''}"${postAvatarClick}>${avatarContent(p.sender_pubkey, name)}</div>
@@ -922,6 +1154,7 @@ function selectPeer(pubkey, event) {
   }
   document.getElementById('chat-target-name').textContent = name;
   document.getElementById('chat-target-fp').textContent = peer.fingerprint + ' · ' + peer.pubkey.slice(0,16) + '…';
+  updateChatBlockBtn();
   renderMessages();
   loadDmHistory(pubkey).catch(e => console.error('[dm] history load failed:', e));
   document.getElementById('msg-input').focus();
@@ -962,6 +1195,7 @@ async function loadDmHistory(pubkey) {
 
 async function sendMessage() {
   if (!activePeer) return;
+  if (blockedPubkeys.has(activePeer)) { toast('Cannot send to a blocked user', 'error'); return; }
   const input = document.getElementById('msg-input');
   const content = input.value.trim();
   const image = pendingDmImage;
