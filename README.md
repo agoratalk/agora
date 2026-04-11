@@ -56,7 +56,7 @@ your public key. Don't lose your key — losing it means losing the identity.
 ### Option 1: Docker (easiest)
 
 ```bash
-git clone <this repo> agora
+git clone https://github.com/agoratalk/agora.git agora
 cd agora
 docker compose up --build
 ```
