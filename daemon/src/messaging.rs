@@ -115,14 +115,12 @@ impl Messenger {
         self.network.send_to_pubkey(&peer.pubkey, WireMessage::DirectMessage(payload)).await
     }
 
-    pub async fn broadcast(&self, content: &str, image: Option<&str>) -> Result<()> {
+    pub async fn broadcast(&self, content: &str, image: Option<&str>, embed_url: Option<&str>) -> Result<()> {
         let message_id = Uuid::new_v4().to_string();
-        // Include image in signature when present so it's tamper-evident.
-        let to_sign = if let Some(img) = image {
-            format!("{}{}{}", message_id, content, img)
-        } else {
-            format!("{}{}", message_id, content)
-        };
+        // Include image and embed_url in signature when present so they're tamper-evident.
+        let mut to_sign = format!("{}{}", message_id, content);
+        if let Some(img) = image { to_sign.push_str(img); }
+        if let Some(url) = embed_url { to_sign.push_str(url); }
         let sig: Signature = { self.identity.read().await.signing_key.sign(to_sign.as_bytes()) };
         let payload = BroadcastPayload {
             message_id,
@@ -131,6 +129,7 @@ impl Messenger {
             signature: B64.encode(sig.to_bytes()),
             timestamp: Utc::now(),
             image: image.map(|s| s.to_string()),
+            embed_url: embed_url.map(|s| s.to_string()),
         };
         // Store locally first
         self.post_store.insert(payload.clone()).await;

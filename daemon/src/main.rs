@@ -310,7 +310,7 @@ async fn run_repl(messenger: Messenger, dht: Dht, network: Network, identity: Ar
 
             "broadcast" | "bc" | "post" => {
                 if rest.is_empty() { println!("  usage: post <text>"); continue; }
-                match messenger.broadcast(rest, None).await {
+                match messenger.broadcast(rest, None, None).await {
                     Ok(()) => println!("  \x1b[32m✓ post sent (propagated for 24h)\x1b[0m"),
                     Err(e) => println!("  error: {}", e),
                 }

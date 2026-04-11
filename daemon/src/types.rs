@@ -89,6 +89,9 @@ pub struct BroadcastPayload {
     /// Optional attached image as a base64 data URL (JPEG, PNG, or WebP only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
+    /// Optional URL to embed from a supported platform (YouTube, Twitter/X, Vimeo, Spotify, SoundCloud).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub embed_url: Option<String>,
 }
 
 // ── Like ─────────────────────────────────────────────────────────────────────

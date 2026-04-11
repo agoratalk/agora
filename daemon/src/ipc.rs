@@ -145,13 +145,26 @@ impl IpcServer {
             "broadcast" => {
                 let content = req.params.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let image = req.params.get("image").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let embed_url = req.params.get("embed_url").and_then(|v| v.as_str()).map(|s| s.to_string());
                 if let Some(ref img) = image {
                     let allowed = ["data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,"];
                     if !allowed.iter().any(|prefix| img.starts_with(prefix)) {
                         return IpcResponse { id, result: None, error: Some("image must be a JPEG, PNG, or WebP data URL".into()) };
                     }
                 }
-                match self.messenger.broadcast(&content, image.as_deref()).await {
+                if let Some(ref url) = embed_url {
+                    let allowed_domains = ["youtube.com", "youtu.be", "twitter.com", "x.com", "open.spotify.com", "soundcloud.com", "vimeo.com"];
+                    let is_valid = url.starts_with("https://") && {
+                        let without_scheme = &url[8..];
+                        let domain_end = without_scheme.find('/').unwrap_or(without_scheme.len());
+                        let domain = without_scheme[..domain_end].trim_start_matches("www.");
+                        allowed_domains.iter().any(|d| domain == *d)
+                    };
+                    if !is_valid {
+                        return IpcResponse { id, result: None, error: Some("embed_url must be an https URL from a supported platform (YouTube, Twitter/X, Spotify, SoundCloud, Vimeo)".into()) };
+                    }
+                }
+                match self.messenger.broadcast(&content, image.as_deref(), embed_url.as_deref()).await {
                     Ok(()) => IpcResponse { id, result: Some(json!({"ok": true})), error: None },
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
@@ -212,6 +225,7 @@ impl IpcServer {
                         "sender_avatar": sender_avatar,
                         "content": p.payload.content,
                         "image": p.payload.image,
+                        "embed_url": p.payload.embed_url,
                         "timestamp": p.payload.timestamp,
                         "like_count": p.like_count(),
                         "likes": p.likes,

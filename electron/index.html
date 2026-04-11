@@ -176,6 +176,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .like-btn:hover .heart,.like-btn.liked .heart{transform:scale(1.2)}
 .post-id-tag{font-family:var(--mono);font-size:8px;color:var(--text-muted);letter-spacing:.06em}
 
+/* ── Embedded content ── */
+.embed-container{margin-top:10px;margin-bottom:4px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.embed-yt{position:relative;padding-bottom:56.25%;height:0;overflow:hidden}
+.embed-yt iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0}
+.embed-spotify iframe{width:100%;height:152px;border:0;display:block}
+.embed-soundcloud iframe{width:100%;height:166px;border:0;display:block}
+.embed-link-card{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg2);color:var(--text);text-decoration:none;font-size:13px;transition:background .15s}
+.embed-link-card:hover{background:var(--bg3)}
+.embed-link-icon{font-size:18px;flex-shrink:0}
+.embed-link-text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--accent2);font-family:var(--mono);font-size:11px}
+.embed-link-domain{font-family:var(--mono);font-size:10px;color:var(--text-muted);flex-shrink:0}
+.embed-preview-bar{margin-top:6px;display:none}
+.embed-preview-pill{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--accent2);border-radius:6px;padding:6px 10px;font-family:var(--mono);font-size:10px;color:var(--accent2)}
+.embed-preview-pill .embed-pill-label{color:var(--text-muted);flex-shrink:0}
+.embed-preview-pill .embed-pill-url{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.embed-preview-pill button{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:0;flex-shrink:0;line-height:1}
+.embed-preview-pill button:hover{color:var(--danger)}
+
 /* ── Identity manager view ── */
 #id-view{padding:20px}
 #id-view h2{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
@@ -371,6 +389,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
           <input type="file" id="post-image-file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
           <button class="post-btn" onclick="submitPost()">Post</button>
         </div>
+        <div id="embed-preview-bar" class="embed-preview-bar">
+          <div class="embed-preview-pill">
+            <span class="embed-pill-label">embed:</span>
+            <span class="embed-pill-url" id="embed-preview-url"></span>
+            <button onclick="clearEmbedUrl()" title="Remove embed">✕</button>
+          </div>
+        </div>
       </div>
       <div id="feed-list"><div class="feed-empty">No posts yet.<br/>Be the first to post!</div></div>
     </div>
@@ -449,6 +474,10 @@ let pendingAvatarDataUrl = null;
 // Pending images for post and DM composers
 let pendingPostImage = null;
 let pendingDmImage = null;
+// Pending embed URL auto-detected from post compose text
+let pendingEmbedUrl = null;
+// True when the user has explicitly dismissed the embed preview for the current draft
+let embedUserCleared = false;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
@@ -646,6 +675,95 @@ function renderPeerList() {
   }).join('');
 }
 
+// ── Embed helpers ─────────────────────────────────────────────────────────────
+
+/** Return the first embedable URL found in `text`, or null. */
+function detectEmbedUrl(text) {
+  const patterns = [
+    /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?(?:[^\s&]*&)*v=|youtu\.be\/)([a-zA-Z0-9_-]{11})[^\s]*/i,
+    /https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/\w+\/status\/\d+[^\s]*/i,
+    /https?:\/\/open\.spotify\.com\/(?:track|album|playlist|episode)\/[a-zA-Z0-9]+[^\s]*/i,
+    /https?:\/\/(?:www\.)?soundcloud\.com\/\S+/i,
+    /https?:\/\/(?:www\.)?vimeo\.com\/\d+\S*/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[0].replace(/[.,;!?)\]]+$/, ''); // strip trailing punctuation
+  }
+  return null;
+}
+
+function youtubeVideoId(url) {
+  const m = url.match(/(?:youtube\.com\/watch\?(?:[^&\s]*&)*v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+  return m ? m[1] : null;
+}
+
+function spotifyEmbedSrc(url) {
+  const m = url.match(/open\.spotify\.com\/(track|album|playlist|episode)\/([a-zA-Z0-9]+)/i);
+  return m ? `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=generator` : null;
+}
+
+function vimeoVideoId(url) {
+  const m = url.match(/vimeo\.com\/(\d+)/i);
+  return m ? m[1] : null;
+}
+
+/** Render an embed widget for the given URL, or '' if unsupported. */
+function renderEmbedHtml(embedUrl) {
+  if (!embedUrl) return '';
+  const safe = escHtml(embedUrl);
+
+  const ytId = youtubeVideoId(embedUrl);
+  if (ytId) {
+    return `<div class="embed-container embed-yt"><iframe src="https://www.youtube.com/embed/${ytId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+  }
+
+  const vmId = vimeoVideoId(embedUrl);
+  if (vmId) {
+    return `<div class="embed-container embed-yt"><iframe src="https://player.vimeo.com/video/${vmId}?badge=0&autopause=0" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+  }
+
+  const spSrc = spotifyEmbedSrc(embedUrl);
+  if (spSrc) {
+    return `<div class="embed-container embed-spotify"><iframe src="${spSrc}" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe></div>`;
+  }
+
+  if (/(?:twitter\.com|x\.com)\/\w+\/status\/\d+/i.test(embedUrl)) {
+    const domain = /x\.com/i.test(embedUrl) ? 'x.com' : 'twitter.com';
+    return `<div class="embed-container"><a href="${safe}" target="_blank" rel="noopener" class="embed-link-card"><span class="embed-link-icon">𝕏</span><span class="embed-link-text">${safe}</span><span class="embed-link-domain">${escHtml(domain)}</span></a></div>`;
+  }
+
+  if (/soundcloud\.com\//i.test(embedUrl)) {
+    const scSrc = `https://w.soundcloud.com/player/?url=${encodeURIComponent(embedUrl)}&color=%234fd6be&auto_play=false&hide_related=false&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`;
+    return `<div class="embed-container embed-soundcloud"><iframe src="${scSrc}" frameborder="0" allow="autoplay" loading="lazy"></iframe></div>`;
+  }
+
+  return '';
+}
+
+function updateEmbedPreview(url) {
+  const bar = document.getElementById('embed-preview-bar');
+  const label = document.getElementById('embed-preview-url');
+  if (!bar || !label) return;
+  if (!url) { bar.style.display = 'none'; label.textContent = ''; return; }
+  label.textContent = url;
+  bar.style.display = 'block';
+}
+
+function clearEmbedUrl() {
+  pendingEmbedUrl = null;
+  embedUserCleared = true;
+  updateEmbedPreview(null);
+}
+
+function onPostInputChange() {
+  if (!embedUserCleared) {
+    const url = detectEmbedUrl(document.getElementById('post-input')?.value || '');
+    pendingEmbedUrl = url;
+    updateEmbedPreview(url);
+  }
+}
+
 function renderFeed() {
   const list = document.getElementById('feed-list');
   if (!list) { console.warn('[feed] feed-list element missing'); return; }
@@ -676,6 +794,7 @@ function renderFeed() {
       let timeStr = '';
       try { timeStr = formatTime(p.timestamp); } catch {}
       const imageHtml = p.image ? `<div class="post-image"><img src="${escHtml(p.image)}" alt="attached image" onclick="openImageViewer(this.src)"/></div>` : '';
+      const embedHtml = p.embed_url ? renderEmbedHtml(p.embed_url) : '';
       return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
         <div class="post-header">
           <div class="post-avatar${isOwn ? ' own' : ''}">${avatarContent(p.sender_pubkey, name)}</div>
@@ -687,6 +806,7 @@ function renderFeed() {
         </div>
         ${content ? `<div class="post-content">${escHtml(content)}</div>` : ''}
         ${imageHtml}
+        ${embedHtml}
         <div class="post-footer">
           <button class="like-btn${liked ? ' liked' : ''}" onclick="likePost('${escHtml(postId)}')" title="Like">
             <span class="heart">❤</span> <span class="like-count">${likeCount}</span>
@@ -853,10 +973,15 @@ async function submitPost() {
   input.value = '';
   input.style.height = '';
   const image = pendingPostImage;
+  const embedUrl = pendingEmbedUrl;
   clearPostImage();
+  pendingEmbedUrl = null;
+  embedUserCleared = false;
+  updateEmbedPreview(null);
 
   const params = { content };
   if (image) params.image = image;
+  if (embedUrl) params.embed_url = embedUrl;
   const resp = await window.agora?.request('broadcast', params);
   if (resp?.error) { toast('Post failed: ' + resp.error, 'error'); return; }
   toast('Posted! Propagating for 24h…', 'success');
@@ -1138,6 +1263,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ta) return;
     ta.addEventListener('input', () => { ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; });
   });
+  // Embed URL auto-detection for post composer
+  document.getElementById('post-input')?.addEventListener('input', onPostInputChange);
   document.getElementById('msg-input')?.addEventListener('keydown', e => {
     if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); sendMessage(); }
   });
