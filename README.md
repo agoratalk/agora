@@ -153,6 +153,7 @@ decide things in the open. That's the idea. Come build it.
 A rough wishlist of what Agora should grow into. No promises on order or
 timing — see the note on pace below.
 
+- **Social media accounts and Monero donation wallet** — I will add social media accounts to promote the project and a Monero wallet for donations at a later date.
 - **Windows desktop app** — a native `.exe` installer so Windows users can run Agora without a terminal or manual setup.                                                             
 - **Linux packages** — packaged releases for major distros (`.deb`, `.rpm`, and others) so Agora can be installed through standard system package managers.
 - **Tor transport** — route daemon traffic through Tor so peers no longer
@@ -171,6 +172,7 @@ timing — see the note on pace below.
 - **User blocking and shareable blocklists** — client-side tools to mute or block individual users, plus the ability to publish and subscribe to blocklists curated by others. Moderation that lives with the user, not with a central authority: nobody is removed from the network, but everyone gets to decide who they see.
 - **Monero wallet integration** for private, peer-to-peer tipping and
   payments between users.
+- **Logo design** — Agora doesn't have a logo yet. Designing one is on the list, but it's not a priority right now.
 
 ## A note on pace
 
@@ -180,4 +182,10 @@ weeks, the occasional flurry, and bugs that sit in the tracker longer than
 they should. This is part of why contributions matter so much: every patch,
 issue, or bit of testing moves things forward faster than I can alone.
 
-I will add social media accounts to promote the project and a Monero wallet for donations at a later date.
+---
+
+## Currently working on
+
+- **IP leakage** — actively working on proper transport privacy. All of the solutions discussed (Tor via `arti`, I2P, Nym, and others) will eventually be available as user-selectable options so you can choose the tradeoff that fits your threat model.
+- **Blocking system** — making the existing block and blocklist tools easier to use and more accessible from the UI.
+- **Account setup and profiles** — richer onboarding flow with more user data at setup time, and a proper profile page.
