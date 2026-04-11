@@ -81,6 +81,8 @@ cargo build --release
 
 # Web client (in another terminal)
 cd web
+npm init -y
+npm install ws
 node web-server.js
 
 # Desktop client (in another terminal)

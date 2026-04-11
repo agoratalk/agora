@@ -9,7 +9,7 @@ const { WebSocketServer } = require('ws');
 const WEB_PORT  = parseInt(process.env.WEB_PORT || '8080', 10);
 const IPC_PORT  = 7779;
 const IPC_HOST  = '127.0.0.1';
-const ROOT      = __dirname;
+const ROOT      = path.join(__dirname, '..', 'electron');
 
 // ── HTTP: serve index.html + shim.js ──────────────────────────────────────────
 const server = http.createServer((req, res) => {

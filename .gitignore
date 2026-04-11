@@ -6,6 +6,8 @@
 **/node_modules/
 **/dist/
 **/build/
+web/package.json
+web/package-lock.json
 
 # Editors / OS
 .vscode/
