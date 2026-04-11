@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>agora</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#0d0f14;--bg1:#13161e;--bg2:#1a1e28;--bg3:#232838;--line:#2a2f42;
+  --text:#c8d0e8;--text-dim:#5a6080;--text-muted:#3d4460;
+  --accent:#4fd6be;--accent2:#7b9ef0;--warn:#f0a060;--danger:#e06070;
+  --green:#6dd08a;--pink:#e07aac;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);font-family:var(--sans);font-size:13px}
+
+/* ── Titlebar ── */
+#titlebar{height:38px;background:var(--bg0);display:flex;align-items:center;-webkit-app-region:drag;border-bottom:1px solid var(--line);flex-shrink:0;user-select:none}
+.logo{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.12em;color:var(--accent);padding:0 16px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tb-spacer{flex:1}
+.status-bar{font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:0 12px;display:flex;align-items:center;gap:6px}
+.conn-dot{width:5px;height:5px;border-radius:50%;background:var(--text-muted);transition:background .3s,box-shadow .3s}
+.conn-dot.connected{background:var(--green);box-shadow:0 0 6px var(--green)}
+.wm-controls{display:flex;-webkit-app-region:no-drag}
+.wm-controls button{width:40px;height:38px;border:none;background:transparent;cursor:pointer;color:var(--text-dim);font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+.wm-controls button:hover{background:var(--bg2);color:var(--text)}
+.wm-controls button.close:hover{background:var(--danger);color:#fff}
+
+/* ── Layout ── */
+#app{display:flex;height:calc(100vh - 38px)}
+
+/* ── Sidebar ── */
+#sidebar{width:230px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-section{padding:10px 14px 8px;font-family:var(--mono);font-size:9px;letter-spacing:.14em;font-weight:600;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.sidebar-section .count{background:var(--bg3);color:var(--text-dim);padding:1px 6px;border-radius:10px;font-size:9px}
+.sidebar-section .icon-btn{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;transition:color .15s;-webkit-app-region:no-drag}
+.sidebar-section .icon-btn:hover{color:var(--accent)}
+
+/* identity card */
+#identity-card{padding:12px 14px;border-bottom:1px solid var(--line)}
+.identity-account{font-family:var(--mono);font-size:9px;color:var(--text-muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between}
+.identity-name{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer}
+.identity-name:hover .edit-icon{opacity:1}
+.edit-icon{font-size:10px;color:var(--text-muted);opacity:0;transition:opacity .15s}
+.identity-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted);word-break:break-all;line-height:1.5}
+.switch-accounts-btn{margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--text-dim);background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;transition:all .15s;width:100%}
+.switch-accounts-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* nav tabs */
+#nav-tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0}
+.nav-tab{flex:1;padding:8px 0;font-family:var(--mono);font-size:10px;text-align:center;cursor:pointer;color:var(--text-muted);border:none;background:none;transition:color .15s,border-bottom .15s;border-bottom:2px solid transparent;letter-spacing:.06em}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-tab:hover:not(.active){color:var(--text-dim)}
+
+/* peer list */
+#peer-list{flex:1;overflow-y:auto;padding:6px 0}
+#peer-list::-webkit-scrollbar{width:4px}
+#peer-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.peer-item{padding:7px 14px;cursor:pointer;transition:background .12s;display:flex;align-items:flex-start;gap:10px}
+.peer-item:hover{background:var(--bg2)}
+.peer-item.active{background:var(--bg3);border-left:2px solid var(--accent)}
+.peer-avatar{width:26px;height:26px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--accent2);flex-shrink:0;border:1px solid var(--line)}
+.peer-info{flex:1;min-width:0}
+.peer-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.peer-fp{font-family:var(--mono);font-size:9px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.peer-via{font-family:var(--mono);font-size:8px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.peer-empty{padding:18px 14px;font-size:11px;color:var(--text-muted);font-family:var(--mono);line-height:1.7}
+
+/* sidebar footer */
+#sidebar-footer{padding:10px 14px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+#connect-input-wrap{display:flex;gap:6px}
+#connect-input{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 8px;outline:none;transition:border-color .15s}
+#connect-input::placeholder{color:var(--text-muted)}
+#connect-input:focus{border-color:var(--accent2)}
+.btn-sm{background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 10px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-sm:hover{background:var(--bg2);color:var(--text);border-color:var(--accent2)}
+.btn-sm.accent{border-color:var(--accent);color:var(--accent)}
+.btn-sm.accent:hover{background:var(--accent);color:var(--bg0)}
+
+/* ── Main area ── */
+#main{flex:1;display:flex;flex-direction:column;background:var(--bg0);min-width:0}
+
+/* view switcher */
+.view{display:none;flex:1;flex-direction:column;min-height:0}
+.view.active{display:flex}
+
+/* ── Chat view ── */
+#chat-header{height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.chat-header-avatar{width:30px;height:30px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent2);border:1px solid var(--line)}
+#chat-target-name{font-weight:500;font-size:14px;color:var(--text)}
+#chat-target-fp{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:1px}
+.chat-tag{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:var(--bg3);border:1px solid var(--line);color:var(--text-muted)}
+.chat-tag.dm{border-color:var(--accent);color:var(--accent)}
+
+#messages{flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:2px}
+#messages::-webkit-scrollbar{width:4px}
+#messages::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+
+.msg{display:flex;gap:12px;padding:4px 8px;border-radius:6px;transition:background .1s}
+.msg:hover{background:var(--bg1)}
+.msg.own{flex-direction:row-reverse}
+.msg-avatar{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;flex-shrink:0;align-self:flex-start;margin-top:2px;background:var(--bg3);border:1px solid var(--line)}
+.msg-avatar.self-av{color:var(--accent)}.msg-avatar.peer-av{color:var(--accent2)}
+.msg-body{flex:1;min-width:0}
+.msg.own .msg-body{display:flex;flex-direction:column;align-items:flex-end}
+.msg-meta{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.msg.own .msg-meta{flex-direction:row-reverse}
+.msg-author{font-size:11px;font-weight:600;color:var(--accent2)}
+.msg.own .msg-author{color:var(--accent)}
+.msg-author-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+.msg-time{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+.msg-bubble{display:inline-block;background:var(--bg2);border:1px solid var(--line);border-radius:4px 12px 12px 12px;padding:7px 12px;font-size:13px;line-height:1.5;color:var(--text);max-width:480px;word-break:break-word}
+.msg.own .msg-bubble{background:var(--bg3);border-color:var(--accent);border-radius:12px 4px 12px 12px}
+.sys-msg{text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-muted);margin:6px 0}
+
+#no-peer{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-muted)}
+#no-peer .big{font-family:var(--mono);font-size:48px;opacity:.15;line-height:1}
+#no-peer .hint{font-family:var(--mono);font-size:11px;letter-spacing:.08em}
+
+#input-bar{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:flex-end;flex-shrink:0}
+#msg-input{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:10px 14px;outline:none;resize:none;min-height:42px;max-height:120px;line-height:1.5;transition:border-color .15s}
+#msg-input::placeholder{color:var(--text-muted)}
+#msg-input:focus{border-color:var(--accent2)}
+.send-btn{width:42px;height:42px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--text-dim);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.send-btn:hover{background:var(--accent);border-color:var(--accent);color:var(--bg0)}
+
+/* ── Feed view ── */
+#feed-header{height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#feed-header h2{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--text);font-weight:600}
+#feed-header .feed-hint{font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-left:auto}
+#post-compose{padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;display:flex;gap:10px;align-items:flex-end}
+#post-input{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:10px 14px;outline:none;resize:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s}
+#post-input::placeholder{color:var(--text-muted)}
+#post-input:focus{border-color:var(--warn)}
+.post-btn{height:42px;padding:0 16px;background:var(--bg3);border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;flex-shrink:0}
+.post-btn:hover{background:var(--warn);color:var(--bg0)}
+
+#feed-list{flex:1;overflow-y:auto;padding:0}
+#feed-list::-webkit-scrollbar{width:4px}
+#feed-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.feed-empty{padding:40px 20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-muted);line-height:2}
+
+.post-card{border-bottom:1px solid var(--line);padding:16px 20px;transition:background .12s}
+.post-card:hover{background:var(--bg1)}
+.post-card.own-post{border-left:2px solid var(--warn)}
+.post-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.post-avatar{width:28px;height:28px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--warn);border:1px solid var(--line);flex-shrink:0}
+.post-avatar.own{color:var(--accent)}
+.post-author{flex:1;min-width:0}
+.post-author-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.post-author-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:1px}
+.post-time{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+.post-content{font-size:14px;line-height:1.6;color:var(--text);margin-bottom:12px;word-break:break-word}
+.post-footer{display:flex;align-items:center;gap:16px}
+.like-btn{display:flex;align-items:center;gap:5px;background:none;border:1px solid var(--line);border-radius:6px;padding:4px 10px;color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .2s}
+.like-btn:hover{border-color:var(--pink);color:var(--pink)}
+.like-btn.liked{border-color:var(--pink);color:var(--pink);background:rgba(224,122,172,.08)}
+.like-btn .heart{font-size:13px;transition:transform .15s}
+.like-btn:hover .heart,.like-btn.liked .heart{transform:scale(1.2)}
+.post-id-tag{font-family:var(--mono);font-size:8px;color:var(--text-muted);letter-spacing:.06em}
+
+/* ── Identity manager view ── */
+#id-view{padding:20px}
+#id-view h2{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+.id-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.id-card{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:14px;transition:border-color .15s}
+.id-card.active-id{border-color:var(--accent)}
+.id-card-avatar{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:600;flex-shrink:0;border:1px solid var(--line)}
+.id-card.active-id .id-card-avatar{color:var(--accent);border-color:var(--accent)}
+.id-card-info{flex:1;min-width:0}
+.id-card-account{font-family:var(--mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
+.id-card-name{font-size:13px;font-weight:500;color:var(--text)}
+.id-card-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:2px}
+.id-card-actions{display:flex;gap:6px;flex-shrink:0}
+.id-card-badge{font-family:var(--mono);font-size:8px;letter-spacing:.08em;padding:2px 7px;border-radius:3px;background:rgba(79,214,190,.12);border:1px solid var(--accent);color:var(--accent)}
+.btn-danger{background:transparent;border:1px solid var(--danger);border-radius:4px;color:var(--danger);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;transition:all .15s}
+.btn-danger:hover{background:var(--danger);color:#fff}
+
+.new-id-form{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:16px}
+.new-id-form h3{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent2);margin-bottom:12px}
+.form-row{display:flex;gap:8px;margin-bottom:8px}
+.form-input{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 12px;outline:none;transition:border-color .15s}
+.form-input::placeholder{color:var(--text-muted)}
+.form-input:focus{border-color:var(--accent2)}
+.btn-create{background:var(--accent2);border:none;border-radius:6px;color:var(--bg0);font-family:var(--mono);font-size:11px;font-weight:600;padding:8px 16px;cursor:pointer;transition:filter .15s;white-space:nowrap}
+.btn-create:hover{filter:brightness(1.1)}
+
+/* ── Modal ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-backdrop.open{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:24px;width:360px;transform:translateY(8px);transition:transform .2s}
+.modal-backdrop.open .modal{transform:translateY(0)}
+.modal h3{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+.modal input{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 12px;outline:none;margin-bottom:10px;transition:border-color .15s}
+.modal input:focus{border-color:var(--accent)}
+.modal .hint{font-size:11px;color:var(--text-dim);margin-bottom:16px;font-family:var(--mono);line-height:1.5}
+.modal .btn-row{display:flex;gap:8px;justify-content:flex-end}
+.btn-cancel{background:transparent;border:1px solid var(--line);border-radius:6px;padding:8px 16px;color:var(--text-dim);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s}
+.btn-cancel:hover{background:var(--bg3);color:var(--text)}
+.btn-ok{background:var(--accent);border:none;border-radius:6px;padding:8px 16px;color:var(--bg0);font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;transition:filter .15s}
+.btn-ok:hover{filter:brightness(1.1)}
+
+/* ── Notification bell ── */
+#notif-btn{position:relative;background:none;border:none;color:var(--text-muted);font-size:15px;cursor:pointer;padding:0 8px;-webkit-app-region:no-drag;transition:color .15s}
+#notif-btn:hover{color:var(--text)}
+#notif-badge{position:absolute;top:0;right:2px;width:8px;height:8px;border-radius:50%;background:var(--pink);display:none}
+#notif-badge.show{display:block}
+#notif-panel{position:fixed;top:38px;right:0;width:300px;background:var(--bg2);border:1px solid var(--line);border-top:none;border-radius:0 0 0 8px;z-index:90;max-height:340px;overflow-y:auto;display:none}
+#notif-panel.open{display:block}
+.notif-header{padding:10px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.notif-clear{background:none;border:none;color:var(--text-muted);font-family:var(--mono);font-size:9px;cursor:pointer;transition:color .15s}
+.notif-clear:hover{color:var(--text)}
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--line);font-size:11px;line-height:1.5}
+.notif-item .notif-name{font-weight:600;color:var(--pink)}
+.notif-item .notif-time{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:2px}
+.notif-empty{padding:20px 14px;font-family:var(--mono);font-size:10px;color:var(--text-muted);text-align:center}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;padding:10px 16px;font-family:var(--mono);font-size:11px;color:var(--text);transform:translateY(60px);opacity:0;transition:transform .3s,opacity .3s;z-index:200;max-width:320px}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.success{border-color:var(--green);color:var(--green)}
+#toast.error{border-color:var(--danger);color:var(--danger)}
+#toast.like{border-color:var(--pink);color:var(--pink)}
+</style>
+</head>
+<body>
+
+<!-- Titlebar -->
+<div id="titlebar">
+  <div class="logo"><span class="dot"></span>agora</div>
+  <div class="tb-spacer"></div>
+  <div class="status-bar">
+    <span class="conn-dot" id="conn-dot"></span>
+    <span id="conn-label">connecting…</span>
+  </div>
+  <!-- Notification bell -->
+  <button id="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+    🔔<span id="notif-badge"></span>
+  </button>
+  <div class="wm-controls">
+    <button onclick="window.agora?.windowControl('minimize')">&#x2013;</button>
+    <button onclick="window.agora?.windowControl('maximize')">&#x25A1;</button>
+    <button class="close" onclick="window.agora?.windowControl('close')">&#x2715;</button>
+  </div>
+</div>
+
+<!-- Notification panel -->
+<div id="notif-panel">
+  <div class="notif-header">Notifications <button class="notif-clear" onclick="clearNotifs()">Clear all</button></div>
+  <div id="notif-list"><div class="notif-empty">No notifications yet</div></div>
+</div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <!-- Identity card -->
+    <div id="identity-card">
+      <div class="identity-account">
+        <span id="my-account">account</span>
+      </div>
+      <div class="identity-name" onclick="openUsernameModal()">
+        <span id="my-name">loading…</span>
+        <span class="edit-icon">✎</span>
+      </div>
+      <div class="identity-fp" id="my-fp">—</div>
+      <button class="switch-accounts-btn" onclick="showView('identities')">⇄ Switch Account</button>
+    </div>
+
+    <!-- Nav tabs -->
+    <div id="nav-tabs">
+      <button class="nav-tab active" onclick="switchTab('peers')" id="tab-peers">Peers</button>
+      <button class="nav-tab" onclick="switchTab('feed')" id="tab-feed">Feed</button>
+    </div>
+
+    <!-- Peer list -->
+    <div id="peer-list"><div class="peer-empty">No peers yet.<br/>Use Dial to connect.</div></div>
+
+    <!-- Footer -->
+    <div id="sidebar-footer">
+      <div id="connect-input-wrap">
+        <input id="connect-input" type="text" placeholder="host:port"/>
+        <button class="btn-sm accent" onclick="dialPeer()">Dial</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main area -->
+  <div id="main">
+
+    <!-- DM view -->
+    <div class="view active" id="view-chat">
+      <div id="no-peer">
+        <div class="big">⬡</div>
+        <div class="hint">Select a peer to start chatting</div>
+      </div>
+      <div id="chat-header" style="display:none">
+        <div class="chat-header-avatar" id="chat-avatar"></div>
+        <div>
+          <div id="chat-target-name">—</div>
+          <div id="chat-target-fp">—</div>
+        </div>
+        <span class="chat-tag dm">E2E Encrypted DM</span>
+      </div>
+      <div id="messages" style="display:none"></div>
+      <div id="input-bar" style="display:none">
+        <textarea id="msg-input" rows="1" placeholder="Type a message…"></textarea>
+        <button class="send-btn" onclick="sendMessage()" title="Send (Ctrl+Enter)">➤</button>
+      </div>
+    </div>
+
+    <!-- Feed view -->
+    <div class="view" id="view-feed">
+      <div id="feed-header">
+        <h2>📢 Public Feed</h2>
+        <span class="feed-hint">Posts propagate for 24h</span>
+      </div>
+      <div id="post-compose">
+        <textarea id="post-input" rows="1" placeholder="Share something with the network…"></textarea>
+        <button class="post-btn" onclick="submitPost()">Post</button>
+      </div>
+      <div id="feed-list"><div class="feed-empty">No posts yet.<br/>Be the first to post!</div></div>
+    </div>
+
+    <!-- Identity manager view -->
+    <div class="view" id="view-identities">
+      <div id="id-view">
+        <h2>Identity Manager</h2>
+        <div id="id-list" class="id-list"></div>
+        <div class="new-id-form">
+          <h3>New Identity</h3>
+          <div class="form-row">
+            <input class="form-input" id="new-acct-name" placeholder="account-name (e.g. work)" maxlength="32"/>
+            <input class="form-input" id="new-acct-user" placeholder="username (optional)" maxlength="32"/>
+            <button class="btn-create" onclick="createIdentity()">Create</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Username modal -->
+<div class="modal-backdrop" id="username-modal">
+  <div class="modal">
+    <h3>Set Username</h3>
+    <p class="hint">Your display name. Public key fingerprint is always shown alongside it.</p>
+    <input type="text" id="username-input" placeholder="your_username" maxlength="32"/>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('username-modal')">Cancel</button>
+      <button class="btn-ok" onclick="saveUsername()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+let myIdentity = null;
+let peers = [];
+let posts = [];         // { post_id, sender_pubkey, sender_fingerprint, content, timestamp, like_count, is_own }
+let likedPostIds = new Set(); // post_ids we've liked this session
+let activePeer = null;
+let messages = [];
+let notifications = [];
+let notifPanelOpen = false;
+let activeView = 'chat'; // 'chat' | 'feed' | 'identities'
+let activeTab = 'peers'; // 'peers' | 'feed'
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+  if (!window.agora) {
+    setConnected(false);
+    loadDemoData();
+    return;
+  }
+  window.agora.onEvent(handleDaemonEvent);
+  await refreshIdentity();
+  await refreshPeers();
+  await refreshPosts();
+  setConnected(true);
+}
+
+async function refreshIdentity() {
+  const resp = await window.agora.request('whoami', {});
+  if (resp?.result) {
+    myIdentity = resp.result;
+    document.getElementById('my-name').textContent = myIdentity.username || myIdentity.fingerprint;
+    document.getElementById('my-fp').textContent = myIdentity.pubkey.slice(0, 28) + '…';
+    document.getElementById('my-account').textContent = myIdentity.account_name || 'default';
+  }
+}
+
+async function refreshPeers() {
+  const resp = await window.agora.request('peers', {});
+  if (resp?.result) { peers = resp.result; renderPeerList(); }
+}
+
+async function refreshPosts() {
+  const list = document.getElementById('feed-list');
+  try {
+    if (!window.agora?.request) {
+      console.warn('[feed] no IPC bridge');
+      if (list) list.innerHTML = '<div class="feed-empty">Not connected to daemon.</div>';
+      return;
+    }
+    const resp = await window.agora.request('posts', {});
+    if (resp?.error) {
+      console.error('[feed] daemon error:', resp.error);
+      if (list) list.innerHTML = '<div class="feed-empty">Daemon error:<br/>' + escHtml(String(resp.error)) + '</div>';
+      return;
+    }
+    posts = Array.isArray(resp?.result) ? resp.result : [];
+    renderFeed();
+  } catch (e) {
+    console.error('[feed] refreshPosts crashed:', e);
+    if (list) list.innerHTML = '<div class="feed-empty">Failed to load feed:<br/>' + escHtml(String(e?.message || e)) + '</div>';
+  }
+}
+
+// ── Event handling ─────────────────────────────────────────────────────────────
+function handleDaemonEvent(ev) {
+  switch (ev.event) {
+    case 'connection_failed':
+      setConnected(false);
+      toast('Cannot connect to daemon', 'error');
+      break;
+
+    case 'peers_updated':
+      peers = ev.data;
+      renderPeerList();
+      break;
+
+    case 'message': {
+      const d = ev.data;
+      if (d.kind === 'broadcast') {
+        // Upsert post in feed
+        const existing = posts.findIndex(p => p.post_id === d.post_id);
+        const post = {
+          post_id: d.post_id,
+          sender_pubkey: d.sender_pubkey,
+          sender_fingerprint: d.sender_fingerprint,
+          sender_username: d.sender_username,
+          content: d.content,
+          timestamp: d.timestamp,
+          like_count: d.like_count || 0,
+          is_own: d.sender_pubkey === myIdentity?.pubkey,
+        };
+        if (existing >= 0) posts[existing] = post;
+        else posts.unshift(post);
+        renderFeed();
+        if (!post.is_own) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
+      } else {
+        // DM
+        const msg = { kind:'dm', own:false, sender_pubkey:d.sender_pubkey, sender_fingerprint:d.sender_fingerprint, sender_username:d.sender_username, content:d.content, timestamp:d.timestamp||new Date().toISOString() };
+        messages.push(msg);
+        if (activePeer === d.sender_pubkey) appendMessage(msg);
+        else toast(`💬 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
+      }
+      break;
+    }
+
+    case 'like_update': {
+      const d = ev.data;
+      const post = posts.find(p => p.post_id === d.post_id);
+      if (post) { post.like_count = d.like_count; renderFeed(); }
+      break;
+    }
+
+    case 'like_notification': {
+      const d = ev.data;
+      pushNotification({
+        type: 'like',
+        text: `<span class="notif-name">${escHtml(d.liker_name)}</span> liked your post`,
+        subtext: `"${escHtml(truncate(posts.find(p=>p.post_id===d.post_id)?.content||'', 50))}"  ·  ❤ ${d.like_count}`,
+        time: new Date().toISOString(),
+      });
+      toast(`❤ ${d.liker_name} liked your post (total: ${d.like_count})`, 'like');
+      break;
+    }
+
+    case 'username_changed':
+      refreshIdentity();
+      break;
+
+    case 'identity_switched':
+      refreshIdentity();
+      refreshPosts();
+      toast(`Switched to "${ev.data.account_name}"`, 'success');
+      break;
+  }
+}
+
+// ── Rendering ──────────────────────────────────────────────────────────────────
+function renderPeerList() {
+  const list = document.getElementById('peer-list');
+  document.getElementById('peer-count') && (document.getElementById('peer-count').textContent = peers.length);
+  if (peers.length === 0) {
+    list.innerHTML = '<div class="peer-empty">No peers yet.<br/>Use Dial to connect.</div>';
+    return;
+  }
+  list.innerHTML = peers.map(p => {
+    const name = p.username || '(unnamed)';
+    const initial = (p.username || p.fingerprint)[0].toUpperCase();
+    const active = activePeer === p.pubkey ? ' active' : '';
+    return `<div class="peer-item${active}" onclick="selectPeer('${escHtml(p.pubkey)}', event)">
+      <div class="peer-avatar">${escHtml(initial)}</div>
+      <div class="peer-info">
+        <div class="peer-name">${escHtml(name)}</div>
+        <div class="peer-fp">${escHtml(p.fingerprint)}</div>
+        <div class="peer-via">${escHtml((p.discovery||'').toLowerCase())}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderFeed() {
+  const list = document.getElementById('feed-list');
+  if (!list) { console.warn('[feed] feed-list element missing'); return; }
+  try {
+    const arr = Array.isArray(posts) ? posts : [];
+    if (arr.length === 0) {
+      list.innerHTML = '<div class="feed-empty">No posts yet.<br/>Be the first to post!</div>';
+      return;
+    }
+    const sorted = [...arr].sort((a, b) => {
+      const ta = new Date(a?.timestamp || 0).getTime() || 0;
+      const tb = new Date(b?.timestamp || 0).getTime() || 0;
+      return tb - ta;
+    });
+    const html = sorted.map(p => {
+      if (!p || typeof p !== 'object') return '';
+      const postId      = String(p.post_id || '');
+      const fingerprint = String(p.sender_fingerprint || '');
+      const username    = (typeof p.sender_username === 'string' && p.sender_username) ? p.sender_username : '';
+      const name        = username || fingerprint || 'unknown';
+      const initial     = (name[0] || '?').toUpperCase();
+      const content     = String(p.content ?? '');
+      const likeCount   = Number.isFinite(p.like_count) ? p.like_count : 0;
+      const isOwn       = !!p.is_own;
+      const liked       = likedPostIds.has(postId);
+      const shortId     = postId ? postId.slice(0, 8) : '--------';
+      let timeStr = '';
+      try { timeStr = formatTime(p.timestamp); } catch {}
+      return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
+        <div class="post-header">
+          <div class="post-avatar${isOwn ? ' own' : ''}">${escHtml(initial)}</div>
+          <div class="post-author">
+            <div class="post-author-name">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
+            <div class="post-author-fp">${escHtml(fingerprint)}</div>
+          </div>
+          <div class="post-time">${escHtml(timeStr)}</div>
+        </div>
+        <div class="post-content">${escHtml(content)}</div>
+        <div class="post-footer">
+          <button class="like-btn${liked ? ' liked' : ''}" onclick="likePost('${escHtml(postId)}')" title="Like">
+            <span class="heart">❤</span> <span class="like-count">${likeCount}</span>
+          </button>
+          <span class="post-id-tag">${escHtml(shortId)}</span>
+        </div>
+      </div>`;
+    }).join('');
+    list.innerHTML = html;
+  } catch (e) {
+    console.error('[feed] renderFeed crashed:', e);
+    list.innerHTML = '<div class="feed-empty">Feed render error:<br/>' + escHtml(String(e?.message || e)) + '</div>';
+  }
+}
+
+async function renderIdentityManager() {
+  const resp = await window.agora?.request('list_identities', {});
+  const list = resp?.result || [];
+  const el = document.getElementById('id-list');
+  if (list.length === 0) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">No identities found</div>';
+    return;
+  }
+  el.innerHTML = list.map(id => {
+    const initial = (id.username || id.account_name)[0].toUpperCase();
+    return `<div class="id-card${id.is_active ? ' active-id' : ''}">
+      <div class="id-card-avatar">${escHtml(initial)}</div>
+      <div class="id-card-info">
+        <div class="id-card-account">${escHtml(id.account_name)}</div>
+        <div class="id-card-name">${escHtml(id.username || '(no username)')}</div>
+        <div class="id-card-fp">${escHtml(id.fingerprint)}</div>
+      </div>
+      <div class="id-card-actions">
+        ${id.is_active
+          ? '<span class="id-card-badge">ACTIVE</span>'
+          : `<button class="btn-sm" onclick="switchIdentity('${escHtml(id.account_name)}')">Switch</button>
+             <button class="btn-danger" onclick="deleteIdentity('${escHtml(id.account_name)}')">✕</button>`
+        }
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMessages() {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  container.innerHTML = '';
+  const relevant = messages.filter(m => m.own ? m.recipient === activePeer : m.sender_pubkey === activePeer);
+  if (relevant.length === 0) {
+    container.innerHTML = '<div class="sys-msg">No messages yet. Say hello!</div>';
+    return;
+  }
+  relevant.forEach(m => appendMessage(m, false));
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendMessage(m, scroll = true) {
+  const container = document.getElementById('messages');
+  if (!container) return;
+  const name = m.own ? (myIdentity?.username || myIdentity?.fingerprint || 'You') : (m.sender_username || m.sender_fingerprint);
+  const el = document.createElement('div');
+  el.className = 'msg' + (m.own ? ' own' : '');
+  el.innerHTML = `
+    <div class="msg-avatar ${m.own ? 'self-av' : 'peer-av'}">${escHtml(name[0].toUpperCase())}</div>
+    <div class="msg-body">
+      <div class="msg-meta">
+        <span class="msg-author">${escHtml(name)}</span>
+        <span class="msg-author-fp">${escHtml(m.own ? (myIdentity?.fingerprint||'') : m.sender_fingerprint)}</span>
+        <span class="msg-time">${formatTime(m.timestamp)}</span>
+      </div>
+      <div class="msg-bubble">${escHtml(m.content)}</div>
+    </div>`;
+  container.appendChild(el);
+  if (scroll) container.scrollTop = container.scrollHeight;
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────────
+function selectPeer(pubkey, event) {
+  activePeer = pubkey;
+  const peer = peers.find(p => p.pubkey === pubkey);
+  if (!peer) return;
+  document.querySelectorAll('.peer-item').forEach(el => el.classList.remove('active'));
+  event?.currentTarget?.classList.add('active');
+
+  showView('chat');
+  document.getElementById('no-peer').style.display = 'none';
+  document.getElementById('chat-header').style.display = 'flex';
+  document.getElementById('messages').style.display = 'flex';
+  document.getElementById('input-bar').style.display = 'flex';
+
+  const name = peer.username || '(unnamed)';
+  document.getElementById('chat-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('chat-target-name').textContent = name;
+  document.getElementById('chat-target-fp').textContent = peer.fingerprint + ' · ' + peer.pubkey.slice(0,16) + '…';
+  renderMessages();
+  loadDmHistory(pubkey).catch(e => console.error('[dm] history load failed:', e));
+  document.getElementById('msg-input').focus();
+}
+
+async function loadDmHistory(pubkey) {
+  if (!window.agora?.request) return;
+  const resp = await window.agora.request('dm_history', { peer_pubkey: pubkey, limit: 500 });
+  if (resp?.error) { console.error('[dm] history error:', resp.error); return; }
+  const records = Array.isArray(resp?.result) ? resp.result : [];
+  // Drop any previously-loaded history for this peer so we don't double-render
+  // on reselect, but keep live messages that arrived during the session.
+  const loadedIds = new Set(messages.filter(m => m.loaded).map(m => m._key));
+  messages = messages.filter(m => !m.loaded || !loadedIds.has(m._key));
+  for (const r of records) {
+    const own = r.direction === 'out';
+    const msg = {
+      kind: 'dm',
+      own,
+      loaded: true,
+      _key: (r.timestamp || '') + '|' + (r.content || ''),
+      recipient: own ? pubkey : undefined,
+      sender_pubkey: own ? (myIdentity?.pubkey || '') : pubkey,
+      sender_fingerprint: r.peer_fingerprint || '',
+      sender_username: r.peer_username || undefined,
+      content: String(r.content || ''),
+      timestamp: r.timestamp || new Date().toISOString(),
+    };
+    // Avoid duplicating a message that already exists in the live array.
+    const dup = messages.some(m => m.content === msg.content && m.timestamp === msg.timestamp &&
+      ((m.own && own && m.recipient === pubkey) || (!m.own && !own && m.sender_pubkey === pubkey)));
+    if (!dup) messages.push(msg);
+  }
+  messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  if (activePeer === pubkey) renderMessages();
+}
+
+async function sendMessage() {
+  if (!activePeer) return;
+  const input = document.getElementById('msg-input');
+  const content = input.value.trim();
+  if (!content) return;
+  input.value = '';
+  input.style.height = '';
+
+  const resp = await window.agora?.request('send_dm', { recipient: activePeer, content });
+  if (resp?.error) { toast('Send failed: ' + resp.error, 'error'); return; }
+
+  const msg = { kind:'dm', own:true, recipient:activePeer, sender_pubkey:myIdentity?.pubkey||'', sender_fingerprint:myIdentity?.fingerprint||'', sender_username:myIdentity?.username, content, timestamp:new Date().toISOString() };
+  messages.push(msg);
+  appendMessage(msg);
+}
+
+async function submitPost() {
+  const input = document.getElementById('post-input');
+  const content = input.value.trim();
+  if (!content) return;
+  input.value = '';
+  input.style.height = '';
+
+  const resp = await window.agora?.request('broadcast', { content });
+  if (resp?.error) { toast('Post failed: ' + resp.error, 'error'); return; }
+  toast('Posted! Propagating for 24h…', 'success');
+  await refreshPosts();
+}
+
+async function likePost(postId) {
+  if (likedPostIds.has(postId)) return; // already liked
+  likedPostIds.add(postId);
+  // Optimistic update
+  const post = posts.find(p => p.post_id === postId);
+  if (post) { post.like_count++; renderFeed(); }
+
+  const resp = await window.agora?.request('like_post', { post_id: postId });
+  if (resp?.error) {
+    likedPostIds.delete(postId);
+    if (post) { post.like_count--; renderFeed(); }
+    toast('Like failed: ' + resp.error, 'error');
+    return;
+  }
+  if (resp?.result) {
+    if (post) { post.like_count = resp.result.like_count; renderFeed(); }
+  }
+}
+
+async function dialPeer() {
+  const addr = document.getElementById('connect-input').value.trim();
+  if (!addr) return;
+  const resp = await window.agora?.request('connect', { addr });
+  if (resp?.error) toast('Connect failed: ' + resp.error, 'error');
+  else { toast('Dialling ' + addr + '…', 'success'); document.getElementById('connect-input').value = ''; }
+}
+
+function openUsernameModal() {
+  document.getElementById('username-input').value = myIdentity?.username || '';
+  document.getElementById('username-modal').classList.add('open');
+  setTimeout(() => document.getElementById('username-input').focus(), 100);
+}
+
+async function saveUsername() {
+  const uname = document.getElementById('username-input').value.trim();
+  if (!uname) return;
+  closeModal('username-modal');
+  const resp = await window.agora?.request('set_username', { username: uname });
+  if (resp?.error) toast('Failed: ' + resp.error, 'error');
+  else { if (myIdentity) myIdentity.username = uname; document.getElementById('my-name').textContent = uname; toast('Username updated', 'success'); }
+}
+
+async function createIdentity() {
+  const name = document.getElementById('new-acct-name').value.trim();
+  const username = document.getElementById('new-acct-user').value.trim() || undefined;
+  if (!name) { toast('Account name required', 'error'); return; }
+  const resp = await window.agora?.request('create_identity', { account_name: name, username });
+  if (resp?.error) toast('Error: ' + resp.error, 'error');
+  else {
+    document.getElementById('new-acct-name').value = '';
+    document.getElementById('new-acct-user').value = '';
+    toast(`Identity "${name}" created`, 'success');
+    renderIdentityManager();
+  }
+}
+
+async function switchIdentity(accountName) {
+  const resp = await window.agora?.request('switch_identity', { account_name: accountName });
+  if (resp?.error) toast('Error: ' + resp.error, 'error');
+  else {
+    toast(`Switched to "${accountName}"`, 'success');
+    await refreshIdentity();
+    await refreshPosts();
+    renderIdentityManager();
+  }
+}
+
+async function deleteIdentity(accountName) {
+  if (!confirm(`Delete identity "${accountName}"? This cannot be undone.`)) return;
+  const resp = await window.agora?.request('delete_identity', { account_name: accountName });
+  if (resp?.error) toast('Error: ' + resp.error, 'error');
+  else { toast(`Deleted "${accountName}"`, 'success'); renderIdentityManager(); }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ── View / tab switching ───────────────────────────────────────────────────────
+// Single source of truth. showView is the ONLY function that mutates the DOM
+// classes for views and tabs. switchTab is a thin alias that maps the sidebar
+// tab names ('peers', 'feed') to view names. Neither function calls the other,
+// so there is no possible recursion.
+const VIEW_IDS = { chat: 'view-chat', feed: 'view-feed', identities: 'view-identities' };
+
+function showView(name) {
+  if (!VIEW_IDS[name]) { console.warn('[view] unknown view:', name); return; }
+  activeView = name;
+
+  // Toggle .active on every view container.
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById(VIEW_IDS[name]);
+  if (el) el.classList.add('active');
+  else { console.warn('[view] missing element:', VIEW_IDS[name]); return; }
+
+  // Toggle .active on the sidebar tabs (only chat/feed have tabs).
+  const tabName = (name === 'chat') ? 'peers' : (name === 'feed') ? 'feed' : null;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  if (tabName) {
+    activeTab = tabName;
+    document.getElementById('tab-' + tabName)?.classList.add('active');
+  }
+
+  // Trigger per-view data loads. Each is wrapped so a failure can't kill the
+  // synchronous DOM-update path above.
+  if (name === 'feed') {
+    Promise.resolve().then(() => refreshPosts()).catch(e => console.error('[feed] load failed:', e));
+  } else if (name === 'identities') {
+    Promise.resolve().then(() => renderIdentityManager()).catch(e => console.error('[identities] load failed:', e));
+  }
+}
+
+function switchTab(tab) {
+  if (tab === 'feed') showView('feed');
+  else if (tab === 'peers') showView('chat');
+}
+
+// ── Notifications ──────────────────────────────────────────────────────────────
+function pushNotification(n) {
+  notifications.unshift(n);
+  if (notifications.length > 30) notifications.pop();
+  renderNotifications();
+  document.getElementById('notif-badge').classList.add('show');
+}
+
+function renderNotifications() {
+  const list = document.getElementById('notif-list');
+  if (notifications.length === 0) {
+    list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+    return;
+  }
+  list.innerHTML = notifications.map(n =>
+    `<div class="notif-item">${n.text}${n.subtext ? `<div style="color:var(--text-muted);font-size:10px;margin-top:3px">${n.subtext}</div>` : ''}<div class="notif-time">${formatTime(n.time)}</div></div>`
+  ).join('');
+}
+
+function toggleNotifPanel() {
+  notifPanelOpen = !notifPanelOpen;
+  document.getElementById('notif-panel').classList.toggle('open', notifPanelOpen);
+  if (notifPanelOpen) { document.getElementById('notif-badge').classList.remove('show'); renderNotifications(); }
+}
+
+function clearNotifs() { notifications = []; renderNotifications(); }
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function setConnected(ok) {
+  document.getElementById('conn-dot').className = 'conn-dot' + (ok ? ' connected' : '');
+  document.getElementById('conn-label').textContent = ok ? 'connected' : 'disconnected';
+}
+
+function displayName(d) { return d.sender_username || d.sender_fingerprint || d.sender_pubkey?.slice(0,8) || '?'; }
+
+function formatTime(ts) {
+  try {
+    const d = new Date(ts);
+    const now = new Date();
+    if (now - d < 86400000) return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    return d.toLocaleDateString([], {month:'short', day:'numeric'}) + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  } catch { return ''; }
+}
+
+function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+}
+
+// ── Bootstrap ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Auto-resize textareas
+  ['msg-input', 'post-input'].forEach(id => {
+    const ta = document.getElementById(id);
+    if (!ta) return;
+    ta.addEventListener('input', () => { ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; });
+  });
+  document.getElementById('msg-input')?.addEventListener('keydown', e => {
+    if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); sendMessage(); }
+  });
+  document.getElementById('post-input')?.addEventListener('keydown', e => {
+    if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); submitPost(); }
+  });
+  document.getElementById('username-input')?.addEventListener('keydown', e => {
+    if (e.key==='Enter') saveUsername();
+    if (e.key==='Escape') closeModal('username-modal');
+  });
+  document.getElementById('connect-input')?.addEventListener('keydown', e => {
+    if (e.key==='Enter') dialPeer();
+  });
+  // Close notif panel on outside click
+  document.addEventListener('click', e => {
+    if (notifPanelOpen && !document.getElementById('notif-panel').contains(e.target) && e.target.id !== 'notif-btn') {
+      notifPanelOpen = false;
+      document.getElementById('notif-panel').classList.remove('open');
+    }
+  });
+  init();
+});
+
+// ── Demo data (when running outside Electron) ─────────────────────────────────
+function loadDemoData() {
+  myIdentity = { username: 'demo_user', fingerprint: 'AB:CD:EF:12:34:56:78:90', pubkey: 'demokey123', account_name: 'default' };
+  document.getElementById('my-name').textContent = 'demo_user';
+  document.getElementById('my-fp').textContent = 'demokey123…';
+  document.getElementById('my-account').textContent = 'default';
+  peers = [
+    { pubkey:'p1', fingerprint:'AA:BB:CC:DD:EE:FF:00:11', username:'alice', addr:'10.0.0.2:7777', discovery:'bootstrap' },
+    { pubkey:'p2', fingerprint:'11:22:33:44:55:66:77:88', username:null, addr:'10.0.0.3:7777', discovery:'mdns' },
+  ];
+  posts = [
+    { post_id:'abc12345-0000-0000-0000-000000000001', sender_pubkey:'p1', sender_fingerprint:'AA:BB:CC:DD:EE:FF:00:11', sender_username:'alice', content:'Hello p2p network! This post is propagated for 24 hours by every node that receives it.', timestamp:new Date(Date.now()-120000).toISOString(), like_count:3, is_own:false },
+    { post_id:'def67890-0000-0000-0000-000000000002', sender_pubkey:'demokey123', sender_fingerprint:'AB:CD:EF:12:34:56:78:90', sender_username:'demo_user', content:'My first public post on this decentralised network!', timestamp:new Date(Date.now()-60000).toISOString(), like_count:1, is_own:true },
+  ];
+  messages = [
+    { kind:'dm', own:false, sender_pubkey:'p1', sender_fingerprint:'AA:BB:CC:DD:EE:FF:00:11', sender_username:'alice', content:'Hey! Are you on the bootstrap net?', timestamp:new Date(Date.now()-60000).toISOString() },
+  ];
+  renderPeerList();
+  renderFeed();
+  setConnected(false);
+  toast('Demo mode — not connected to daemon', 'error');
+}
+</script>
+</body>
+</html>

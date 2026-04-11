@@ -1,0 +1,38 @@
+services:
+  alice:
+    build: .
+    container_name: agora-alice
+    hostname: alice
+    environment:
+      AGORA_USERNAME: alice
+    ports:
+      - "8081:8080"   # browser -> http://localhost:8081
+    networks: [p2pnet]
+
+  bob:
+    build: .
+    container_name: agora-bob
+    hostname: bob
+    environment:
+      AGORA_USERNAME: bob
+      AGORA_BOOTSTRAP: "alice:7777"
+    ports:
+      - "8082:8080"   # browser -> http://localhost:8082
+    networks: [p2pnet]
+    depends_on: [alice]
+
+  carol:
+    build: .
+    container_name: agora-carol
+    hostname: carol
+    environment:
+      AGORA_USERNAME: carol
+      AGORA_BOOTSTRAP: "alice:7777,bob:7777"
+    ports:
+      - "8083:8080"   # browser -> http://localhost:8083
+    networks: [p2pnet]
+    depends_on: [alice, bob]
+
+networks:
+  p2pnet:
+    driver: bridge
