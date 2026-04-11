@@ -141,3 +141,13 @@ the point.
 
 Agora — the open square where citizens gathered to speak, argue, trade, and
 decide things in the open. That's the idea. Come build it.
+
+---
+
+## A note on pace
+
+Agora is a side project I work on in my free time, around a day job and the
+rest of life. That means progress will be slow and bursty — expect quiet
+weeks, the occasional flurry, and bugs that sit in the tracker longer than
+they should. This is part of why contributions matter so much: every patch,
+issue, or bit of testing moves things forward faster than I can alone.
