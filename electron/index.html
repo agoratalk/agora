@@ -14,7 +14,7 @@
   --green:#6dd08a;--pink:#e07aac;
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
 }
-html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);font-family:var(--sans);font-size:13px}
+html{zoom:1.25}html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);font-family:var(--sans);font-size:13px}
 
 /* ── Titlebar ── */
 #titlebar{height:38px;background:var(--bg0);display:flex;align-items:center;-webkit-app-region:drag;border-bottom:1px solid var(--line);flex-shrink:0;user-select:none}
@@ -63,7 +63,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .peer-item{padding:7px 14px;cursor:pointer;transition:background .12s;display:flex;align-items:flex-start;gap:10px}
 .peer-item:hover{background:var(--bg2)}
 .peer-item.active{background:var(--bg3);border-left:2px solid var(--accent)}
-.peer-avatar{width:26px;height:26px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--accent2);flex-shrink:0;border:1px solid var(--line);overflow:hidden}
+.peer-avatar{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent2);flex-shrink:0;border:1px solid var(--line);overflow:hidden}
 .peer-avatar img,.chat-header-avatar img,.msg-avatar img,.post-avatar img,.id-card-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
 .peer-info{flex:1;min-width:0}
 .peer-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -91,7 +91,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 
 /* ── Chat view ── */
 #chat-header{height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-.chat-header-avatar{width:30px;height:30px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent2);border:1px solid var(--line);overflow:hidden}
+.chat-header-avatar{width:42px;height:42px;border-radius:9px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent2);border:1px solid var(--line);overflow:hidden}
 #chat-target-name{font-weight:500;font-size:14px;color:var(--text)}
 #chat-target-fp{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:1px}
 .chat-tag{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:var(--bg3);border:1px solid var(--line);color:var(--text-muted)}
@@ -104,7 +104,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .msg{display:flex;gap:12px;padding:4px 8px;border-radius:6px;transition:background .1s}
 .msg:hover{background:var(--bg1)}
 .msg.own{flex-direction:row-reverse}
-.msg-avatar{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;flex-shrink:0;align-self:flex-start;margin-top:2px;background:var(--bg3);border:1px solid var(--line);overflow:hidden}
+.msg-avatar{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:600;flex-shrink:0;align-self:flex-start;margin-top:2px;background:var(--bg3);border:1px solid var(--line);overflow:hidden}
 .msg-avatar.self-av{color:var(--accent)}.msg-avatar.peer-av{color:var(--accent2)}
 .msg-body{flex:1;min-width:0}
 .msg.own .msg-body{display:flex;flex-direction:column;align-items:flex-end}
@@ -161,7 +161,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .post-card:hover{background:var(--bg1)}
 .post-card.own-post{border-left:2px solid var(--warn)}
 .post-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.post-avatar{width:28px;height:28px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--warn);border:1px solid var(--line);flex-shrink:0;overflow:hidden}
+.post-avatar{width:38px;height:38px;border-radius:9px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--warn);border:1px solid var(--line);flex-shrink:0;overflow:hidden}
 .post-avatar.own{color:var(--accent)}
 .post-author{flex:1;min-width:0}
 .post-author-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -200,7 +200,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .id-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
 .id-card{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:14px;transition:border-color .15s}
 .id-card.active-id{border-color:var(--accent)}
-.id-card-avatar{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:600;flex-shrink:0;border:1px solid var(--line);overflow:hidden;cursor:default}
+.id-card-avatar{width:48px;height:48px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:17px;font-weight:600;flex-shrink:0;border:1px solid var(--line);overflow:hidden;cursor:default}
 .id-card.active-id .id-card-avatar{color:var(--accent);border-color:var(--accent)}
 .id-card-info{flex:1;min-width:0}
 .id-card-account{font-family:var(--mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
@@ -664,8 +664,10 @@ function renderPeerList() {
   list.innerHTML = peers.map(p => {
     const name = p.username || '(unnamed)';
     const active = activePeer === p.pubkey ? ' active' : '';
+    const hasAvatar = !!peerAvatars[p.pubkey];
+    const avatarClick = hasAvatar ? ` onclick="event.stopPropagation();openPeerAvatarViewer('${escHtml(p.pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
     return `<div class="peer-item${active}" onclick="selectPeer('${escHtml(p.pubkey)}', event)">
-      <div class="peer-avatar">${avatarContent(p.pubkey, p.username || p.fingerprint)}</div>
+      <div class="peer-avatar"${avatarClick}>${avatarContent(p.pubkey, p.username || p.fingerprint)}</div>
       <div class="peer-info">
         <div class="peer-name">${escHtml(name)}</div>
         <div class="peer-fp">${escHtml(p.fingerprint)}</div>
@@ -795,9 +797,10 @@ function renderFeed() {
       try { timeStr = formatTime(p.timestamp); } catch {}
       const imageHtml = p.image ? `<div class="post-image"><img src="${escHtml(p.image)}" alt="attached image" onclick="openImageViewer(this.src)"/></div>` : '';
       const embedHtml = p.embed_url ? renderEmbedHtml(p.embed_url) : '';
+      const postAvatarClick = !isOwn && peerAvatars[p.sender_pubkey] ? ` onclick="openPeerAvatarViewer('${escHtml(p.sender_pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
       return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
         <div class="post-header">
-          <div class="post-avatar${isOwn ? ' own' : ''}">${avatarContent(p.sender_pubkey, name)}</div>
+          <div class="post-avatar${isOwn ? ' own' : ''}"${postAvatarClick}>${avatarContent(p.sender_pubkey, name)}</div>
           <div class="post-author">
             <div class="post-author-name">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
             <div class="post-author-fp">${escHtml(fingerprint)}</div>
@@ -875,8 +878,9 @@ function appendMessage(m, scroll = true) {
   const el = document.createElement('div');
   el.className = 'msg' + (m.own ? ' own' : '');
   const msgImageHtml = m.image ? `<div class="msg-image"><img src="${escHtml(m.image)}" alt="image" onclick="openImageViewer(this.src)"/></div>` : '';
+  const msgAvatarClick = !m.own && peerAvatars[pubkey] ? ` onclick="openPeerAvatarViewer('${escHtml(pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
   el.innerHTML = `
-    <div class="msg-avatar ${m.own ? 'self-av' : 'peer-av'}">${avatarContent(pubkey, name)}</div>
+    <div class="msg-avatar ${m.own ? 'self-av' : 'peer-av'}"${msgAvatarClick}>${avatarContent(pubkey, name)}</div>
     <div class="msg-body">
       <div class="msg-meta">
         <span class="msg-author">${escHtml(name)}</span>
@@ -905,7 +909,17 @@ function selectPeer(pubkey, event) {
   document.getElementById('input-bar').style.display = 'flex';
 
   const name = peer.username || '(unnamed)';
-  document.getElementById('chat-avatar').innerHTML = avatarContent(peer.pubkey, name);
+  const chatAvatarEl = document.getElementById('chat-avatar');
+  chatAvatarEl.innerHTML = avatarContent(peer.pubkey, name);
+  if (peerAvatars[peer.pubkey]) {
+    chatAvatarEl.style.cursor = 'pointer';
+    chatAvatarEl.title = 'View profile picture';
+    chatAvatarEl.onclick = () => openPeerAvatarViewer(peer.pubkey);
+  } else {
+    chatAvatarEl.style.cursor = '';
+    chatAvatarEl.title = '';
+    chatAvatarEl.onclick = null;
+  }
   document.getElementById('chat-target-name').textContent = name;
   document.getElementById('chat-target-fp').textContent = peer.fingerprint + ' · ' + peer.pubkey.slice(0,16) + '…';
   renderMessages();
@@ -1121,6 +1135,11 @@ function openImageViewer(src) {
   backdrop.appendChild(img);
   backdrop.onclick = () => document.body.removeChild(backdrop);
   document.body.appendChild(backdrop);
+}
+
+function openPeerAvatarViewer(pubkey) {
+  const src = pubkey && peerAvatars[pubkey];
+  if (src) openImageViewer(src);
 }
 
 async function createIdentity() {
