@@ -1,0 +1,21 @@
+# Rust
+/daemon/target/
+**/*.rs.bk
+
+# Node
+**/node_modules/
+**/dist/
+**/build/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local daemon data / secrets 
+*.log
+*.sqlite
+*.db
+/data/
+/identity/
