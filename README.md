@@ -12,6 +12,8 @@ Agora exists because the places where people used to argue, joke, organize, and
 think out loud have been quietly fenced in. This is an attempt to build somewhere
 that can't be fenced.
 
+![Agora screenshot](agora_example_picture.png)
+
 ---
 
 ## ⚠️ Work in progress — read this before you run it
