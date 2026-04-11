@@ -149,6 +149,8 @@ decide things in the open. That's the idea. Come build it.
 A rough wishlist of what Agora should grow into. No promises on order or
 timing — see the note on pace below.
 
+- **Windows desktop app** — a native `.exe` installer so Windows users can run Agora without a terminal or manual setup.                                                             
+- **Linux packages** — packaged releases for major distros (`.deb`, `.rpm`, and others) so Agora can be installed through standard system package managers.
 - **Tor transport** — route daemon traffic through Tor so peers no longer
   see your real IP. This is the single biggest privacy fix on the list.
 - **Fixing all the bugs.** The ever-present one.
