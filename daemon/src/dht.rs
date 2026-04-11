@@ -51,8 +51,8 @@ impl Dht {
         dht
     }
 
-    /// Upsert a peer. Username is updated if provided.
-    pub async fn upsert(&self, addr: SocketAddr, pubkey: PubKeyB64, method: DiscoveryMethod, username: Option<String>) {
+    /// Upsert a peer. Username and avatar are updated if provided.
+    pub async fn upsert(&self, addr: SocketAddr, pubkey: PubKeyB64, method: DiscoveryMethod, username: Option<String>, avatar: Option<String>) {
         let mut inner = self.inner.write().await;
         if pubkey == inner.own_pubkey { return; }
 
@@ -72,12 +72,14 @@ impl Dht {
                 last_seen: Utc::now(),
                 discovery: method.clone(),
                 username: username.clone(),
+                avatar: avatar.clone(),
             }
         });
 
         peer.addr = addr;
         peer.last_seen = Utc::now();
         if let Some(u) = username { peer.username = Some(u); }
+        if let Some(a) = avatar { peer.avatar = Some(a); }
         if matches!(method, DiscoveryMethod::Mdns) { peer.discovery = DiscoveryMethod::Mdns; }
         let snapshot: Vec<Peer> = inner.peers.values().cloned().collect();
         let path = self.path.clone();
@@ -105,6 +107,10 @@ impl Dht {
                     // Always update username if gossip carries one
                     if foreign.username.is_some() {
                         o.get_mut().username = foreign.username;
+                    }
+                    // Always update avatar if gossip carries one
+                    if foreign.avatar.is_some() {
+                        o.get_mut().avatar = foreign.avatar;
                     }
                 }
             }

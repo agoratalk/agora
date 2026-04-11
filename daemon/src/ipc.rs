@@ -13,12 +13,11 @@
 //!   switch_identity        → params: { account_name }  (restarts daemon internals)
 //!   create_identity        → params: { account_name, username? }
 //!   delete_identity        → params: { account_name }
+//!   set_avatar             → params: { avatar }  (base64 data URL, or null to clear)
 
 use std::{net::SocketAddr, sync::Arc};
 
-use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
-
 use serde_json::json;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -121,6 +120,7 @@ impl IpcServer {
                     "fingerprint": identity.fingerprint(),
                     "username": identity.username,
                     "account_name": identity.account_name,
+                    "avatar": identity.avatar,
                 })), error: None }
             }
             "peers" => {
@@ -174,22 +174,35 @@ impl IpcServer {
             "posts" => {
                 let mut posts = self.messenger.post_store().all_posts().await;
                 posts.sort_by(|a, b| b.payload.timestamp.cmp(&a.payload.timestamp));
-                let own_pubkey = self.identity.read().await.pubkey_b64();
-                let value: Vec<serde_json::Value> = posts.iter().map(|p| {
+                let (own_pubkey, own_username, own_avatar) = {
+                    let id = self.identity.read().await;
+                    (id.pubkey_b64(), id.username.clone(), id.avatar.clone())
+                };
+                let mut value: Vec<serde_json::Value> = Vec::with_capacity(posts.len());
+                for p in &posts {
                     let fp = crate::identity::pubkey_fingerprint(
                         &base64::engine::general_purpose::STANDARD.decode(&p.payload.sender_pubkey).unwrap_or_default()
                     );
-                    json!({
+                    let is_own = p.payload.sender_pubkey == own_pubkey;
+                    let (sender_username, sender_avatar) = if is_own {
+                        (own_username.clone(), own_avatar.clone())
+                    } else {
+                        let peer = self.dht.get(&p.payload.sender_pubkey).await;
+                        (peer.as_ref().and_then(|p| p.username.clone()), peer.and_then(|p| p.avatar))
+                    };
+                    value.push(json!({
                         "post_id": p.payload.message_id,
                         "sender_pubkey": p.payload.sender_pubkey,
                         "sender_fingerprint": fp,
+                        "sender_username": sender_username,
+                        "sender_avatar": sender_avatar,
                         "content": p.payload.content,
                         "timestamp": p.payload.timestamp,
                         "like_count": p.like_count(),
                         "likes": p.likes,
-                        "is_own": p.payload.sender_pubkey == own_pubkey,
-                    })
-                }).collect();
+                        "is_own": is_own,
+                    }));
+                }
                 IpcResponse { id, result: Some(json!(value)), error: None }
             }
             "set_username" => {
@@ -203,6 +216,29 @@ impl IpcServer {
                 }
                 self.broadcaster.send(IpcEvent { event: "username_changed".into(), data: json!({ "username": username }) });
                 IpcResponse { id, result: Some(json!({"ok": true, "username": username})), error: None }
+            }
+            "set_avatar" => {
+                // avatar param is either a base64 data URL string or null/missing to clear
+                let avatar = match req.params.get("avatar") {
+                    Some(v) if v.is_string() => v.as_str().map(|s| s.to_string()),
+                    _ => None,
+                };
+                // Reject data URLs whose media type is not jpeg, png, or webp
+                if let Some(ref data_url) = avatar {
+                    let allowed = ["data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,"];
+                    if !allowed.iter().any(|prefix| data_url.starts_with(prefix)) {
+                        return IpcResponse { id, result: None, error: Some("avatar must be a JPEG, PNG, or WebP image".into()) };
+                    }
+                }
+                {
+                    let mut identity = self.identity.write().await;
+                    identity.avatar = avatar.clone();
+                    if let Err(e) = identity.save_to_file() {
+                        return IpcResponse { id, result: None, error: Some(e.to_string()) };
+                    }
+                }
+                self.broadcaster.send(IpcEvent { event: "avatar_changed".into(), data: json!({ "avatar": avatar }) });
+                IpcResponse { id, result: Some(json!({"ok": true})), error: None }
             }
             "connect" => {
                 let addr_str = req.params.get("addr").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -244,6 +280,7 @@ impl IpcServer {
                             fingerprint: new_id.fingerprint(),
                             pubkey: new_id.pubkey_b64(),
                             is_active: false,
+                            avatar: new_id.avatar.clone(),
                         };
                         IpcResponse { id, result: Some(serde_json::to_value(&summary).unwrap_or_default()), error: None }
                     }
@@ -265,6 +302,7 @@ impl IpcServer {
                         identity.x25519_public = new_id.x25519_public;
                         identity.username = new_id.username.clone();
                         identity.account_name = new_id.account_name.clone();
+                        identity.avatar = new_id.avatar.clone();
                         drop(identity);
                         self.broadcaster.send(IpcEvent {
                             event: "identity_switched".into(),

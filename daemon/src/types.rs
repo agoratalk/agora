@@ -18,6 +18,9 @@ pub struct Peer {
     pub discovery: DiscoveryMethod,
     #[serde(default)]
     pub username: Option<String>,
+    /// Base64-encoded avatar image data URL (e.g. "data:image/jpeg;base64,...")
+    #[serde(default)]
+    pub avatar: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -53,6 +56,9 @@ pub struct HelloPayload {
     pub signature: String,
     #[serde(default)]
     pub username: Option<String>,
+    /// Base64-encoded avatar image data URL propagated to peers
+    #[serde(default)]
+    pub avatar: Option<String>,
     /// Recent posts this node is propagating (up to 24h old)
     #[serde(default)]
     pub recent_posts: Vec<BroadcastPayload>,

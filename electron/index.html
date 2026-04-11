@@ -63,7 +63,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .peer-item{padding:7px 14px;cursor:pointer;transition:background .12s;display:flex;align-items:flex-start;gap:10px}
 .peer-item:hover{background:var(--bg2)}
 .peer-item.active{background:var(--bg3);border-left:2px solid var(--accent)}
-.peer-avatar{width:26px;height:26px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--accent2);flex-shrink:0;border:1px solid var(--line)}
+.peer-avatar{width:26px;height:26px;border-radius:6px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--accent2);flex-shrink:0;border:1px solid var(--line);overflow:hidden}
+.peer-avatar img,.chat-header-avatar img,.msg-avatar img,.post-avatar img,.id-card-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
 .peer-info{flex:1;min-width:0}
 .peer-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .peer-fp{font-family:var(--mono);font-size:9px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
@@ -90,7 +91,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 
 /* ── Chat view ── */
 #chat-header{height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-.chat-header-avatar{width:30px;height:30px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent2);border:1px solid var(--line)}
+.chat-header-avatar{width:30px;height:30px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--accent2);border:1px solid var(--line);overflow:hidden}
 #chat-target-name{font-weight:500;font-size:14px;color:var(--text)}
 #chat-target-fp{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:1px}
 .chat-tag{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:var(--bg3);border:1px solid var(--line);color:var(--text-muted)}
@@ -103,7 +104,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .msg{display:flex;gap:12px;padding:4px 8px;border-radius:6px;transition:background .1s}
 .msg:hover{background:var(--bg1)}
 .msg.own{flex-direction:row-reverse}
-.msg-avatar{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;flex-shrink:0;align-self:flex-start;margin-top:2px;background:var(--bg3);border:1px solid var(--line)}
+.msg-avatar{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;flex-shrink:0;align-self:flex-start;margin-top:2px;background:var(--bg3);border:1px solid var(--line);overflow:hidden}
 .msg-avatar.self-av{color:var(--accent)}.msg-avatar.peer-av{color:var(--accent2)}
 .msg-body{flex:1;min-width:0}
 .msg.own .msg-body{display:flex;flex-direction:column;align-items:flex-end}
@@ -148,7 +149,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .post-card:hover{background:var(--bg1)}
 .post-card.own-post{border-left:2px solid var(--warn)}
 .post-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.post-avatar{width:28px;height:28px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--warn);border:1px solid var(--line);flex-shrink:0}
+.post-avatar{width:28px;height:28px;border-radius:7px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--warn);border:1px solid var(--line);flex-shrink:0;overflow:hidden}
 .post-avatar.own{color:var(--accent)}
 .post-author{flex:1;min-width:0}
 .post-author-name{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -169,7 +170,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .id-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
 .id-card{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:14px;transition:border-color .15s}
 .id-card.active-id{border-color:var(--accent)}
-.id-card-avatar{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:600;flex-shrink:0;border:1px solid var(--line)}
+.id-card-avatar{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:600;flex-shrink:0;border:1px solid var(--line);overflow:hidden;cursor:default}
 .id-card.active-id .id-card-avatar{color:var(--accent);border-color:var(--accent)}
 .id-card-info{flex:1;min-width:0}
 .id-card-account{font-family:var(--mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px}
@@ -203,6 +204,23 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 .btn-cancel:hover{background:var(--bg3);color:var(--text)}
 .btn-ok{background:var(--accent);border:none;border-radius:6px;padding:8px 16px;color:var(--bg0);font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;transition:filter .15s}
 .btn-ok:hover{filter:brightness(1.1)}
+
+/* ── Identity card avatar ── */
+#identity-avatar{width:32px;height:32px;border-radius:8px;background:var(--bg3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;overflow:hidden;flex-shrink:0;transition:border-color .15s;position:relative}
+#identity-avatar:hover{border-color:var(--accent)}
+#identity-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
+#identity-avatar .avatar-overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;border-radius:inherit;font-size:14px}
+#identity-avatar:hover .avatar-overlay{opacity:1}
+.identity-card-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+
+/* ── Avatar upload modal ── */
+#avatar-preview{width:80px;height:80px;border-radius:12px;background:var(--bg3);border:2px solid var(--line);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:28px;color:var(--text-muted);overflow:hidden;cursor:pointer;transition:border-color .15s}
+#avatar-preview:hover{border-color:var(--accent)}
+#avatar-preview img{width:100%;height:100%;object-fit:cover;border-radius:10px;display:block}
+#avatar-file{display:none}
+.avatar-actions{display:flex;gap:6px;margin-bottom:14px;justify-content:center}
+.btn-avatar-remove{background:transparent;border:1px solid var(--danger);border-radius:6px;padding:5px 12px;color:var(--danger);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .15s}
+.btn-avatar-remove:hover{background:var(--danger);color:#fff}
 
 /* ── Notification bell ── */
 #notif-btn{position:relative;background:none;border:none;color:var(--text-muted);font-size:15px;cursor:pointer;padding:0 8px;-webkit-app-region:no-drag;transition:color .15s}
@@ -262,9 +280,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
       <div class="identity-account">
         <span id="my-account">account</span>
       </div>
-      <div class="identity-name" onclick="openUsernameModal()">
-        <span id="my-name">loading…</span>
-        <span class="edit-icon">✎</span>
+      <div class="identity-card-row">
+        <div id="identity-avatar" onclick="openAvatarModal()" title="Change profile picture">
+          <span id="my-avatar-initial">?</span>
+          <div class="avatar-overlay">✎</div>
+        </div>
+        <div class="identity-name" onclick="openUsernameModal()" style="margin-bottom:0">
+          <span id="my-name">loading…</span>
+          <span class="edit-icon">✎</span>
+        </div>
       </div>
       <div class="identity-fp" id="my-fp">—</div>
       <button class="switch-accounts-btn" onclick="showView('identities')">⇄ Switch Account</button>
@@ -357,6 +381,26 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
   </div>
 </div>
 
+<!-- Avatar modal -->
+<div class="modal-backdrop" id="avatar-modal">
+  <div class="modal">
+    <h3>Profile Picture</h3>
+    <div id="avatar-preview" onclick="document.getElementById('avatar-file').click()" title="Click to pick an image">
+      <span id="avatar-preview-initial">?</span>
+    </div>
+    <input type="file" id="avatar-file" accept="image/jpeg,image/png,image/webp"/>
+    <div class="avatar-actions">
+      <button class="btn-sm accent" onclick="document.getElementById('avatar-file').click()">Choose image</button>
+      <button class="btn-avatar-remove" onclick="clearAvatar()">Remove</button>
+    </div>
+    <p class="hint">Image will be resized to 128×128. Visible to peers on the network.</p>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('avatar-modal')">Cancel</button>
+      <button class="btn-ok" id="avatar-save-btn" onclick="saveAvatar()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -372,6 +416,10 @@ let notifications = [];
 let notifPanelOpen = false;
 let activeView = 'chat'; // 'chat' | 'feed' | 'identities'
 let activeTab = 'peers'; // 'peers' | 'feed'
+// Map of pubkey → avatar data URL (populated from peers list + own identity)
+let peerAvatars = {};
+// Pending avatar in the avatar-picker modal (not yet saved)
+let pendingAvatarDataUrl = null;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
@@ -394,12 +442,28 @@ async function refreshIdentity() {
     document.getElementById('my-name').textContent = myIdentity.username || myIdentity.fingerprint;
     document.getElementById('my-fp').textContent = myIdentity.pubkey.slice(0, 28) + '…';
     document.getElementById('my-account').textContent = myIdentity.account_name || 'default';
+    // Update own avatar in the identity card and the peerAvatars map
+    if (myIdentity.pubkey) {
+      if (myIdentity.avatar) peerAvatars[myIdentity.pubkey] = myIdentity.avatar;
+      else delete peerAvatars[myIdentity.pubkey];
+    }
+    renderIdentityAvatar();
   }
 }
 
 async function refreshPeers() {
   const resp = await window.agora.request('peers', {});
-  if (resp?.result) { peers = resp.result; renderPeerList(); }
+  if (resp?.result) {
+    peers = resp.result;
+    // Update avatar cache from peer data
+    for (const p of peers) {
+      if (p.pubkey) {
+        if (p.avatar) peerAvatars[p.pubkey] = p.avatar;
+        else if (!peerAvatars[p.pubkey]) delete peerAvatars[p.pubkey];
+      }
+    }
+    renderPeerList();
+  }
 }
 
 async function refreshPosts() {
@@ -434,11 +498,16 @@ function handleDaemonEvent(ev) {
 
     case 'peers_updated':
       peers = ev.data;
+      for (const p of peers) {
+        if (p.pubkey && p.avatar) peerAvatars[p.pubkey] = p.avatar;
+      }
       renderPeerList();
       break;
 
     case 'message': {
       const d = ev.data;
+      // Cache sender avatar if provided
+      if (d.sender_pubkey && d.sender_avatar) peerAvatars[d.sender_pubkey] = d.sender_avatar;
       if (d.kind === 'broadcast') {
         // Upsert post in feed
         const existing = posts.findIndex(p => p.post_id === d.post_id);
@@ -447,6 +516,7 @@ function handleDaemonEvent(ev) {
           sender_pubkey: d.sender_pubkey,
           sender_fingerprint: d.sender_fingerprint,
           sender_username: d.sender_username,
+          sender_avatar: d.sender_avatar,
           content: d.content,
           timestamp: d.timestamp,
           like_count: d.like_count || 0,
@@ -489,11 +559,38 @@ function handleDaemonEvent(ev) {
       refreshIdentity();
       break;
 
+    case 'avatar_changed':
+      refreshIdentity();
+      break;
+
     case 'identity_switched':
       refreshIdentity();
       refreshPosts();
       toast(`Switched to "${ev.data.account_name}"`, 'success');
       break;
+  }
+}
+
+// ── Avatar helpers ─────────────────────────────────────────────────────────────
+// Returns inner HTML for an avatar container: either an <img> or a text initial.
+function avatarContent(pubkey, name) {
+  const src = pubkey && peerAvatars[pubkey];
+  if (src) return `<img src="${escHtml(src)}" alt=""/>`;
+  return escHtml((name || '?')[0].toUpperCase());
+}
+
+// Update the identity-card avatar in the sidebar
+function renderIdentityAvatar() {
+  const el = document.getElementById('identity-avatar');
+  if (!el) return;
+  const name = myIdentity?.username || myIdentity?.fingerprint || '?';
+  const src = myIdentity?.pubkey && peerAvatars[myIdentity.pubkey];
+  const initial = name[0].toUpperCase();
+  const overlay = '<div class="avatar-overlay">✎</div>';
+  if (src) {
+    el.innerHTML = `<img src="${escHtml(src)}" alt=""/>${overlay}`;
+  } else {
+    el.innerHTML = `<span id="my-avatar-initial">${escHtml(initial)}</span>${overlay}`;
   }
 }
 
@@ -507,10 +604,9 @@ function renderPeerList() {
   }
   list.innerHTML = peers.map(p => {
     const name = p.username || '(unnamed)';
-    const initial = (p.username || p.fingerprint)[0].toUpperCase();
     const active = activePeer === p.pubkey ? ' active' : '';
     return `<div class="peer-item${active}" onclick="selectPeer('${escHtml(p.pubkey)}', event)">
-      <div class="peer-avatar">${escHtml(initial)}</div>
+      <div class="peer-avatar">${avatarContent(p.pubkey, p.username || p.fingerprint)}</div>
       <div class="peer-info">
         <div class="peer-name">${escHtml(name)}</div>
         <div class="peer-fp">${escHtml(p.fingerprint)}</div>
@@ -540,17 +636,18 @@ function renderFeed() {
       const fingerprint = String(p.sender_fingerprint || '');
       const username    = (typeof p.sender_username === 'string' && p.sender_username) ? p.sender_username : '';
       const name        = username || fingerprint || 'unknown';
-      const initial     = (name[0] || '?').toUpperCase();
       const content     = String(p.content ?? '');
       const likeCount   = Number.isFinite(p.like_count) ? p.like_count : 0;
       const isOwn       = !!p.is_own;
       const liked       = likedPostIds.has(postId);
       const shortId     = postId ? postId.slice(0, 8) : '--------';
+      // Cache avatar from post data
+      if (p.sender_pubkey && p.sender_avatar) peerAvatars[p.sender_pubkey] = p.sender_avatar;
       let timeStr = '';
       try { timeStr = formatTime(p.timestamp); } catch {}
       return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
         <div class="post-header">
-          <div class="post-avatar${isOwn ? ' own' : ''}">${escHtml(initial)}</div>
+          <div class="post-avatar${isOwn ? ' own' : ''}">${avatarContent(p.sender_pubkey, name)}</div>
           <div class="post-author">
             <div class="post-author-name">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
             <div class="post-author-fp">${escHtml(fingerprint)}</div>
@@ -581,10 +678,14 @@ async function renderIdentityManager() {
     el.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">No identities found</div>';
     return;
   }
+  // Cache avatars from identity list
+  for (const id of list) {
+    if (id.pubkey && id.avatar) peerAvatars[id.pubkey] = id.avatar;
+  }
   el.innerHTML = list.map(id => {
-    const initial = (id.username || id.account_name)[0].toUpperCase();
+    const avatarHtml = avatarContent(id.pubkey, id.username || id.account_name);
     return `<div class="id-card${id.is_active ? ' active-id' : ''}">
-      <div class="id-card-avatar">${escHtml(initial)}</div>
+      <div class="id-card-avatar" style="${id.is_active ? 'cursor:pointer' : ''}" ${id.is_active ? 'onclick="openAvatarModal()" title="Change profile picture"' : ''}>${avatarHtml}</div>
       <div class="id-card-info">
         <div class="id-card-account">${escHtml(id.account_name)}</div>
         <div class="id-card-name">${escHtml(id.username || '(no username)')}</div>
@@ -618,10 +719,11 @@ function appendMessage(m, scroll = true) {
   const container = document.getElementById('messages');
   if (!container) return;
   const name = m.own ? (myIdentity?.username || myIdentity?.fingerprint || 'You') : (m.sender_username || m.sender_fingerprint);
+  const pubkey = m.own ? myIdentity?.pubkey : m.sender_pubkey;
   const el = document.createElement('div');
   el.className = 'msg' + (m.own ? ' own' : '');
   el.innerHTML = `
-    <div class="msg-avatar ${m.own ? 'self-av' : 'peer-av'}">${escHtml(name[0].toUpperCase())}</div>
+    <div class="msg-avatar ${m.own ? 'self-av' : 'peer-av'}">${avatarContent(pubkey, name)}</div>
     <div class="msg-body">
       <div class="msg-meta">
         <span class="msg-author">${escHtml(name)}</span>
@@ -649,7 +751,7 @@ function selectPeer(pubkey, event) {
   document.getElementById('input-bar').style.display = 'flex';
 
   const name = peer.username || '(unnamed)';
-  document.getElementById('chat-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('chat-avatar').innerHTML = avatarContent(peer.pubkey, name);
   document.getElementById('chat-target-name').textContent = name;
   document.getElementById('chat-target-fp').textContent = peer.fingerprint + ' · ' + peer.pubkey.slice(0,16) + '…';
   renderMessages();
@@ -758,6 +860,40 @@ async function saveUsername() {
   const resp = await window.agora?.request('set_username', { username: uname });
   if (resp?.error) toast('Failed: ' + resp.error, 'error');
   else { if (myIdentity) myIdentity.username = uname; document.getElementById('my-name').textContent = uname; toast('Username updated', 'success'); }
+}
+
+function openAvatarModal() {
+  pendingAvatarDataUrl = myIdentity?.avatar || null;
+  const preview = document.getElementById('avatar-preview');
+  const name = myIdentity?.username || myIdentity?.fingerprint || '?';
+  if (pendingAvatarDataUrl) {
+    preview.innerHTML = `<img src="${escHtml(pendingAvatarDataUrl)}" alt=""/>`;
+  } else {
+    preview.innerHTML = `<span id="avatar-preview-initial">${escHtml(name[0].toUpperCase())}</span>`;
+  }
+  document.getElementById('avatar-modal').classList.add('open');
+}
+
+function clearAvatar() {
+  pendingAvatarDataUrl = null;
+  const name = myIdentity?.username || myIdentity?.fingerprint || '?';
+  document.getElementById('avatar-preview').innerHTML = `<span id="avatar-preview-initial">${escHtml(name[0].toUpperCase())}</span>`;
+}
+
+async function saveAvatar() {
+  closeModal('avatar-modal');
+  const resp = await window.agora?.request('set_avatar', { avatar: pendingAvatarDataUrl });
+  if (resp?.error) { toast('Failed to save avatar: ' + resp.error, 'error'); return; }
+  // Update local state
+  if (myIdentity) {
+    myIdentity.avatar = pendingAvatarDataUrl;
+    if (myIdentity.pubkey) {
+      if (pendingAvatarDataUrl) peerAvatars[myIdentity.pubkey] = pendingAvatarDataUrl;
+      else delete peerAvatars[myIdentity.pubkey];
+    }
+  }
+  renderIdentityAvatar();
+  toast('Profile picture updated', 'success');
 }
 
 async function createIdentity() {
@@ -913,6 +1049,41 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('connect-input')?.addEventListener('keydown', e => {
     if (e.key==='Enter') dialPeer();
   });
+  // Avatar file picker: validate type, resize to 128×128, re-encode as JPEG/PNG/WebP
+  const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  document.getElementById('avatar-file')?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset so same file can be re-picked
+    if (!file) return;
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      toast('Avatar must be a JPEG, PNG, or WebP image', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = () => toast('Could not load image', 'error');
+      img.onload = () => {
+        const SIZE = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE; canvas.height = SIZE;
+        const ctx = canvas.getContext('2d');
+        // Cover-fit: crop to square from center
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2;
+        const sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        // Re-encode as the same type (WebP keeps transparency; JPEG is smallest)
+        const outType = file.type === 'image/png' ? 'image/png'
+                      : file.type === 'image/webp' ? 'image/webp'
+                      : 'image/jpeg';
+        pendingAvatarDataUrl = canvas.toDataURL(outType, 0.75);
+        document.getElementById('avatar-preview').innerHTML = `<img src="${escHtml(pendingAvatarDataUrl)}" alt=""/>`;
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
   // Close notif panel on outside click
   document.addEventListener('click', e => {
     if (notifPanelOpen && !document.getElementById('notif-panel').contains(e.target) && e.target.id !== 'notif-btn') {
@@ -925,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Demo data (when running outside Electron) ─────────────────────────────────
 function loadDemoData() {
-  myIdentity = { username: 'demo_user', fingerprint: 'AB:CD:EF:12:34:56:78:90', pubkey: 'demokey123', account_name: 'default' };
+  myIdentity = { username: 'demo_user', fingerprint: 'AB:CD:EF:12:34:56:78:90', pubkey: 'demokey123', account_name: 'default', avatar: null };
   document.getElementById('my-name').textContent = 'demo_user';
   document.getElementById('my-fp').textContent = 'demokey123…';
   document.getElementById('my-account').textContent = 'default';
@@ -940,6 +1111,7 @@ function loadDemoData() {
   messages = [
     { kind:'dm', own:false, sender_pubkey:'p1', sender_fingerprint:'AA:BB:CC:DD:EE:FF:00:11', sender_username:'alice', content:'Hey! Are you on the bootstrap net?', timestamp:new Date(Date.now()-60000).toISOString() },
   ];
+  renderIdentityAvatar();
   renderPeerList();
   renderFeed();
   setConnected(false);

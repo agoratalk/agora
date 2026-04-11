@@ -168,7 +168,9 @@ impl Messenger {
         match self.verify_and_decrypt_dm(&dm).await {
             Ok(content) => {
                 let fingerprint = sender_fingerprint(&dm.sender_pubkey);
-                let sender_username = self.dht.get(&dm.sender_pubkey).await.and_then(|p| p.username);
+                let sender_peer = self.dht.get(&dm.sender_pubkey).await;
+                let sender_username = sender_peer.as_ref().and_then(|p| p.username.clone());
+                let sender_avatar = sender_peer.and_then(|p| p.avatar);
                 crate::posts::append_dm(&json!({
                     "direction": "in", "peer_pubkey": dm.sender_pubkey,
                     "peer_fingerprint": fingerprint, "peer_username": sender_username,
@@ -177,7 +179,7 @@ impl Messenger {
                 if let Some(ref ipc) = self.ipc {
                     ipc.send(crate::types::IpcEvent {
                         event: "message".into(),
-                        data: json!({ "kind": "dm", "sender_pubkey": dm.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "content": content, "timestamp": dm.timestamp }),
+                        data: json!({ "kind": "dm", "sender_pubkey": dm.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "sender_avatar": sender_avatar, "content": content, "timestamp": dm.timestamp }),
                     });
                 }
                 let _ = self.inbound_tx.send(InboundMessage {
@@ -200,12 +202,14 @@ impl Messenger {
         if !is_new { return; } // already seen, don't re-emit
 
         let fingerprint = sender_fingerprint(&bc.sender_pubkey);
-        let sender_username = self.dht.get(&bc.sender_pubkey).await.and_then(|p| p.username);
+        let sender_peer = self.dht.get(&bc.sender_pubkey).await;
+        let sender_username = sender_peer.as_ref().and_then(|p| p.username.clone());
+        let sender_avatar = sender_peer.and_then(|p| p.avatar);
 
         if let Some(ref ipc) = self.ipc {
             ipc.send(crate::types::IpcEvent {
                 event: "message".into(),
-                data: json!({ "kind": "broadcast", "post_id": bc.message_id, "sender_pubkey": bc.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "content": bc.content, "timestamp": bc.timestamp, "like_count": 0 }),
+                data: json!({ "kind": "broadcast", "post_id": bc.message_id, "sender_pubkey": bc.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "sender_avatar": sender_avatar, "content": bc.content, "timestamp": bc.timestamp, "like_count": 0 }),
             });
         }
 

@@ -22,6 +22,9 @@ struct IdentityFile {
     pub username: Option<String>,
     #[serde(default)]
     pub account_name: String,
+    /// Base64-encoded avatar image data URL
+    #[serde(default)]
+    pub avatar: Option<String>,
 }
 
 pub struct Identity {
@@ -31,6 +34,8 @@ pub struct Identity {
     pub x25519_public: X25519Public,
     pub username: Option<String>,
     pub account_name: String,
+    /// Base64-encoded avatar image data URL (e.g. "data:image/jpeg;base64,...")
+    pub avatar: Option<String>,
     path: PathBuf,
 }
 
@@ -41,6 +46,7 @@ pub struct IdentitySummary {
     pub fingerprint: String,
     pub pubkey: String,
     pub is_active: bool,
+    pub avatar: Option<String>,
 }
 
 impl Identity {
@@ -95,6 +101,7 @@ impl Identity {
                     fingerprint: id.fingerprint(),
                     pubkey: id.pubkey_b64(),
                     is_active: id.account_name == active,
+                    avatar: id.avatar.clone(),
                 });
             }
         }
@@ -119,7 +126,7 @@ impl Identity {
         let verifying_key = signing_key.verifying_key();
         let x25519_secret = derive_x25519_secret(signing_key.as_bytes());
         let x25519_public = X25519Public::from(&x25519_secret);
-        Self { signing_key, verifying_key, x25519_secret, x25519_public, username: None, account_name, path }
+        Self { signing_key, verifying_key, x25519_secret, x25519_public, username: None, avatar: None, account_name, path }
     }
 
     pub fn load_from_file(path: &Path) -> Result<Self> {
@@ -148,7 +155,7 @@ impl Identity {
             file.account_name
         };
 
-        Ok(Self { signing_key, verifying_key, x25519_secret, x25519_public, username: file.username, account_name, path: path.to_path_buf() })
+        Ok(Self { signing_key, verifying_key, x25519_secret, x25519_public, username: file.username, avatar: file.avatar, account_name, path: path.to_path_buf() })
     }
 
     pub fn save_to_file(&self) -> Result<()> {
@@ -162,6 +169,7 @@ impl Identity {
             x25519_secret: B64.encode(self.x25519_secret.as_bytes()),
             username: self.username.clone(),
             account_name: self.account_name.clone(),
+            avatar: self.avatar.clone(),
         };
         let json = serde_json::to_string_pretty(&file)
             .map_err(|e| P2pError::Identity(format!("cannot serialise identity: {e}")))?;
