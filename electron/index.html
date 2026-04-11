@@ -14,7 +14,7 @@
   --green:#6dd08a;--pink:#e07aac;
   --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
 }
-html{zoom:1.25}html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);font-family:var(--sans);font-size:13px}
+html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;background:var(--bg0);color:var(--text);font-family:var(--sans);font-size:13px}
 
 /* ── Titlebar ── */
 #titlebar{height:38px;background:var(--bg0);display:flex;align-items:center;-webkit-app-region:drag;border-bottom:1px solid var(--line);flex-shrink:0;user-select:none}
@@ -31,7 +31,7 @@ html{zoom:1.25}html,body{height:100%;overflow:hidden;background:var(--bg0);color
 .wm-controls button.close:hover{background:var(--danger);color:#fff}
 
 /* ── Layout ── */
-#app{display:flex;height:calc(100vh - 38px)}
+#app{display:flex;height:calc(100% - 38px)}
 
 /* ── Sidebar ── */
 #sidebar{width:230px;flex-shrink:0;background:var(--bg1);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
