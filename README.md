@@ -176,4 +176,4 @@ weeks, the occasional flurry, and bugs that sit in the tracker longer than
 they should. This is part of why contributions matter so much: every patch,
 issue, or bit of testing moves things forward faster than I can alone.
 
-I will add social media accounts to promote a project and a Monero wallet for donations at a later date.
+I will add social media accounts to promote the project and a Monero wallet for donations at a later date.
