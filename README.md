@@ -144,6 +144,26 @@ decide things in the open. That's the idea. Come build it.
 
 ---
 
+## Planned features
+
+A rough wishlist of what Agora should grow into. No promises on order or
+timing — see the note on pace below.
+
+- **Tor transport** — route daemon traffic through Tor so peers no longer
+  see your real IP. This is the single biggest privacy fix on the list.
+- **Fixing all the bugs.** The ever-present one.
+- **Following other users** and a proper follow graph.
+- **A local feed algorithm** — ranking and filtering that runs entirely on
+  your own machine, with no remote black box deciding what you see.
+- **Channels** for different topics, so conversations can be organized
+  without central moderators.
+- **Group chat.**
+- **Sending pictures** in messages and posts.
+- **Profile pictures** and richer profile metadata.
+- **Embedding content** from other platforms (videos, links, etc.) in posts.
+- **Monero wallet integration** for private, peer-to-peer tipping and
+  payments between users.
+
 ## A note on pace
 
 Agora is a side project I work on in my free time, around a day job and the
