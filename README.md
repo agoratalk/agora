@@ -162,6 +162,7 @@ timing — see the note on pace below.
 - **Sending pictures** in messages and posts.
 - **Profile pictures** and richer profile metadata.
 - **Embedding content** from other platforms (videos, links, etc.) in posts.
+- **User blocking and shareable blocklists** — client-side tools to mute or block individual users, plus the ability to publish and subscribe to blocklists curated by others. Moderation that lives with the user, not with a central authority: nobody is removed from the network, but everyone gets to decide who they see.
 - **Monero wallet integration** for private, peer-to-peer tipping and
   payments between users.
 
