@@ -46,8 +46,8 @@ pub struct InboundMessage {
 
 #[derive(Debug, Clone)]
 pub enum InboundKind {
-    Direct { content: String },
-    Broadcast { content: String, post_id: String },
+    Direct { content: String, image: Option<String> },
+    Broadcast { content: String, post_id: String, image: Option<String> },
     Like { post_id: String, post_author_pubkey: String, like_count: usize, liker_name: String },
 }
 
@@ -73,17 +73,24 @@ impl Messenger {
         self.network.on_message(handler).await;
     }
 
-    pub async fn send_direct(&self, recipient: &str, content: &str) -> Result<()> {
+    pub async fn send_direct(&self, recipient: &str, content: &str, image: Option<&str>) -> Result<()> {
         let peer = self.resolve_peer(recipient).await?;
         let their_x25519 = x25519_pubkey_for_peer(&peer.pubkey)?;
         let shared_secret = { self.identity.read().await.x25519_secret.diffie_hellman(&their_x25519) };
         let message_id = Uuid::new_v4().to_string();
         let aes_key = hkdf_derive(shared_secret.as_bytes(), HKDF_SALT, message_id.as_bytes());
 
+        // Encode plaintext: if an image is attached, serialize as JSON so both text and image travel together.
+        let plaintext = if let Some(img) = image {
+            json!({"text": content, "image": img}).to_string()
+        } else {
+            content.to_string()
+        };
+
         let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&aes_key));
         let nonce_bytes: [u8; 12] = rand::random();
         let nonce = Nonce::from_slice(&nonce_bytes);
-        let ciphertext = cipher.encrypt(nonce, content.as_bytes())
+        let ciphertext = cipher.encrypt(nonce, plaintext.as_bytes())
             .map_err(|e| P2pError::Crypto(format!("encryption failed: {e}")))?;
 
         let nonce_b64 = B64.encode(nonce_bytes);
@@ -103,14 +110,19 @@ impl Messenger {
         crate::posts::append_dm(&json!({
             "direction": "out", "peer_pubkey": peer.pubkey,
             "peer_fingerprint": peer.fingerprint, "peer_username": peer.username,
-            "content": content, "timestamp": payload.timestamp,
+            "content": content, "image": image, "timestamp": payload.timestamp,
         }));
         self.network.send_to_pubkey(&peer.pubkey, WireMessage::DirectMessage(payload)).await
     }
 
-    pub async fn broadcast(&self, content: &str) -> Result<()> {
+    pub async fn broadcast(&self, content: &str, image: Option<&str>) -> Result<()> {
         let message_id = Uuid::new_v4().to_string();
-        let to_sign = format!("{}{}", message_id, content);
+        // Include image in signature when present so it's tamper-evident.
+        let to_sign = if let Some(img) = image {
+            format!("{}{}{}", message_id, content, img)
+        } else {
+            format!("{}{}", message_id, content)
+        };
         let sig: Signature = { self.identity.read().await.signing_key.sign(to_sign.as_bytes()) };
         let payload = BroadcastPayload {
             message_id,
@@ -118,6 +130,7 @@ impl Messenger {
             content: content.to_string(),
             signature: B64.encode(sig.to_bytes()),
             timestamp: Utc::now(),
+            image: image.map(|s| s.to_string()),
         };
         // Store locally first
         self.post_store.insert(payload.clone()).await;
@@ -166,7 +179,7 @@ impl Messenger {
         let own_pubkey = self.identity.read().await.pubkey_b64();
         if dm.recipient_pubkey != own_pubkey { return; }
         match self.verify_and_decrypt_dm(&dm).await {
-            Ok(content) => {
+            Ok((content, image)) => {
                 let fingerprint = sender_fingerprint(&dm.sender_pubkey);
                 let sender_peer = self.dht.get(&dm.sender_pubkey).await;
                 let sender_username = sender_peer.as_ref().and_then(|p| p.username.clone());
@@ -174,16 +187,16 @@ impl Messenger {
                 crate::posts::append_dm(&json!({
                     "direction": "in", "peer_pubkey": dm.sender_pubkey,
                     "peer_fingerprint": fingerprint, "peer_username": sender_username,
-                    "content": content, "timestamp": dm.timestamp,
+                    "content": content, "image": image, "timestamp": dm.timestamp,
                 }));
                 if let Some(ref ipc) = self.ipc {
                     ipc.send(crate::types::IpcEvent {
                         event: "message".into(),
-                        data: json!({ "kind": "dm", "sender_pubkey": dm.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "sender_avatar": sender_avatar, "content": content, "timestamp": dm.timestamp }),
+                        data: json!({ "kind": "dm", "sender_pubkey": dm.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "sender_avatar": sender_avatar, "content": content, "image": image, "timestamp": dm.timestamp }),
                     });
                 }
                 let _ = self.inbound_tx.send(InboundMessage {
-                    kind: InboundKind::Direct { content },
+                    kind: InboundKind::Direct { content, image },
                     sender_pubkey: dm.sender_pubkey,
                     sender_fingerprint: fingerprint,
                     sender_username,
@@ -209,12 +222,12 @@ impl Messenger {
         if let Some(ref ipc) = self.ipc {
             ipc.send(crate::types::IpcEvent {
                 event: "message".into(),
-                data: json!({ "kind": "broadcast", "post_id": bc.message_id, "sender_pubkey": bc.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "sender_avatar": sender_avatar, "content": bc.content, "timestamp": bc.timestamp, "like_count": 0 }),
+                data: json!({ "kind": "broadcast", "post_id": bc.message_id, "sender_pubkey": bc.sender_pubkey, "sender_fingerprint": fingerprint, "sender_username": sender_username, "sender_avatar": sender_avatar, "content": bc.content, "image": bc.image, "timestamp": bc.timestamp, "like_count": 0 }),
             });
         }
 
         let _ = self.inbound_tx.send(InboundMessage {
-            kind: InboundKind::Broadcast { content: bc.content, post_id: bc.message_id },
+            kind: InboundKind::Broadcast { content: bc.content, post_id: bc.message_id, image: bc.image },
             sender_pubkey: bc.sender_pubkey,
             sender_fingerprint: fingerprint,
             sender_username,
@@ -272,7 +285,7 @@ impl Messenger {
 
     pub fn post_store(&self) -> &PostStore { &self.post_store }
 
-    async fn verify_and_decrypt_dm(&self, dm: &DirectMessagePayload) -> Result<String> {
+    async fn verify_and_decrypt_dm(&self, dm: &DirectMessagePayload) -> Result<(String, Option<String>)> {
         let age = Utc::now().signed_duration_since(dm.timestamp).to_std()
             .unwrap_or(MAX_MSG_AGE + Duration::from_secs(1));
         if age > MAX_MSG_AGE { return Err(P2pError::MessageExpired); }
@@ -290,9 +303,18 @@ impl Messenger {
         let nonce_bytes = B64.decode(&dm.nonce).map_err(|_| P2pError::Crypto("bad nonce".into()))?;
         if nonce_bytes.len() != 12 { return Err(P2pError::Crypto("nonce must be 12 bytes".into())); }
         let ciphertext = B64.decode(&dm.ciphertext).map_err(|_| P2pError::Crypto("bad ciphertext".into()))?;
-        let plaintext = cipher.decrypt(Nonce::from_slice(&nonce_bytes), ciphertext.as_ref())
+        let plaintext_bytes = cipher.decrypt(Nonce::from_slice(&nonce_bytes), ciphertext.as_ref())
             .map_err(|_| P2pError::Crypto("decryption failed".into()))?;
-        String::from_utf8(plaintext).map_err(|_| P2pError::Crypto("invalid UTF-8".into()))
+        let plaintext = String::from_utf8(plaintext_bytes).map_err(|_| P2pError::Crypto("invalid UTF-8".into()))?;
+
+        // If the plaintext is JSON with "text"/"image" fields, extract them; otherwise treat as plain text.
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&plaintext) {
+            if let Some(text) = v.get("text").and_then(|t| t.as_str()) {
+                let image = v.get("image").and_then(|i| i.as_str()).map(|s| s.to_string());
+                return Ok((text.to_string(), image));
+            }
+        }
+        Ok((plaintext, None))
     }
 
     fn verify_broadcast(&self, bc: &BroadcastPayload) -> Result<()> {
@@ -302,8 +324,13 @@ impl Messenger {
         let vk = verifying_key_from_b64(&bc.sender_pubkey)?;
         let sig_bytes = B64.decode(&bc.signature).map_err(|_| P2pError::InvalidSignature)?;
         let sig_arr: [u8; 64] = sig_bytes.try_into().map_err(|_| P2pError::InvalidSignature)?;
-        vk.verify(format!("{}{}", bc.message_id, bc.content).as_bytes(),
-            &Signature::from_bytes(&sig_arr)).map_err(|_| P2pError::InvalidSignature)
+        // Image-bearing posts sign over {id}{content}{image}; legacy posts sign over {id}{content}.
+        let signed = if let Some(ref img) = bc.image {
+            format!("{}{}{}", bc.message_id, bc.content, img)
+        } else {
+            format!("{}{}", bc.message_id, bc.content)
+        };
+        vk.verify(signed.as_bytes(), &Signature::from_bytes(&sig_arr)).map_err(|_| P2pError::InvalidSignature)
     }
 
     fn verify_like(&self, lk: &LikePayload) -> Result<()> {

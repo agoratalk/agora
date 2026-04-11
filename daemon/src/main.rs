@@ -177,10 +177,10 @@ async fn main() -> anyhow::Result<()> {
         while let Some(msg) = inbound_rx.recv().await {
             let name = msg.sender_username.as_deref().unwrap_or(&msg.sender_fingerprint).to_string();
             match msg.kind {
-                InboundKind::Direct { content } => {
+                InboundKind::Direct { content, .. } => {
                     println!("\n  \x1b[36m[DM from {} ({})] \x1b[0m{}", name, &msg.sender_fingerprint, content);
                 }
-                InboundKind::Broadcast { content, post_id } => {
+                InboundKind::Broadcast { content, post_id, .. } => {
                     println!("\n  \x1b[33m[post {} from {}] \x1b[0m{}", &post_id[..8], name, content);
                 }
                 InboundKind::Like { post_id, like_count, liker_name, .. } => {
@@ -302,7 +302,7 @@ async fn run_repl(messenger: Messenger, dht: Dht, network: Network, identity: Ar
             "msg" | "dm" => {
                 let parts: Vec<&str> = rest.splitn(2, ' ').collect();
                 if parts.len() < 2 || parts[1].is_empty() { println!("  usage: msg <fingerprint> <text>"); continue; }
-                match messenger.send_direct(parts[0], parts[1]).await {
+                match messenger.send_direct(parts[0], parts[1], None).await {
                     Ok(()) => println!("  \x1b[32m✓ message sent\x1b[0m"),
                     Err(e) => println!("  error: {}", e),
                 }
@@ -310,7 +310,7 @@ async fn run_repl(messenger: Messenger, dht: Dht, network: Network, identity: Ar
 
             "broadcast" | "bc" | "post" => {
                 if rest.is_empty() { println!("  usage: post <text>"); continue; }
-                match messenger.broadcast(rest).await {
+                match messenger.broadcast(rest, None).await {
                     Ok(()) => println!("  \x1b[32m✓ post sent (propagated for 24h)\x1b[0m"),
                     Err(e) => println!("  error: {}", e),
                 }

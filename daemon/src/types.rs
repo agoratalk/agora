@@ -86,6 +86,9 @@ pub struct BroadcastPayload {
     pub content: String,
     pub signature: String,
     pub timestamp: DateTime<Utc>,
+    /// Optional attached image as a base64 data URL (JPEG, PNG, or WebP only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
 }
 
 // ── Like ─────────────────────────────────────────────────────────────────────

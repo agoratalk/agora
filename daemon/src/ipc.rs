@@ -3,10 +3,10 @@
 //! Methods:
 //!   whoami                 → { pubkey, fingerprint, username, account_name }
 //!   peers                  → [Peer, ...]
-//!   send_dm                → params: { recipient, content }
-//!   broadcast              → params: { content }
+//!   send_dm                → params: { recipient, content, image? }
+//!   broadcast              → params: { content, image? }
 //!   like_post              → params: { post_id }  → { like_count }
-//!   posts                  → [] of { post_id, sender_pubkey, sender_fingerprint, content, timestamp, like_count, likes }
+//!   posts                  → [] of { post_id, sender_pubkey, sender_fingerprint, content, image?, timestamp, like_count, likes }
 //!   set_username           → params: { username }
 //!   connect                → params: { addr }
 //!   list_identities        → [IdentitySummary, ...]
@@ -130,14 +130,28 @@ impl IpcServer {
             "send_dm" => {
                 let recipient = req.params.get("recipient").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let content = req.params.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                match self.messenger.send_direct(&recipient, &content).await {
+                let image = req.params.get("image").and_then(|v| v.as_str()).map(|s| s.to_string());
+                if let Some(ref img) = image {
+                    let allowed = ["data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,"];
+                    if !allowed.iter().any(|prefix| img.starts_with(prefix)) {
+                        return IpcResponse { id, result: None, error: Some("image must be a JPEG, PNG, or WebP data URL".into()) };
+                    }
+                }
+                match self.messenger.send_direct(&recipient, &content, image.as_deref()).await {
                     Ok(()) => IpcResponse { id, result: Some(json!({"ok": true})), error: None },
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
             "broadcast" => {
                 let content = req.params.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                match self.messenger.broadcast(&content).await {
+                let image = req.params.get("image").and_then(|v| v.as_str()).map(|s| s.to_string());
+                if let Some(ref img) = image {
+                    let allowed = ["data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,"];
+                    if !allowed.iter().any(|prefix| img.starts_with(prefix)) {
+                        return IpcResponse { id, result: None, error: Some("image must be a JPEG, PNG, or WebP data URL".into()) };
+                    }
+                }
+                match self.messenger.broadcast(&content, image.as_deref()).await {
                     Ok(()) => IpcResponse { id, result: Some(json!({"ok": true})), error: None },
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
@@ -197,6 +211,7 @@ impl IpcServer {
                         "sender_username": sender_username,
                         "sender_avatar": sender_avatar,
                         "content": p.payload.content,
+                        "image": p.payload.image,
                         "timestamp": p.payload.timestamp,
                         "like_count": p.like_count(),
                         "likes": p.likes,

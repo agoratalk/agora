@@ -128,17 +128,29 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
 #msg-input:focus{border-color:var(--accent2)}
 .send-btn{width:42px;height:42px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--text-dim);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
 .send-btn:hover{background:var(--accent);border-color:var(--accent);color:var(--bg0)}
+.attach-btn{width:42px;height:42px;background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--text-muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.attach-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+.attach-btn.has-image{border-color:var(--accent2);color:var(--accent2);background:rgba(123,158,240,.1)}
+.attach-preview{position:relative;display:inline-flex;flex-shrink:0}
+.attach-preview img{width:42px;height:42px;object-fit:cover;border-radius:6px;border:1px solid var(--accent2);display:block}
+.attach-preview .attach-remove{position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:var(--danger);border:none;border-radius:50%;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
 
 /* ── Feed view ── */
 #feed-header{height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 #feed-header h2{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--text);font-weight:600}
 #feed-header .feed-hint{font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-left:auto}
-#post-compose{padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;display:flex;gap:10px;align-items:flex-end}
+#post-compose{padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.post-compose-row{display:flex;gap:10px;align-items:flex-end}
 #post-input{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:10px 14px;outline:none;resize:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s}
 #post-input::placeholder{color:var(--text-muted)}
 #post-input:focus{border-color:var(--warn)}
 .post-btn{height:42px;padding:0 16px;background:var(--bg3);border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;flex-shrink:0}
 .post-btn:hover{background:var(--warn);color:var(--bg0)}
+.post-image{margin-top:8px;margin-bottom:4px}
+.post-image img{max-width:100%;max-height:400px;border-radius:8px;border:1px solid var(--line);display:block}
+.msg-image{margin-top:6px}
+.msg-image img{max-width:320px;max-height:280px;border-radius:6px;border:1px solid var(--line);display:block;cursor:pointer}
+.msg-image img:hover{border-color:var(--accent2)}
 
 #feed-list{flex:1;overflow-y:auto;padding:0}
 #feed-list::-webkit-scrollbar{width:4px}
@@ -332,6 +344,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
       <div id="messages" style="display:none"></div>
       <div id="input-bar" style="display:none">
         <textarea id="msg-input" rows="1" placeholder="Type a message…"></textarea>
+        <div id="dm-attach-preview" class="attach-preview" style="display:none">
+          <img id="dm-attach-thumb" src="" alt=""/>
+          <button class="attach-remove" onclick="clearDmImage()" title="Remove image">✕</button>
+        </div>
+        <button class="attach-btn" id="dm-attach-btn" onclick="document.getElementById('dm-image-file').click()" title="Attach image">🖼</button>
+        <input type="file" id="dm-image-file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
         <button class="send-btn" onclick="sendMessage()" title="Send (Ctrl+Enter)">➤</button>
       </div>
     </div>
@@ -343,8 +361,16 @@ html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);fo
         <span class="feed-hint">Posts propagate for 24h</span>
       </div>
       <div id="post-compose">
-        <textarea id="post-input" rows="1" placeholder="Share something with the network…"></textarea>
-        <button class="post-btn" onclick="submitPost()">Post</button>
+        <div class="post-compose-row">
+          <textarea id="post-input" rows="1" placeholder="Share something with the network…"></textarea>
+          <div id="post-attach-preview" class="attach-preview" style="display:none">
+            <img id="post-attach-thumb" src="" alt=""/>
+            <button class="attach-remove" onclick="clearPostImage()" title="Remove image">✕</button>
+          </div>
+          <button class="attach-btn" id="post-attach-btn" onclick="document.getElementById('post-image-file').click()" title="Attach image">🖼</button>
+          <input type="file" id="post-image-file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
+          <button class="post-btn" onclick="submitPost()">Post</button>
+        </div>
       </div>
       <div id="feed-list"><div class="feed-empty">No posts yet.<br/>Be the first to post!</div></div>
     </div>
@@ -420,6 +446,9 @@ let activeTab = 'peers'; // 'peers' | 'feed'
 let peerAvatars = {};
 // Pending avatar in the avatar-picker modal (not yet saved)
 let pendingAvatarDataUrl = null;
+// Pending images for post and DM composers
+let pendingPostImage = null;
+let pendingDmImage = null;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
@@ -518,6 +547,7 @@ function handleDaemonEvent(ev) {
           sender_username: d.sender_username,
           sender_avatar: d.sender_avatar,
           content: d.content,
+          image: d.image || null,
           timestamp: d.timestamp,
           like_count: d.like_count || 0,
           is_own: d.sender_pubkey === myIdentity?.pubkey,
@@ -528,7 +558,7 @@ function handleDaemonEvent(ev) {
         if (!post.is_own) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
       } else {
         // DM
-        const msg = { kind:'dm', own:false, sender_pubkey:d.sender_pubkey, sender_fingerprint:d.sender_fingerprint, sender_username:d.sender_username, content:d.content, timestamp:d.timestamp||new Date().toISOString() };
+        const msg = { kind:'dm', own:false, sender_pubkey:d.sender_pubkey, sender_fingerprint:d.sender_fingerprint, sender_username:d.sender_username, content:d.content, image:d.image||null, timestamp:d.timestamp||new Date().toISOString() };
         messages.push(msg);
         if (activePeer === d.sender_pubkey) appendMessage(msg);
         else toast(`💬 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
@@ -645,6 +675,7 @@ function renderFeed() {
       if (p.sender_pubkey && p.sender_avatar) peerAvatars[p.sender_pubkey] = p.sender_avatar;
       let timeStr = '';
       try { timeStr = formatTime(p.timestamp); } catch {}
+      const imageHtml = p.image ? `<div class="post-image"><img src="${escHtml(p.image)}" alt="attached image" onclick="openImageViewer(this.src)"/></div>` : '';
       return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
         <div class="post-header">
           <div class="post-avatar${isOwn ? ' own' : ''}">${avatarContent(p.sender_pubkey, name)}</div>
@@ -654,7 +685,8 @@ function renderFeed() {
           </div>
           <div class="post-time">${escHtml(timeStr)}</div>
         </div>
-        <div class="post-content">${escHtml(content)}</div>
+        ${content ? `<div class="post-content">${escHtml(content)}</div>` : ''}
+        ${imageHtml}
         <div class="post-footer">
           <button class="like-btn${liked ? ' liked' : ''}" onclick="likePost('${escHtml(postId)}')" title="Like">
             <span class="heart">❤</span> <span class="like-count">${likeCount}</span>
@@ -722,6 +754,7 @@ function appendMessage(m, scroll = true) {
   const pubkey = m.own ? myIdentity?.pubkey : m.sender_pubkey;
   const el = document.createElement('div');
   el.className = 'msg' + (m.own ? ' own' : '');
+  const msgImageHtml = m.image ? `<div class="msg-image"><img src="${escHtml(m.image)}" alt="image" onclick="openImageViewer(this.src)"/></div>` : '';
   el.innerHTML = `
     <div class="msg-avatar ${m.own ? 'self-av' : 'peer-av'}">${avatarContent(pubkey, name)}</div>
     <div class="msg-body">
@@ -730,7 +763,7 @@ function appendMessage(m, scroll = true) {
         <span class="msg-author-fp">${escHtml(m.own ? (myIdentity?.fingerprint||'') : m.sender_fingerprint)}</span>
         <span class="msg-time">${formatTime(m.timestamp)}</span>
       </div>
-      <div class="msg-bubble">${escHtml(m.content)}</div>
+      <div class="msg-bubble">${m.content ? escHtml(m.content) : ''}${msgImageHtml}</div>
     </div>`;
   container.appendChild(el);
   if (scroll) container.scrollTop = container.scrollHeight;
@@ -739,6 +772,7 @@ function appendMessage(m, scroll = true) {
 // ── Actions ────────────────────────────────────────────────────────────────────
 function selectPeer(pubkey, event) {
   activePeer = pubkey;
+  clearDmImage();
   const peer = peers.find(p => p.pubkey === pubkey);
   if (!peer) return;
   document.querySelectorAll('.peer-item').forEach(el => el.classList.remove('active'));
@@ -780,6 +814,7 @@ async function loadDmHistory(pubkey) {
       sender_fingerprint: r.peer_fingerprint || '',
       sender_username: r.peer_username || undefined,
       content: String(r.content || ''),
+      image: r.image || null,
       timestamp: r.timestamp || new Date().toISOString(),
     };
     // Avoid duplicating a message that already exists in the live array.
@@ -795,14 +830,18 @@ async function sendMessage() {
   if (!activePeer) return;
   const input = document.getElementById('msg-input');
   const content = input.value.trim();
-  if (!content) return;
+  const image = pendingDmImage;
+  if (!content && !image) return;
   input.value = '';
   input.style.height = '';
+  clearDmImage();
 
-  const resp = await window.agora?.request('send_dm', { recipient: activePeer, content });
+  const params = { recipient: activePeer, content };
+  if (image) params.image = image;
+  const resp = await window.agora?.request('send_dm', params);
   if (resp?.error) { toast('Send failed: ' + resp.error, 'error'); return; }
 
-  const msg = { kind:'dm', own:true, recipient:activePeer, sender_pubkey:myIdentity?.pubkey||'', sender_fingerprint:myIdentity?.fingerprint||'', sender_username:myIdentity?.username, content, timestamp:new Date().toISOString() };
+  const msg = { kind:'dm', own:true, recipient:activePeer, sender_pubkey:myIdentity?.pubkey||'', sender_fingerprint:myIdentity?.fingerprint||'', sender_username:myIdentity?.username, content, image: image || undefined, timestamp:new Date().toISOString() };
   messages.push(msg);
   appendMessage(msg);
 }
@@ -810,11 +849,15 @@ async function sendMessage() {
 async function submitPost() {
   const input = document.getElementById('post-input');
   const content = input.value.trim();
-  if (!content) return;
+  if (!content && !pendingPostImage) return;
   input.value = '';
   input.style.height = '';
+  const image = pendingPostImage;
+  clearPostImage();
 
-  const resp = await window.agora?.request('broadcast', { content });
+  const params = { content };
+  if (image) params.image = image;
+  const resp = await window.agora?.request('broadcast', params);
   if (resp?.error) { toast('Post failed: ' + resp.error, 'error'); return; }
   toast('Posted! Propagating for 24h…', 'success');
   await refreshPosts();
@@ -894,6 +937,65 @@ async function saveAvatar() {
   }
   renderIdentityAvatar();
   toast('Profile picture updated', 'success');
+}
+
+// ── Image attachment helpers ───────────────────────────────────────────────────
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function processImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      reject(new Error('Image must be JPEG, PNG, or WebP'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not load image'));
+      img.onload = () => {
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const outType = file.type === 'image/png' ? 'image/png'
+                      : file.type === 'image/webp' ? 'image/webp'
+                      : 'image/jpeg';
+        resolve(canvas.toDataURL(outType, 0.82));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function clearPostImage() {
+  pendingPostImage = null;
+  document.getElementById('post-attach-preview').style.display = 'none';
+  document.getElementById('post-attach-thumb').src = '';
+  document.getElementById('post-attach-btn').classList.remove('has-image');
+}
+
+function clearDmImage() {
+  pendingDmImage = null;
+  document.getElementById('dm-attach-preview').style.display = 'none';
+  document.getElementById('dm-attach-thumb').src = '';
+  document.getElementById('dm-attach-btn').classList.remove('has-image');
+}
+
+function openImageViewer(src) {
+  const backdrop = document.createElement('div');
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  const img = document.createElement('img');
+  img.src = src;
+  img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 4px 32px rgba(0,0,0,.7)';
+  backdrop.appendChild(img);
+  backdrop.onclick = () => document.body.removeChild(backdrop);
+  document.body.appendChild(backdrop);
 }
 
 async function createIdentity() {
@@ -1049,6 +1151,32 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('connect-input')?.addEventListener('keydown', e => {
     if (e.key==='Enter') dialPeer();
   });
+  // Post image file picker
+  document.getElementById('post-image-file')?.addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      pendingPostImage = await processImageFile(file);
+      document.getElementById('post-attach-thumb').src = pendingPostImage;
+      document.getElementById('post-attach-preview').style.display = 'inline-flex';
+      document.getElementById('post-attach-btn').classList.add('has-image');
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  // DM image file picker
+  document.getElementById('dm-image-file')?.addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      pendingDmImage = await processImageFile(file);
+      document.getElementById('dm-attach-thumb').src = pendingDmImage;
+      document.getElementById('dm-attach-preview').style.display = 'inline-flex';
+      document.getElementById('dm-attach-btn').classList.add('has-image');
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
   // Avatar file picker: validate type, resize to 128×128, re-encode as JPEG/PNG/WebP
   const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   document.getElementById('avatar-file')?.addEventListener('change', e => {
