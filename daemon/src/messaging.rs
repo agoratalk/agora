@@ -7,11 +7,9 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use chrono::Utc;
 use ed25519_dalek::{Signature, Signer, Verifier};
 use serde_json::json;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
-use x25519_dalek::PublicKey as X25519Public;
-
 use crate::{
     dht::Dht,
     identity::{verifying_key_from_b64, Identity},
@@ -75,7 +73,9 @@ impl Messenger {
 
     pub async fn send_direct(&self, recipient: &str, content: &str, image: Option<&str>) -> Result<()> {
         let peer = self.resolve_peer(recipient).await?;
-        let their_x25519 = x25519_pubkey_for_peer(&peer.pubkey)?;
+        let their_x25519 = peer.x25519_pubkey.as_deref()
+            .ok_or_else(|| P2pError::PeerNotFound(format!("no x25519 key for '{}' — connect to them first", recipient)))
+            .and_then(crate::identity::x25519_public_from_b64)?;
         let shared_secret = { self.identity.read().await.x25519_secret.diffie_hellman(&their_x25519) };
         let message_id = Uuid::new_v4().to_string();
         let aes_key = hkdf_derive(shared_secret.as_bytes(), HKDF_SALT, message_id.as_bytes());
@@ -295,7 +295,11 @@ impl Messenger {
         vk.verify(format!("{}{}{}", dm.message_id, dm.nonce, dm.ciphertext).as_bytes(),
             &Signature::from_bytes(&sig_arr)).map_err(|_| P2pError::InvalidSignature)?;
 
-        let their_x25519 = x25519_pubkey_for_peer(&dm.sender_pubkey)?;
+        let sender_peer = self.dht.get(&dm.sender_pubkey).await;
+        let their_x25519 = sender_peer.as_ref()
+            .and_then(|p| p.x25519_pubkey.as_deref())
+            .ok_or_else(|| P2pError::Crypto("no x25519 key for sender".into()))
+            .and_then(crate::identity::x25519_public_from_b64)?;
         let shared_secret = { self.identity.read().await.x25519_secret.diffie_hellman(&their_x25519) };
         let aes_key = hkdf_derive(shared_secret.as_bytes(), HKDF_SALT, dm.message_id.as_bytes());
         let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&aes_key));
@@ -367,14 +371,6 @@ fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; 32] {
     let inner_hash = { use sha2::digest::FixedOutput; inner.finalize_fixed() };
     let mut outer = Sha256::new(); outer.update(&opad); outer.update(inner_hash);
     use sha2::digest::FixedOutput; outer.finalize_fixed().into()
-}
-
-fn x25519_pubkey_for_peer(ed25519_pubkey_b64: &str) -> Result<X25519Public> {
-    use x25519_dalek::StaticSecret;
-    let ed_bytes = B64.decode(ed25519_pubkey_b64).map_err(|_| P2pError::Crypto("bad pubkey base64".into()))?;
-    let mut hasher = Sha256::new(); hasher.update(b"agora-x25519-derive-v1"); hasher.update(&ed_bytes);
-    let secret_bytes: [u8; 32] = { use sha2::Digest; hasher.finalize().into() };
-    Ok(X25519Public::from(&StaticSecret::from(secret_bytes)))
 }
 
 fn sender_fingerprint(pubkey_b64: &str) -> String {

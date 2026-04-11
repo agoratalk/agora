@@ -21,6 +21,9 @@ pub struct Peer {
     /// Base64-encoded avatar image data URL (e.g. "data:image/jpeg;base64,...")
     #[serde(default)]
     pub avatar: Option<String>,
+    /// X25519 public key announced by this peer during handshake, used for DM encryption.
+    #[serde(default)]
+    pub x25519_pubkey: Option<PubKeyB64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

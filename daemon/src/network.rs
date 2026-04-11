@@ -126,6 +126,20 @@ impl Network {
         write_frame(&mut stream, &WireMessage::Hello(hello)).await?;
         write_frame(&mut stream, &msg).await?;
         stream.flush().await?;
+        // Read and process the server's Hello before closing. The server always
+        // writes its Hello first in handle_connection. If we drop the stream
+        // with unread data still in our receive buffer, the OS sends a TCP RST
+        // instead of a graceful FIN. The server receives that RST and tears
+        // down the connection before it has a chance to read our message —
+        // causing intermittent DM and broadcast delivery failures. Processing
+        // the Hello also lets us pick up gossip and keeps the peer fresh in the
+        // DHT so it isn't evicted before the next discovery cycle.
+        if let Ok(Ok(WireMessage::Hello(their_hello))) =
+            time::timeout(HANDSHAKE_TIMEOUT, read_frame(&mut stream)).await
+        {
+            let sock_addr = SocketAddr::new(peer.addr.ip(), DEFAULT_PORT);
+            let _ = self.process_hello(&their_hello, sock_addr).await;
+        }
         Ok(())
     }
 
@@ -231,7 +245,7 @@ impl Network {
         tracing::info!("network: handshake OK with {} @ {}", &hello.sender_pubkey[..8], peer_addr);
 
         let listen_addr = SocketAddr::new(peer_addr.ip(), DEFAULT_PORT);
-        self.dht.upsert(listen_addr, hello.sender_pubkey.clone(), crate::types::DiscoveryMethod::Gossip, hello.username.clone(), hello.avatar.clone()).await;
+        self.dht.upsert(listen_addr, hello.sender_pubkey.clone(), crate::types::DiscoveryMethod::Gossip, hello.username.clone(), hello.avatar.clone(), Some(hello.sender_x25519_pubkey.clone())).await;
         self.dht.merge_gossip(hello.known_peers.clone()).await;
 
         // Dispatch any gossiped posts through the message handler so the post

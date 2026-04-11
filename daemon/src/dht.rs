@@ -51,8 +51,8 @@ impl Dht {
         dht
     }
 
-    /// Upsert a peer. Username and avatar are updated if provided.
-    pub async fn upsert(&self, addr: SocketAddr, pubkey: PubKeyB64, method: DiscoveryMethod, username: Option<String>, avatar: Option<String>) {
+    /// Upsert a peer. Username, avatar, and x25519_pubkey are updated if provided.
+    pub async fn upsert(&self, addr: SocketAddr, pubkey: PubKeyB64, method: DiscoveryMethod, username: Option<String>, avatar: Option<String>, x25519_pubkey: Option<String>) {
         let mut inner = self.inner.write().await;
         if pubkey == inner.own_pubkey { return; }
 
@@ -73,6 +73,7 @@ impl Dht {
                 discovery: method.clone(),
                 username: username.clone(),
                 avatar: avatar.clone(),
+                x25519_pubkey: x25519_pubkey.clone(),
             }
         });
 
@@ -80,6 +81,7 @@ impl Dht {
         peer.last_seen = Utc::now();
         if let Some(u) = username { peer.username = Some(u); }
         if let Some(a) = avatar { peer.avatar = Some(a); }
+        if let Some(x) = x25519_pubkey { peer.x25519_pubkey = Some(x); }
         if matches!(method, DiscoveryMethod::Mdns) { peer.discovery = DiscoveryMethod::Mdns; }
         let snapshot: Vec<Peer> = inner.peers.values().cloned().collect();
         let path = self.path.clone();
@@ -111,6 +113,10 @@ impl Dht {
                     // Always update avatar if gossip carries one
                     if foreign.avatar.is_some() {
                         o.get_mut().avatar = foreign.avatar;
+                    }
+                    // Always update x25519_pubkey if gossip carries one
+                    if foreign.x25519_pubkey.is_some() {
+                        o.get_mut().x25519_pubkey = foreign.x25519_pubkey;
                     }
                 }
             }
