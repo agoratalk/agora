@@ -14,6 +14,7 @@
 //!   create_identity        → params: { account_name, username? }
 //!   delete_identity        → params: { account_name }
 //!   set_avatar             → params: { avatar }  (base64 data URL, or null to clear)
+//!   set_bio                → params: { bio }  (string ≤500 chars, or null to clear)
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -121,6 +122,7 @@ impl IpcServer {
                     "username": identity.username,
                     "account_name": identity.account_name,
                     "avatar": identity.avatar,
+                    "bio": identity.bio,
                 })), error: None }
             }
             "peers" => {
@@ -269,6 +271,25 @@ impl IpcServer {
                 self.broadcaster.send(IpcEvent { event: "avatar_changed".into(), data: json!({ "avatar": avatar }) });
                 IpcResponse { id, result: Some(json!({"ok": true})), error: None }
             }
+            "set_bio" => {
+                let bio = match req.params.get("bio") {
+                    Some(v) if v.is_string() => v.as_str().map(|s| {
+                        // Server-side truncate to 500 chars for safety
+                        let s = s.trim();
+                        if s.chars().count() > 500 { s.chars().take(500).collect() } else { s.to_string() }
+                    }),
+                    _ => None,
+                };
+                {
+                    let mut identity = self.identity.write().await;
+                    identity.bio = bio.clone();
+                    if let Err(e) = identity.save_to_file() {
+                        return IpcResponse { id, result: None, error: Some(e.to_string()) };
+                    }
+                }
+                self.broadcaster.send(IpcEvent { event: "bio_changed".into(), data: json!({ "bio": bio }) });
+                IpcResponse { id, result: Some(json!({"ok": true})), error: None }
+            }
             "connect" => {
                 let addr_str = req.params.get("addr").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 use std::net::ToSocketAddrs;
@@ -310,6 +331,7 @@ impl IpcServer {
                             pubkey: new_id.pubkey_b64(),
                             is_active: false,
                             avatar: new_id.avatar.clone(),
+                            bio: new_id.bio.clone(),
                         };
                         IpcResponse { id, result: Some(serde_json::to_value(&summary).unwrap_or_default()), error: None }
                     }

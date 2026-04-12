@@ -25,6 +25,9 @@ struct IdentityFile {
     /// Base64-encoded avatar image data URL
     #[serde(default)]
     pub avatar: Option<String>,
+    /// Short bio/description (max 500 chars, enforced by client).
+    #[serde(default)]
+    pub bio: Option<String>,
 }
 
 pub struct Identity {
@@ -36,6 +39,8 @@ pub struct Identity {
     pub account_name: String,
     /// Base64-encoded avatar image data URL (e.g. "data:image/jpeg;base64,...")
     pub avatar: Option<String>,
+    /// Short bio/description (max 500 chars).
+    pub bio: Option<String>,
     path: PathBuf,
 }
 
@@ -47,6 +52,7 @@ pub struct IdentitySummary {
     pub pubkey: String,
     pub is_active: bool,
     pub avatar: Option<String>,
+    pub bio: Option<String>,
 }
 
 impl Identity {
@@ -102,6 +108,7 @@ impl Identity {
                     pubkey: id.pubkey_b64(),
                     is_active: id.account_name == active,
                     avatar: id.avatar.clone(),
+                    bio: id.bio.clone(),
                 });
             }
         }
@@ -126,7 +133,7 @@ impl Identity {
         let verifying_key = signing_key.verifying_key();
         let x25519_secret = derive_x25519_secret(signing_key.as_bytes());
         let x25519_public = X25519Public::from(&x25519_secret);
-        Self { signing_key, verifying_key, x25519_secret, x25519_public, username: None, avatar: None, account_name, path }
+        Self { signing_key, verifying_key, x25519_secret, x25519_public, username: None, avatar: None, bio: None, account_name, path }
     }
 
     pub fn load_from_file(path: &Path) -> Result<Self> {
@@ -155,7 +162,7 @@ impl Identity {
             file.account_name
         };
 
-        Ok(Self { signing_key, verifying_key, x25519_secret, x25519_public, username: file.username, avatar: file.avatar, account_name, path: path.to_path_buf() })
+        Ok(Self { signing_key, verifying_key, x25519_secret, x25519_public, username: file.username, avatar: file.avatar, bio: file.bio, account_name, path: path.to_path_buf() })
     }
 
     pub fn save_to_file(&self) -> Result<()> {
@@ -170,6 +177,7 @@ impl Identity {
             username: self.username.clone(),
             account_name: self.account_name.clone(),
             avatar: self.avatar.clone(),
+            bio: self.bio.clone(),
         };
         let json = serde_json::to_string_pretty(&file)
             .map_err(|e| P2pError::Identity(format!("cannot serialise identity: {e}")))?;

@@ -381,6 +381,24 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .ob-check{width:18px;height:18px;border-radius:4px;border:1px solid var(--line);background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .15s;flex-shrink:0}
 .ob-check.on{border-color:var(--accent);background:rgba(79,214,190,.15);color:var(--accent)}
 
+/* ── Profile modal ── */
+.profile-modal{width:400px;max-width:96vw}
+.profile-avatar-lg{width:80px;height:80px;border-radius:50%;background:var(--bg3);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:28px;font-weight:600;color:var(--accent);overflow:hidden;flex-shrink:0}
+.profile-avatar-lg img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.profile-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:18px}
+.profile-header-info{flex:1;min-width:0}
+.profile-name{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px;word-break:break-word}
+.profile-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-bottom:4px;word-break:break-all}
+.profile-own-badge{font-family:var(--mono);font-size:8px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;background:rgba(79,214,190,.1);border:1px solid rgba(79,214,190,.25);border-radius:3px;padding:1px 6px}
+.profile-bio-view{font-family:var(--mono);font-size:11px;color:var(--text-dim);line-height:1.6;background:var(--bg3);border-radius:6px;padding:10px 12px;min-height:44px;white-space:pre-wrap;word-break:break-word}
+.profile-bio-empty{color:var(--text-muted);font-style:italic}
+.profile-bio-edit{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;padding:10px 12px;resize:vertical;min-height:80px;max-height:160px;outline:none;line-height:1.6;transition:border-color .15s}
+.profile-bio-edit:focus{border-color:var(--accent)}
+.profile-bio-counter{font-family:var(--mono);font-size:9px;color:var(--text-muted);text-align:right;margin-top:3px}
+.profile-bio-counter.over{color:var(--danger)}
+.profile-section-label{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+.profile-link{cursor:pointer;transition:color .15s}
+.profile-link:hover{color:var(--accent)}
 /* ── Blocklist sharing ── */
 .btn-publish-blocklist{margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--bg3);border:1px solid var(--accent2);border-radius:4px;padding:5px 12px;cursor:pointer;transition:all .15s;width:100%}
 .btn-publish-blocklist:hover{background:var(--accent2);color:var(--bg0)}
@@ -396,6 +414,27 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .btn-subscribe-blocklist:hover{background:var(--accent);color:var(--bg0)}
 .btn-subscribe-blocklist.subscribed{border-color:var(--green);color:var(--green)}
 .btn-subscribe-blocklist.subscribed:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+/* ── Blocklists accordion modal ── */
+.modal-wide{width:520px;max-width:96vw}
+.bl-section{background:var(--bg2);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.bl-section-header{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.bl-section-name{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);flex:1}
+.bl-section-count{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-right:4px}
+.bl-section-actions{display:flex;gap:5px;flex-shrink:0}
+.bl-section-body{padding:8px 14px;max-height:180px;overflow-y:auto}
+.bl-user-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.bl-user-row:last-child{border-bottom:none}
+.bl-user-info{flex:1;min-width:0}
+.bl-user-name{font-family:var(--mono);font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bl-user-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+.bl-empty{font-family:var(--mono);font-size:10px;color:var(--text-muted);padding:6px 0}
+.bl-create-row{display:flex;gap:8px;margin-top:8px}
+/* ── Block picker modal ── */
+.block-picker-list{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+.block-picker-btn{font-family:var(--mono);font-size:11px;padding:8px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--bg3);color:var(--text);text-align:left;transition:all .15s}
+.block-picker-btn:hover{background:var(--accent);border-color:var(--accent);color:var(--bg0)}
+.block-picker-new{border-style:dashed;color:var(--text-muted)}
+.block-picker-new:hover{background:var(--bg2);color:var(--accent);border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -473,7 +512,10 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
         </div>
       </div>
       <div class="identity-fp" id="my-fp">—</div>
-      <button class="switch-accounts-btn" onclick="showView('identities')">⇄ Switch Account</button>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="switch-accounts-btn" style="flex:1" onclick="showView('identities')">⇄ Switch Account</button>
+        <button class="switch-accounts-btn" style="flex:1" onclick="openProfile(myIdentity?.pubkey)" title="Edit your profile & bio">✎ Profile</button>
+      </div>
     </div>
 
     <!-- Nav tabs -->
@@ -609,14 +651,52 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
   </div>
 </div>
 
-<!-- Blocked users modal -->
+<!-- Blocklists modal -->
 <div class="modal-backdrop" id="blocked-modal">
-  <div class="modal">
-    <h3>Blocked Users</h3>
-    <div id="blocked-list"><div id="blocked-empty">No blocked users</div></div>
-    <button class="btn-publish-blocklist" onclick="publishBlocklist()" title="Broadcast your blocklist so others can import it">📢 Publish Blocklist to Network</button>
+  <div class="modal modal-wide">
+    <h3>My Blocklists</h3>
+    <div id="blocklists-container" style="max-height:420px;overflow-y:auto"><div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">No blocklists yet.</div></div>
     <div class="btn-row" style="margin-top:12px">
+      <button class="btn-sm accent" onclick="createNewBlocklist()">+ New List</button>
       <button class="btn-cancel" onclick="closeModal('blocked-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Block picker modal -->
+<div class="modal-backdrop" id="block-picker-modal">
+  <div class="modal">
+    <h3>Block User</h3>
+    <p id="block-picker-name" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-bottom:12px"></p>
+    <div class="block-picker-list" id="block-picker-lists"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn-cancel" onclick="closeModal('block-picker-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Profile modal -->
+<div class="modal-backdrop" id="profile-modal">
+  <div class="modal profile-modal">
+    <div class="profile-header">
+      <div class="profile-avatar-lg" id="profile-modal-avatar"></div>
+      <div class="profile-header-info">
+        <div class="profile-name" id="profile-modal-name"></div>
+        <div class="profile-fp" id="profile-modal-fp"></div>
+        <span class="profile-own-badge" id="profile-modal-own-badge" style="display:none">your profile</span>
+      </div>
+    </div>
+    <div class="profile-section-label">Bio</div>
+    <!-- Read-only bio (shown for other users) -->
+    <div id="profile-bio-view" class="profile-bio-view" style="display:none"></div>
+    <!-- Editable bio (shown for own profile) -->
+    <div id="profile-bio-edit-wrap" style="display:none">
+      <textarea class="profile-bio-edit" id="profile-bio-textarea" maxlength="500" placeholder="Write a short bio…" oninput="onBioInput()"></textarea>
+      <div class="profile-bio-counter" id="profile-bio-counter">0 / 500</div>
+    </div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn-cancel" onclick="closeModal('profile-modal')">Close</button>
+      <button class="btn-ok" id="profile-save-btn" style="display:none" onclick="saveBio()">Save Bio</button>
     </div>
   </div>
 </div>
@@ -757,9 +837,9 @@ let myIdentity = null;
 let peers = [];
 let posts = [];         // { post_id, sender_pubkey, sender_fingerprint, content, timestamp, like_count, is_own }
 let likedPostIds = new Set(); // post_ids we've liked this session
-let blockedPubkeys = new Set(); // pubkeys the local user has blocked
+let blocklists = {}; // { [id]: { name, pubkeys: Set<string>, owned: boolean } }
 let blockedByPubkeys = new Set(); // pubkeys of users who have blocked us
-let subscribedToBlocklists = new Set(); // pubkeys whose blocklists we auto-import
+let subscribedToBlocklists = new Set(); // "pubkey::listname" keys
 let activePeer = null;
 let messages = [];
 let notifications = [];
@@ -768,6 +848,8 @@ let activeView = 'chat'; // 'chat' | 'feed' | 'identities'
 let activeTab = 'peers'; // 'peers' | 'feed'
 // Map of pubkey → avatar data URL (populated from peers list + own identity)
 let peerAvatars = {};
+// Map of pubkey → bio string (populated from peers list + own identity)
+let peerBios = {};
 // Pending avatar in the avatar-picker modal (not yet saved)
 let pendingAvatarDataUrl = null;
 // Pending images for post and DM composers
@@ -780,7 +862,7 @@ let embedUserCleared = false;
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
-  loadBlockList();
+  loadBlocklists();
   loadBlockedByList();
   loadSubscriptions();
   if (!window.agora) {
@@ -805,21 +887,91 @@ async function init() {
       });
     }
   }
-  // Re-broadcast our blocklist every 30 minutes so subscribers receive fresh updates
-  setInterval(() => { if (blockedPubkeys.size > 0) publishBlocklist(true); }, 30 * 60 * 1000);
+  // Re-broadcast all owned blocklists every 30 minutes so subscribers receive fresh updates
+  setInterval(() => {
+    for (const [id, list] of Object.entries(blocklists)) {
+      if (list.owned && list.pubkeys.size > 0) publishBlocklist(id, true);
+    }
+  }, 30 * 60 * 1000);
+}
+
+// ── Blocklist helpers ──────────────────────────────────────────────────────────
+const DEFAULT_LIST_NAME = 'Default';
+
+function isBlocked(pk) {
+  if (!pk) return false;
+  for (const list of Object.values(blocklists)) {
+    if (list.owned && list.pubkeys.has(pk)) return true;
+  }
+  return false;
+}
+
+function allBlockedPubkeys() {
+  const all = new Set();
+  for (const list of Object.values(blocklists)) {
+    if (list.owned) for (const pk of list.pubkeys) all.add(pk);
+  }
+  return all;
+}
+
+function newListId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function subKey(pubkey, listName) {
+  return pubkey + '::' + (listName || DEFAULT_LIST_NAME);
+}
+
+function getOrCreateOwnedList(name) {
+  for (const [id, list] of Object.entries(blocklists)) {
+    if (list.owned && list.name === name) return id;
+  }
+  const id = newListId();
+  blocklists[id] = { name, pubkeys: new Set(), owned: true };
+  return id;
+}
+
+function getDefaultOwnedListId() {
+  for (const [id, list] of Object.entries(blocklists)) {
+    if (list.owned) return id;
+  }
+  return getOrCreateOwnedList(DEFAULT_LIST_NAME);
 }
 
 // ── Block list persistence ─────────────────────────────────────────────────────
-function loadBlockList() {
+function loadBlocklists() {
   try {
-    const saved = localStorage.getItem('agora_blocked');
-    if (saved) blockedPubkeys = new Set(JSON.parse(saved));
+    const newData = localStorage.getItem('agora_blocklists');
+    if (newData) {
+      const parsed = JSON.parse(newData);
+      blocklists = {};
+      for (const [id, list] of Object.entries(parsed)) {
+        blocklists[id] = { name: list.name, pubkeys: new Set(list.pubkeys || []), owned: !!list.owned };
+      }
+    } else {
+      // Migrate from old single-list format
+      const oldBlocked = localStorage.getItem('agora_blocked');
+      if (oldBlocked) {
+        const oldPubkeys = JSON.parse(oldBlocked);
+        if (oldPubkeys.length > 0) {
+          const id = newListId();
+          blocklists[id] = { name: DEFAULT_LIST_NAME, pubkeys: new Set(oldPubkeys), owned: true };
+          saveBlocklists();
+        }
+      }
+    }
   } catch {}
   updateBlockedIndicator();
 }
 
-function saveBlockList() {
-  try { localStorage.setItem('agora_blocked', JSON.stringify([...blockedPubkeys])); } catch {}
+function saveBlocklists() {
+  try {
+    const serializable = {};
+    for (const [id, list] of Object.entries(blocklists)) {
+      serializable[id] = { name: list.name, pubkeys: [...list.pubkeys], owned: list.owned };
+    }
+    localStorage.setItem('agora_blocklists', JSON.stringify(serializable));
+  } catch {}
   updateBlockedIndicator();
 }
 
@@ -839,7 +991,13 @@ function saveBlockedByList() {
 function loadSubscriptions() {
   try {
     const saved = localStorage.getItem('agora_blocklist_subs');
-    if (saved) subscribedToBlocklists = new Set(JSON.parse(saved));
+    if (saved) {
+      const arr = JSON.parse(saved);
+      // Migrate old pubkey-only entries to "pubkey::listname" format
+      subscribedToBlocklists = new Set(arr.map(item =>
+        item.includes('::') ? item : subKey(item, DEFAULT_LIST_NAME)
+      ));
+    }
   } catch {}
 }
 
@@ -848,20 +1006,22 @@ function saveSubscriptions() {
 }
 
 // Core import logic shared by manual import, subscribe, and auto-update.
-// Sends block signals and adds pubkeys; returns count added.
-function importBlocklistPubkeys(pubkeys, silent = false) {
+// Adds pubkeys to a specific owned list; returns count added.
+function importBlocklistPubkeys(pubkeys, listId, silent = false) {
+  if (!blocklists[listId] || !blocklists[listId].owned) listId = getDefaultOwnedListId();
+  const list = blocklists[listId];
   let added = 0;
   for (const pk of pubkeys) {
-    if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !blockedPubkeys.has(pk)) {
+    if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !list.pubkeys.has(pk)) {
       if (window.agora?.request) {
         window.agora.request('send_dm', { recipient: pk, content: BLOCK_SIGNAL }).catch(() => {});
       }
-      blockedPubkeys.add(pk);
+      list.pubkeys.add(pk);
       added++;
     }
   }
   if (added > 0) {
-    saveBlockList();
+    saveBlocklists();
     renderPeerList();
     renderFeed();
     if (!silent) toast(`Imported ${added} blocked user(s)`, 'success');
@@ -869,42 +1029,47 @@ function importBlocklistPubkeys(pubkeys, silent = false) {
   return added;
 }
 
-function subscribeToBlocklist(senderPubkey) {
-  subscribedToBlocklists.add(senderPubkey);
+function subscribeToBlocklist(senderPubkey, listName = DEFAULT_LIST_NAME) {
+  const key = subKey(senderPubkey, listName);
+  subscribedToBlocklists.add(key);
   saveSubscriptions();
-  // Immediately import the most recent blocklist post from this peer that we already have
+  // Immediately import the most recent matching blocklist post from this peer
   const latest = posts
     .filter(p => p.sender_pubkey === senderPubkey)
     .map(p => ({ p, bl: parseBlocklistPost(p.content) }))
-    .filter(x => x.bl)
+    .filter(x => x.bl && (x.bl.list_name || DEFAULT_LIST_NAME) === listName)
     .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
-  if (latest) importBlocklistPubkeys(latest.bl.pubkeys, true);
+  if (latest) {
+    const importId = getOrCreateOwnedList('Imported from ' + (latest.p.sender_username || senderPubkey.slice(0, 8)));
+    importBlocklistPubkeys(latest.bl.pubkeys, importId, true);
+  }
   toast('Subscribed — blocklist will auto-update when they re-broadcast', 'success');
   renderFeed();
 }
 
-function unsubscribeFromBlocklist(senderPubkey) {
-  subscribedToBlocklists.delete(senderPubkey);
+function unsubscribeFromBlocklist(senderPubkey, listName = DEFAULT_LIST_NAME) {
+  subscribedToBlocklists.delete(subKey(senderPubkey, listName));
   saveSubscriptions();
   toast('Unsubscribed from blocklist', 'info');
   renderFeed();
 }
 
 function updateBlockedIndicator() {
-  const n = blockedPubkeys.size;
+  const n = allBlockedPubkeys().size;
   const btn = document.getElementById('blocked-indicator');
   const cnt = document.getElementById('blocked-count');
   if (btn) btn.classList.toggle('has-blocked', n > 0);
   if (cnt) cnt.textContent = n;
 }
 
-function blockPeer(pubkey) {
+function blockPeer(pubkey, listId) {
+  if (!listId) listId = getDefaultOwnedListId();
   // Send a silent signal to the blocked peer's client so their UI knows not to contact us
   if (window.agora?.request) {
     window.agora.request('send_dm', { recipient: pubkey, content: BLOCK_SIGNAL }).catch(() => {});
   }
-  blockedPubkeys.add(pubkey);
-  saveBlockList();
+  blocklists[listId].pubkeys.add(pubkey);
+  saveBlocklists();
   // If currently viewing this peer's chat, clear it
   if (activePeer === pubkey) {
     activePeer = null;
@@ -919,25 +1084,64 @@ function blockPeer(pubkey) {
   toast('User blocked', 'success');
 }
 
-function unblockPeer(pubkey) {
-  blockedPubkeys.delete(pubkey);
-  saveBlockList();
+function unblockPeer(pubkey, listId) {
+  if (listId) {
+    blocklists[listId]?.pubkeys.delete(pubkey);
+  } else {
+    for (const list of Object.values(blocklists)) list.pubkeys.delete(pubkey);
+  }
+  saveBlocklists();
   renderPeerList();
   renderFeed();
   renderBlockedModal();
   toast('User unblocked', 'success');
 }
 
+let _blockPickerTarget = null;
+
 function confirmBlockPeer(pubkey) {
+  const ownedLists = Object.entries(blocklists).filter(([, l]) => l.owned);
   const peer = peers.find(p => p.pubkey === pubkey);
   const name = peer?.username || peer?.fingerprint || pubkey.slice(0, 12);
-  if (!confirm(`Block ${name}?\n\nThey will be hidden from your peers list, feed, and DMs.`)) return;
-  blockPeer(pubkey);
+  if (ownedLists.length <= 1) {
+    if (!confirm(`Block ${name}?\n\nThey will be hidden from your peers list, feed, and DMs.`)) return;
+    blockPeer(pubkey, ownedLists[0]?.[0]);
+  } else {
+    showBlockPicker(pubkey);
+  }
+}
+
+function showBlockPicker(pubkey) {
+  _blockPickerTarget = pubkey;
+  const peer = peers.find(p => p.pubkey === pubkey);
+  const name = peer?.username || peer?.fingerprint || pubkey.slice(0, 12);
+  document.getElementById('block-picker-name').textContent = `Block "${name}" — choose a list:`;
+  const listsEl = document.getElementById('block-picker-lists');
+  const ownedLists = Object.entries(blocklists).filter(([, l]) => l.owned);
+  listsEl.innerHTML = ownedLists.map(([id, list]) =>
+    `<button class="block-picker-btn" onclick="performBlock('${escHtml(pubkey)}','${escHtml(id)}')">${escHtml(list.name)} <span style="opacity:.5;font-size:9px">${list.pubkeys.size} users</span></button>`
+  ).join('') +
+  `<button class="block-picker-btn block-picker-new" onclick="blockPickerNewList('${escHtml(pubkey)}')">+ New list…</button>`;
+  document.getElementById('block-picker-modal').classList.add('open');
+}
+
+function performBlock(pubkey, listId) {
+  closeModal('block-picker-modal');
+  blockPeer(pubkey, listId);
+}
+
+function blockPickerNewList(pubkey) {
+  const name = prompt('New blocklist name:');
+  if (!name?.trim()) return;
+  const id = newListId();
+  blocklists[id] = { name: name.trim(), pubkeys: new Set(), owned: true };
+  closeModal('block-picker-modal');
+  blockPeer(pubkey, id);
 }
 
 function toggleBlockActivePeer() {
   if (!activePeer) return;
-  if (blockedPubkeys.has(activePeer)) {
+  if (isBlocked(activePeer)) {
     unblockPeer(activePeer);
     updateChatBlockBtn();
   } else {
@@ -949,10 +1153,32 @@ function toggleBlockActivePeer() {
 function updateChatBlockBtn() {
   const btn = document.getElementById('chat-block-btn');
   if (!btn || !activePeer) return;
-  const isBlocked = blockedPubkeys.has(activePeer);
-  btn.textContent = isBlocked ? 'Unblock' : 'Block';
-  btn.classList.toggle('is-blocked', isBlocked);
-  btn.title = isBlocked ? 'Unblock this user' : 'Block this user';
+  const blocked = isBlocked(activePeer);
+  btn.textContent = blocked ? 'Unblock' : 'Block';
+  btn.classList.toggle('is-blocked', blocked);
+  btn.title = blocked ? 'Unblock this user' : 'Block this user';
+}
+
+function createNewBlocklist() {
+  const name = prompt('New blocklist name:');
+  if (!name?.trim()) return;
+  const id = newListId();
+  blocklists[id] = { name: name.trim(), pubkeys: new Set(), owned: true };
+  saveBlocklists();
+  renderBlockedModal();
+  toast(`Created list "${name.trim()}"`, 'success');
+}
+
+function deleteBlocklist(id) {
+  const list = blocklists[id];
+  if (!list) return;
+  if (!confirm(`Delete blocklist "${list.name}"?\n\nUsers in this list will be unblocked.`)) return;
+  delete blocklists[id];
+  saveBlocklists();
+  renderPeerList();
+  renderFeed();
+  renderBlockedModal();
+  toast('Blocklist deleted', 'info');
 }
 
 function updateInputBarBlockedBy() {
@@ -969,24 +1195,39 @@ function openBlockedModal() {
 }
 
 function renderBlockedModal() {
-  const list = document.getElementById('blocked-list');
-  if (!list) return;
-  if (blockedPubkeys.size === 0) {
-    list.innerHTML = '<div id="blocked-empty">No blocked users</div>';
+  const container = document.getElementById('blocklists-container');
+  if (!container) return;
+  const ownedLists = Object.entries(blocklists).filter(([, l]) => l.owned);
+  if (ownedLists.length === 0) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:8px 0">No blocklists yet. Create one or block a user.</div>';
     return;
   }
-  // Build rows — try to find display info from known peers / posts
-  list.innerHTML = [...blockedPubkeys].map(pk => {
-    const peer = peers.find(p => p.pubkey === pk);
-    const post = posts.find(p => p.sender_pubkey === pk);
-    const name = peer?.username || post?.sender_username || '(unknown)';
-    const fp   = peer?.fingerprint || post?.sender_fingerprint || pk.slice(0, 24) + '…';
-    return `<div class="blocked-user-row">
-      <div class="blocked-user-info">
-        <div class="blocked-user-name">${escHtml(name)}</div>
-        <div class="blocked-user-fp">${escHtml(fp)}</div>
+  container.innerHTML = ownedLists.map(([id, list]) => {
+    const entries = [...list.pubkeys].map(pk => {
+      const peer = peers.find(p => p.pubkey === pk);
+      const post = posts.find(p => p.sender_pubkey === pk);
+      const name = peer?.username || post?.sender_username || '(unknown)';
+      const fp   = peer?.fingerprint || post?.sender_fingerprint || pk.slice(0, 24) + '…';
+      return `<div class="bl-user-row">
+        <div class="bl-user-info">
+          <div class="bl-user-name">${escHtml(name)}</div>
+          <div class="bl-user-fp">${escHtml(fp)}</div>
+        </div>
+        <button class="btn-sm" onclick="unblockPeer('${escHtml(pk)}','${escHtml(id)}')" title="Remove from list">Remove</button>
+      </div>`;
+    }).join('');
+    return `<div class="bl-section">
+      <div class="bl-section-header">
+        <span class="bl-section-name">${escHtml(list.name)}</span>
+        <span class="bl-section-count">${list.pubkeys.size} user${list.pubkeys.size !== 1 ? 's' : ''}</span>
+        <div class="bl-section-actions">
+          <button class="btn-sm" onclick="publishBlocklist('${escHtml(id)}')" title="Publish this list">📢 Publish</button>
+          <button class="btn-danger" onclick="deleteBlocklist('${escHtml(id)}')" title="Delete list">✕</button>
+        </div>
       </div>
-      <button class="btn-sm" onclick="unblockPeer('${escHtml(pk)}')" title="Unblock">Unblock</button>
+      <div class="bl-section-body">
+        ${entries || '<div class="bl-empty">No users in this list</div>'}
+      </div>
     </div>`;
   }).join('');
 }
@@ -994,36 +1235,42 @@ function renderBlockedModal() {
 // ── Blocklist sharing ──────────────────────────────────────────────────────────
 const BLOCKLIST_MAGIC = 'agora:blocklist:v1:';
 
-async function publishBlocklist(silent = false) {
-  if (blockedPubkeys.size === 0) { if (!silent) toast('No blocked users to publish', 'error'); return; }
-  // Build a names map from whatever display info we have locally
+async function publishBlocklist(listId, silent = false) {
+  const list = blocklists[listId];
+  if (!list || !list.owned) { if (!silent) toast('List not found', 'error'); return; }
+  if (list.pubkeys.size === 0) { if (!silent) toast('No blocked users to publish', 'error'); return; }
   const names = {};
-  for (const pk of blockedPubkeys) {
+  for (const pk of list.pubkeys) {
     const peer = peers.find(p => p.pubkey === pk);
     const post = posts.find(p => p.sender_pubkey === pk);
     names[pk] = peer?.username || post?.sender_username || peer?.fingerprint || post?.sender_fingerprint || '';
   }
-  const payload = JSON.stringify({ pubkeys: [...blockedPubkeys], names });
+  const payload = JSON.stringify({ list_name: list.name, pubkeys: [...list.pubkeys], names });
   const content = BLOCKLIST_MAGIC + payload;
   const resp = await window.agora?.request('broadcast', { content });
   if (resp?.error) { if (!silent) toast('Failed to publish: ' + resp.error, 'error'); return; }
   if (!silent) {
     closeModal('blocked-modal');
-    toast('Blocklist published to the network', 'success');
+    toast(`Blocklist "${list.name}" published to the network`, 'success');
     await refreshPosts();
   }
 }
 
 function parseBlocklistPost(content) {
   if (!content.startsWith(BLOCKLIST_MAGIC)) return null;
-  try { return JSON.parse(content.slice(BLOCKLIST_MAGIC.length)); } catch { return null; }
+  try {
+    const parsed = JSON.parse(content.slice(BLOCKLIST_MAGIC.length));
+    if (!parsed.list_name) parsed.list_name = DEFAULT_LIST_NAME;
+    return parsed;
+  } catch { return null; }
 }
 
-function importBlocklist(pubkeysJson) {
+function importBlocklist(pubkeysJson, listName) {
   let pubkeys;
   try { pubkeys = JSON.parse(pubkeysJson); } catch { toast('Invalid blocklist data', 'error'); return; }
   if (!Array.isArray(pubkeys)) { toast('Invalid blocklist data', 'error'); return; }
-  const added = importBlocklistPubkeys(pubkeys);
+  const listId = getOrCreateOwnedList(listName || DEFAULT_LIST_NAME);
+  const added = importBlocklistPubkeys(pubkeys, listId);
   if (added === 0) toast('Nothing new to import — all already blocked', 'info');
 }
 
@@ -1034,10 +1281,11 @@ async function refreshIdentity() {
     document.getElementById('my-name').textContent = myIdentity.username || myIdentity.fingerprint;
     document.getElementById('my-fp').textContent = myIdentity.pubkey.slice(0, 28) + '…';
     document.getElementById('my-account').textContent = myIdentity.account_name || 'default';
-    // Update own avatar in the identity card and the peerAvatars map
     if (myIdentity.pubkey) {
       if (myIdentity.avatar) peerAvatars[myIdentity.pubkey] = myIdentity.avatar;
       else delete peerAvatars[myIdentity.pubkey];
+      if (myIdentity.bio) peerBios[myIdentity.pubkey] = myIdentity.bio;
+      else delete peerBios[myIdentity.pubkey];
     }
     renderIdentityAvatar();
   }
@@ -1047,15 +1295,88 @@ async function refreshPeers() {
   const resp = await window.agora.request('peers', {});
   if (resp?.result) {
     peers = resp.result;
-    // Update avatar cache from peer data
     for (const p of peers) {
       if (p.pubkey) {
         if (p.avatar) peerAvatars[p.pubkey] = p.avatar;
         else if (!peerAvatars[p.pubkey]) delete peerAvatars[p.pubkey];
+        if (p.bio) peerBios[p.pubkey] = p.bio;
       }
     }
     renderPeerList();
   }
+}
+
+// ── Profile modal ──────────────────────────────────────────────────────────────
+function openProfile(pubkey) {
+  if (!pubkey) return;
+  const isOwn = pubkey === myIdentity?.pubkey;
+  const peer = peers.find(p => p.pubkey === pubkey);
+  const name = isOwn
+    ? (myIdentity?.username || myIdentity?.fingerprint || 'You')
+    : (peer?.username || peer?.fingerprint || pubkey.slice(0, 16) + '…');
+  const fp = isOwn ? myIdentity?.fingerprint : (peer?.fingerprint || pubkey.slice(0, 24) + '…');
+  const bio = peerBios[pubkey] || null;
+
+  // Avatar
+  const avatarEl = document.getElementById('profile-modal-avatar');
+  if (peerAvatars[pubkey]) {
+    avatarEl.innerHTML = `<img src="${escHtml(peerAvatars[pubkey])}" alt=""/>`;
+  } else {
+    avatarEl.innerHTML = escHtml((name || '?')[0].toUpperCase());
+  }
+
+  document.getElementById('profile-modal-name').textContent = name;
+  document.getElementById('profile-modal-fp').textContent = fp || '';
+  document.getElementById('profile-modal-own-badge').style.display = isOwn ? '' : 'none';
+
+  const bioView = document.getElementById('profile-bio-view');
+  const bioEditWrap = document.getElementById('profile-bio-edit-wrap');
+  const saveBtn = document.getElementById('profile-save-btn');
+
+  if (isOwn) {
+    bioView.style.display = 'none';
+    bioEditWrap.style.display = '';
+    saveBtn.style.display = '';
+    const ta = document.getElementById('profile-bio-textarea');
+    ta.value = bio || '';
+    onBioInput();
+  } else {
+    bioView.style.display = '';
+    bioEditWrap.style.display = 'none';
+    saveBtn.style.display = 'none';
+    if (bio) {
+      bioView.innerHTML = escHtml(bio);
+      bioView.classList.remove('profile-bio-empty');
+    } else {
+      bioView.innerHTML = '<span class="profile-bio-empty">No bio yet.</span>';
+    }
+  }
+
+  document.getElementById('profile-modal').classList.add('open');
+}
+
+function onBioInput() {
+  const ta = document.getElementById('profile-bio-textarea');
+  const counter = document.getElementById('profile-bio-counter');
+  if (!ta || !counter) return;
+  const len = ta.value.length;
+  counter.textContent = `${len} / 500`;
+  counter.classList.toggle('over', len > 500);
+}
+
+async function saveBio() {
+  const ta = document.getElementById('profile-bio-textarea');
+  if (!ta) return;
+  const bio = ta.value.trim().slice(0, 500) || null;
+  const resp = await window.agora?.request('set_bio', { bio });
+  if (resp?.error) { toast('Failed to save bio: ' + resp.error, 'error'); return; }
+  if (myIdentity) {
+    myIdentity.bio = bio;
+    if (bio) peerBios[myIdentity.pubkey] = bio;
+    else delete peerBios[myIdentity.pubkey];
+  }
+  closeModal('profile-modal');
+  toast('Bio saved', 'success');
 }
 
 async function refreshPosts() {
@@ -1075,13 +1396,20 @@ async function refreshPosts() {
     posts = Array.isArray(resp?.result) ? resp.result : [];
     renderFeed();
     // Auto-import latest blocklist from any peers we're subscribed to
-    for (const pubkey of subscribedToBlocklists) {
+    for (const key of subscribedToBlocklists) {
+      const sepIdx = key.indexOf('::');
+      if (sepIdx < 0) continue;
+      const pubkey = key.slice(0, sepIdx);
+      const listName = key.slice(sepIdx + 2);
       const latest = posts
         .filter(p => p.sender_pubkey === pubkey)
         .map(p => ({ p, bl: parseBlocklistPost(p.content) }))
-        .filter(x => x.bl)
+        .filter(x => x.bl && (x.bl.list_name || DEFAULT_LIST_NAME) === listName)
         .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
-      if (latest) importBlocklistPubkeys(latest.bl.pubkeys, true);
+      if (latest) {
+        const importId = getOrCreateOwnedList('Imported from ' + (latest.p.sender_username || pubkey.slice(0, 8)));
+        importBlocklistPubkeys(latest.bl.pubkeys, importId, true);
+      }
     }
   } catch (e) {
     console.error('[feed] refreshPosts crashed:', e);
@@ -1101,6 +1429,7 @@ function handleDaemonEvent(ev) {
       peers = ev.data;
       for (const p of peers) {
         if (p.pubkey && p.avatar) peerAvatars[p.pubkey] = p.avatar;
+        if (p.pubkey && p.bio) peerBios[p.pubkey] = p.bio;
       }
       renderPeerList();
       break;
@@ -1108,7 +1437,7 @@ function handleDaemonEvent(ev) {
     case 'message': {
       const d = ev.data;
       // Silently drop all content from users we have blocked
-      if (blockedPubkeys.has(d.sender_pubkey)) break;
+      if (isBlocked(d.sender_pubkey)) break;
       // Detect and handle block signal — the sender is telling us they blocked us
       if (d.kind !== 'broadcast' && d.content === BLOCK_SIGNAL) {
         blockedByPubkeys.add(d.sender_pubkey);
@@ -1140,11 +1469,15 @@ function handleDaemonEvent(ev) {
         renderFeed();
         if (!post.is_own) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
         // Auto-import if we're subscribed to this peer's blocklist
-        if (!post.is_own && subscribedToBlocklists.has(post.sender_pubkey)) {
+        if (!post.is_own) {
           const bl = parseBlocklistPost(post.content);
           if (bl) {
-            const added = importBlocklistPubkeys(bl.pubkeys, true);
-            if (added > 0) toast(`Auto-imported ${added} new blocked user(s) from subscribed blocklist`, 'success');
+            const key = subKey(post.sender_pubkey, bl.list_name);
+            if (subscribedToBlocklists.has(key)) {
+              const importId = getOrCreateOwnedList('Imported from ' + (post.sender_username || post.sender_pubkey.slice(0, 8)));
+              const added = importBlocklistPubkeys(bl.pubkeys, importId, true);
+              if (added > 0) toast(`Auto-imported ${added} new blocked user(s) from subscribed blocklist`, 'success');
+            }
           }
         }
       } else {
@@ -1184,6 +1517,10 @@ function handleDaemonEvent(ev) {
       refreshIdentity();
       break;
 
+    case 'bio_changed':
+      refreshIdentity();
+      break;
+
     case 'identity_switched':
       refreshIdentity();
       refreshPosts();
@@ -1218,7 +1555,7 @@ function renderIdentityAvatar() {
 // ── Rendering ──────────────────────────────────────────────────────────────────
 function renderPeerList() {
   const list = document.getElementById('peer-list');
-  const visible = peers.filter(p => !blockedPubkeys.has(p.pubkey) && !blockedByPubkeys.has(p.pubkey));
+  const visible = peers.filter(p => !isBlocked(p.pubkey) && !blockedByPubkeys.has(p.pubkey));
   document.getElementById('peer-count') && (document.getElementById('peer-count').textContent = visible.length);
   if (visible.length === 0) {
     list.innerHTML = '<div class="peer-empty">No peers yet.<br/>Use Dial to connect.</div>';
@@ -1232,7 +1569,7 @@ function renderPeerList() {
     return `<div class="peer-item${active}" onclick="selectPeer('${escHtml(p.pubkey)}', event)">
       <div class="peer-avatar"${avatarClick}>${avatarContent(p.pubkey, p.username || p.fingerprint)}</div>
       <div class="peer-info">
-        <div class="peer-name">${escHtml(name)}</div>
+        <div class="peer-name profile-link" onclick="event.stopPropagation();openProfile('${escHtml(p.pubkey)}')" title="View profile">${escHtml(name)}</div>
         <div class="peer-fp">${escHtml(p.fingerprint)}</div>
         <div class="peer-via">${escHtml((p.discovery||'').toLowerCase())}</div>
       </div>
@@ -1334,7 +1671,7 @@ function renderFeed() {
   const list = document.getElementById('feed-list');
   if (!list) { console.warn('[feed] feed-list element missing'); return; }
   try {
-    const arr = Array.isArray(posts) ? posts.filter(p => !blockedPubkeys.has(p.sender_pubkey) && !blockedByPubkeys.has(p.sender_pubkey)) : [];
+    const arr = Array.isArray(posts) ? posts.filter(p => !isBlocked(p.sender_pubkey) && !blockedByPubkeys.has(p.sender_pubkey)) : [];
     if (arr.length === 0) {
       list.innerHTML = '<div class="feed-empty">No posts yet.<br/>Be the first to post!</div>';
       return;
@@ -1364,29 +1701,32 @@ function renderFeed() {
       // ── Detect shared blocklist posts ──────────────────────────────────────
       const bl = parseBlocklistPost(content);
       if (bl && Array.isArray(bl.pubkeys)) {
+        const blListName = bl.list_name || DEFAULT_LIST_NAME;
         const previewNames = bl.pubkeys.slice(0, 5).map(pk => {
           const n = (bl.names && bl.names[pk]) ? bl.names[pk] : pk.slice(0, 20) + '…';
           return `<div class="blocklist-entry">🚫 <span class="blocklist-entry-name">${escHtml(n)}</span></div>`;
         }).join('');
         const moreCount = bl.pubkeys.length > 5 ? bl.pubkeys.length - 5 : 0;
         const moreHtml = moreCount > 0 ? `<div class="blocklist-entry-more">…and ${moreCount} more</div>` : '';
-        const alreadyAll = bl.pubkeys.every(pk => blockedPubkeys.has(pk) || pk === myIdentity?.pubkey);
-        const isSubscribed = subscribedToBlocklists.has(p.sender_pubkey);
-        const importBtn = isOwn ? '' : `<button class="btn-import-blocklist" onclick="importBlocklist(this.dataset.pubkeys)" data-pubkeys="${escHtml(JSON.stringify(bl.pubkeys))}">${alreadyAll ? 'Already imported' : `Import All (${bl.pubkeys.length})`}</button>`;
+        const alreadyAll = bl.pubkeys.every(pk => isBlocked(pk) || pk === myIdentity?.pubkey);
+        const isSubscribed = subscribedToBlocklists.has(subKey(p.sender_pubkey, blListName));
+        const safeListName = escHtml(blListName);
+        const importBtn = isOwn ? '' : `<button class="btn-import-blocklist" onclick="importBlocklist(this.dataset.pubkeys,'${safeListName}')" data-pubkeys="${escHtml(JSON.stringify(bl.pubkeys))}">${alreadyAll ? 'Already imported' : `Import All (${bl.pubkeys.length})`}</button>`;
         const subscribeBtn = isOwn ? '' : isSubscribed
-          ? `<button class="btn-subscribe-blocklist subscribed" onclick="unsubscribeFromBlocklist('${escHtml(p.sender_pubkey)}')" title="Click to unsubscribe">✓ Subscribed</button>`
-          : `<button class="btn-subscribe-blocklist" onclick="subscribeToBlocklist('${escHtml(p.sender_pubkey)}')" title="Auto-import whenever they update their blocklist">Subscribe</button>`;
+          ? `<button class="btn-subscribe-blocklist subscribed" onclick="unsubscribeFromBlocklist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Click to unsubscribe">✓ Subscribed</button>`
+          : `<button class="btn-subscribe-blocklist" onclick="subscribeToBlocklist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Auto-import whenever they update their blocklist">Subscribe</button>`;
+        const blProfileClick = p.sender_pubkey ? `onclick="openProfile('${escHtml(p.sender_pubkey)}')"` : '';
         return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
           <div class="post-header">
             <div class="post-avatar${isOwn ? ' own' : ''}"${postAvatarClick}>${avatarContent(p.sender_pubkey, name)}</div>
             <div class="post-author">
-              <div class="post-author-name">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
+              <div class="post-author-name profile-link" ${blProfileClick} title="View profile">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
               <div class="post-author-fp">${escHtml(fingerprint)}</div>
             </div>
             <div class="post-time">${escHtml(timeStr)}</div>
           </div>
           <div class="blocklist-card-body">
-            <div class="blocklist-card-title">🚫 Shared Blocklist · ${bl.pubkeys.length} user(s)</div>
+            <div class="blocklist-card-title">🚫 Shared Blocklist · <em style="font-style:normal;color:var(--text)">${escHtml(blListName)}</em> · ${bl.pubkeys.length} user(s)</div>
             ${previewNames}${moreHtml}
             <div class="blocklist-btn-row">${importBtn}${subscribeBtn}</div>
           </div>
@@ -1394,13 +1734,14 @@ function renderFeed() {
         </div>`;
       }
 
+      const profileClick = p.sender_pubkey ? `onclick="openProfile('${escHtml(p.sender_pubkey)}')"` : '';
       const imageHtml = p.image ? `<div class="post-image"><img src="${escHtml(p.image)}" alt="attached image" onclick="openImageViewer(this.src)"/></div>` : '';
       const embedHtml = p.embed_url ? renderEmbedHtml(p.embed_url) : '';
       return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
         <div class="post-header">
           <div class="post-avatar${isOwn ? ' own' : ''}"${postAvatarClick}>${avatarContent(p.sender_pubkey, name)}</div>
           <div class="post-author">
-            <div class="post-author-name">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
+            <div class="post-author-name profile-link" ${profileClick} title="View profile">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
             <div class="post-author-fp">${escHtml(fingerprint)}</div>
           </div>
           <div class="post-time">${escHtml(timeStr)}</div>
@@ -1517,7 +1858,11 @@ function selectPeer(pubkey, event) {
     chatAvatarEl.title = '';
     chatAvatarEl.onclick = null;
   }
-  document.getElementById('chat-target-name').textContent = name;
+  const chatNameEl = document.getElementById('chat-target-name');
+  chatNameEl.textContent = name;
+  chatNameEl.classList.add('profile-link');
+  chatNameEl.title = 'View profile';
+  chatNameEl.onclick = () => openProfile(peer.pubkey);
   document.getElementById('chat-target-fp').textContent = peer.fingerprint + ' · ' + peer.pubkey.slice(0,16) + '…';
   updateChatBlockBtn();
   updateInputBarBlockedBy();
@@ -1563,7 +1908,7 @@ async function loadDmHistory(pubkey) {
 
 async function sendMessage() {
   if (!activePeer) return;
-  if (blockedPubkeys.has(activePeer)) { toast('Cannot send to a blocked user', 'error'); return; }
+  if (isBlocked(activePeer)) { toast('Cannot send to a blocked user', 'error'); return; }
   if (blockedByPubkeys.has(activePeer)) { toast('This user has blocked you', 'error'); return; }
   const input = document.getElementById('msg-input');
   const content = input.value.trim();
@@ -2315,18 +2660,19 @@ function obShowStep(n) {
     list.innerHTML = '';
     obBlocklistSelections = {};
     available.forEach(item => {
-      obBlocklistSelections[item.pubkey] = false;
+      const selKey = subKey(item.pubkey, item.listName);
+      obBlocklistSelections[selKey] = false;
       const card = document.createElement('div');
       card.className = 'ob-blocklist-card';
       const info = document.createElement('div');
       info.innerHTML = `<div class="ob-blocklist-name">${escHtml(item.name)}</div><div class="ob-blocklist-count">${item.count} entr${item.count === 1 ? 'y' : 'ies'}</div>`;
       const chk = document.createElement('div');
       chk.className = 'ob-check';
-      chk.dataset.pk = item.pubkey;
+      chk.dataset.selKey = selKey;
       chk.onclick = () => {
-        obBlocklistSelections[item.pubkey] = !obBlocklistSelections[item.pubkey];
-        chk.classList.toggle('on', obBlocklistSelections[item.pubkey]);
-        chk.textContent = obBlocklistSelections[item.pubkey] ? '✓' : '';
+        obBlocklistSelections[selKey] = !obBlocklistSelections[selKey];
+        chk.classList.toggle('on', obBlocklistSelections[selKey]);
+        chk.textContent = obBlocklistSelections[selKey] ? '✓' : '';
       };
       card.appendChild(info);
       card.appendChild(chk);
@@ -2339,15 +2685,19 @@ function obNext(n) { obShowStep(n); }
 
 // Find peers who have published a blocklist post that we already received
 function obFindPeerBlocklists() {
-  const seen = {};
+  const seen = {}; // key: "pubkey::listname"
   posts.forEach(p => {
     const bl = parseBlocklistPost(p.content);
     if (!bl || !bl.pubkeys?.length) return;
     if (p.sender_pubkey === myIdentity?.pubkey) return;
-    if (!seen[p.sender_pubkey] || new Date(p.timestamp) > new Date(seen[p.sender_pubkey].timestamp)) {
-      seen[p.sender_pubkey] = {
+    const blName = bl.list_name || DEFAULT_LIST_NAME;
+    const key = subKey(p.sender_pubkey, blName);
+    if (!seen[key] || new Date(p.timestamp) > new Date(seen[key].timestamp)) {
+      const author = p.sender_username || p.sender_fingerprint || p.sender_pubkey.slice(0, 12);
+      seen[key] = {
         pubkey: p.sender_pubkey,
-        name: p.sender_username || p.sender_fingerprint || p.sender_pubkey.slice(0, 12),
+        listName: blName,
+        name: blName === DEFAULT_LIST_NAME ? author : `${author} — ${blName}`,
         count: bl.pubkeys.length,
         pubkeys: bl.pubkeys,
         timestamp: p.timestamp,
@@ -2402,11 +2752,14 @@ async function obSaveAvatar() {
 function obImportSelectedBlocklists() {
   const available = obFindPeerBlocklists();
   available.forEach(item => {
-    if (obBlocklistSelections[item.pubkey]) {
-      importBlocklistPubkeys(item.pubkeys, true);
-      subscribedToBlocklists.add(item.pubkey);
+    const selKey = subKey(item.pubkey, item.listName);
+    if (obBlocklistSelections[selKey]) {
+      const importId = getOrCreateOwnedList('Imported from ' + item.name);
+      importBlocklistPubkeys(item.pubkeys, importId, true);
+      subscribedToBlocklists.add(selKey);
     }
   });
+  saveBlocklists();
   saveSubscriptions();
   obShowStep(6); // → first post
 }
@@ -2414,7 +2767,7 @@ function obImportSelectedBlocklists() {
 async function obPublishFirstPost() {
   const content = document.getElementById('ob-first-post').value.trim();
   if (content) {
-    const resp = await window.agora?.request('post', { content });
+    const resp = await window.agora?.request('broadcast', { content });
     if (resp?.error) { toast('Post failed: ' + resp.error, 'error'); return; }
     await refreshPosts();
     switchTab('feed');

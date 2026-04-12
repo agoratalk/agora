@@ -124,7 +124,12 @@ impl PostStore {
         let before = inner.posts.len();
         inner.posts.retain(|_, p| p.payload.timestamp > cutoff);
         let evicted = before - inner.posts.len();
-        if evicted > 0 { tracing::info!("post store: evicted {} expired post(s)", evicted); }
+        if evicted > 0 {
+            tracing::info!("post store: evicted {} expired post(s)", evicted);
+            // Prune `seen` to only IDs still in `posts`, preventing unbounded growth.
+            let live_ids: HashSet<String> = inner.posts.keys().cloned().collect();
+            inner.seen.retain(|id| live_ids.contains(id));
+        }
     }
 
     async fn flush(&self) -> std::io::Result<()> {

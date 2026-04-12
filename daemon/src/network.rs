@@ -309,6 +309,7 @@ impl Network {
         let known_peers = self.dht.peers().await;
         let username = identity.username.clone();
         let avatar = identity.avatar.clone();
+        let bio = identity.bio.clone();
 
         let to_sign = format!("{}{}{}", sender_pubkey, sender_x25519_pubkey, timestamp.to_rfc3339());
         let sig: ed25519_dalek::Signature = identity.signing_key.sign(to_sign.as_bytes());
@@ -329,6 +330,7 @@ impl Network {
             signature: B64.encode(sig.to_bytes()),
             username,
             avatar,
+            bio,
             recent_posts,
         })
     }
@@ -353,7 +355,7 @@ impl Network {
         tracing::info!("network: handshake OK with {} @ {}", &hello.sender_pubkey[..8], peer_addr);
 
         let listen_addr = SocketAddr::new(peer_addr.ip(), DEFAULT_PORT);
-        self.dht.upsert(listen_addr, hello.sender_pubkey.clone(), crate::types::DiscoveryMethod::Gossip, hello.username.clone(), hello.avatar.clone(), Some(hello.sender_x25519_pubkey.clone())).await;
+        self.dht.upsert(listen_addr, hello.sender_pubkey.clone(), crate::types::DiscoveryMethod::Gossip, hello.username.clone(), hello.avatar.clone(), hello.bio.clone(), Some(hello.sender_x25519_pubkey.clone())).await;
         self.dht.merge_gossip(hello.known_peers.clone()).await;
 
         // Dispatch any gossiped posts through the message handler so the post

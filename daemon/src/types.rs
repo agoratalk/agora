@@ -24,6 +24,9 @@ pub struct Peer {
     /// X25519 public key announced by this peer during handshake, used for DM encryption.
     #[serde(default)]
     pub x25519_pubkey: Option<PubKeyB64>,
+    /// Short bio/description set by the peer.
+    #[serde(default)]
+    pub bio: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -65,6 +68,9 @@ pub struct HelloPayload {
     /// Recent posts this node is propagating (up to 24h old)
     #[serde(default)]
     pub recent_posts: Vec<BroadcastPayload>,
+    /// Short bio/description propagated to peers.
+    #[serde(default)]
+    pub bio: Option<String>,
 }
 
 // ── Direct message ────────────────────────────────────────────────────────────
