@@ -1,0 +1,12 @@
+services:
+  node:
+    build: .
+    container_name: agora-node
+    hostname: node
+    ports:
+      - "8080:8080"   # browser -> http://localhost:8080
+    networks: [p2pnet]
+
+networks:
+  p2pnet:
+    driver: bridge

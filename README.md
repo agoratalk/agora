@@ -33,8 +33,12 @@ A trustworthy VPN, Tor routing at the OS level, or a dedicated VPS you treat as
 disposable are all reasonable options. Running it raw from your home connection
 is not.
 
-This will be addressed in future versions. Until then: assume every peer you talk
-to knows where you are.
+Tor transport is being actively worked on. The daemon now includes an embedded
+Tor client (via [arti](https://gitlab.torproject.org/tpo/core/arti)) — no
+external `tor` binary required. When you switch to Tor mode the daemon
+bootstraps its own Tor circuits in the background (takes 10–60 s). This is
+functional but not yet stable enough to recommend for safety-critical use.
+Until it is: assume every peer you talk to knows where you are.
 
 ---
 
@@ -57,15 +61,29 @@ your public key. Don't lose your key — losing it means losing the identity.
 
 ### Option 1: Docker (easiest)
 
+There are two Compose files depending on your use case:
+
+**Single peer** — for normal use, running one node on your machine:
+
+```bash
+git clone https://github.com/agoratalk/agora.git agora
+cd agora
+docker compose -f docker-compose.single.yml up --build
+```
+
+The web UI will be available at `http://localhost:8080`.
+
+**Ten peers** — for local testing and development, spins up a small simulated
+network on your machine with peers alice through judy:
+
 ```bash
 git clone https://github.com/agoratalk/agora.git agora
 cd agora
 docker compose up --build
 ```
 
-The daemon will start, generate an identity on first run, and begin looking for
-peers. The web UI will be available at `http://localhost:8080` (check
-`docker-compose.yml` for the exact port).
+Web UIs for each peer are available at `http://localhost:8081` through
+`http://localhost:8090`.
 
 **Reminder:** route the container through your VPN, or run it on a VPS you don't
 mind being linked to.

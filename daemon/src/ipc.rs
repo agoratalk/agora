@@ -15,6 +15,7 @@
 //!   delete_identity        → params: { account_name }
 //!   set_avatar             → params: { avatar }  (base64 data URL, or null to clear)
 //!   set_bio                → params: { bio }  (string ≤500 chars, or null to clear)
+//!   get_local_ip           → { ip }  (outbound private IP address)
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -376,7 +377,10 @@ impl IpcServer {
             // "set_conn_type" switches how the daemon makes outbound TCP
             // connections.
             //   • "raw"        — direct TCP (default)
-            //   • "TOR"        — SOCKS5 via 127.0.0.1:9050 (Tor daemon)
+            //   • "TOR"        — embedded Tor client (arti); no external
+            //                    Tor daemon needed.  Bootstrap starts in the
+            //                    background; connections will fail until it
+            //                    completes (typically 10–60 s).
             //   • "i2p"        — SOCKS5 via 127.0.0.1:4447 (I2P router)
             //   • everything else (WireGuard, OpenVPN, nym, QUIC) — accepted
             //     without error; the OS VPN tunnel makes them transparent so
@@ -392,12 +396,34 @@ impl IpcServer {
                     "i2p" | "I2P" | "I2p" => ConnMode::I2p,
                     _                      => ConnMode::Raw,
                 };
+                if mode == ConnMode::Tor {
+                    // Bootstrap runs in the background so we don't block the
+                    // IPC caller.  Connections will return an error until the
+                    // client is ready.
+                    let net = self.network.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = net.bootstrap_tor().await {
+                            tracing::error!("Tor bootstrap failed: {e}");
+                        }
+                    });
+                }
                 self.network.set_conn_mode(mode).await;
                 IpcResponse { id, result: Some(json!({ "ok": true, "type": type_str })), error: None }
             }
             "get_conn_type" => {
                 let type_str = self.network.get_conn_mode().await.as_str();
                 IpcResponse { id, result: Some(json!({ "type": type_str })), error: None }
+            }
+
+            "get_local_ip" => {
+                // Determine the outbound local IP by "connecting" a UDP socket to a
+                // public address (no packets are sent — this just lets the OS pick the
+                // right interface and reports back which local IP it chose).
+                let ip = std::net::UdpSocket::bind("0.0.0.0:0")
+                    .and_then(|s| { s.connect("8.8.8.8:80")?; s.local_addr() })
+                    .map(|a| a.ip().to_string())
+                    .unwrap_or_else(|_| "unknown".to_string());
+                IpcResponse { id, result: Some(json!({ "ip": ip })), error: None }
             }
 
             other => IpcResponse { id, result: None, error: Some(format!("unknown method: {other}")) },

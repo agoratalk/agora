@@ -1,7 +1,9 @@
 # ── Stage 1: build the Rust daemon ─────────────────────────────────────────────
-FROM rust:1.86-slim AS daemon-build
+FROM rust:1.90-slim AS daemon-build
 WORKDIR /build
-RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+# No libssl-dev needed: TLS uses rustls (pure Rust) and SQLite is bundled.
+# Only need build tools for compiling C extensions (ring, sqlite bundled).
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*
 
 # Copy manifest + (optionally) lockfile. Cargo.* matches Cargo.toml and Cargo.lock if present.
 COPY daemon/Cargo.* ./

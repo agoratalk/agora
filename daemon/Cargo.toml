@@ -28,6 +28,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid          = { version = "1", features = ["v4"] }
 tempfile      = "3"
 tokio-socks   = "0.5"
+arti-client   = { version = "0.23", default-features = false, features = ["tokio", "rustls"] }
+tor-rtcompat  = { version = "0.23", default-features = false, features = ["tokio", "rustls"] }
+# Pull in rusqlite with bundled SQLite so we don't need system libsqlite3-dev.
+# arti-client uses rusqlite internally; enabling bundled here unifies the feature.
+rusqlite      = { version = "0.32", features = ["bundled"] }
 
 [profile.release]
 opt-level = 3

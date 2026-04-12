@@ -1,23 +1,27 @@
 //! Network layer: TCP listener, outbound connections, handshake, IPC events.
 //!
 //! Connection modes:
-//!   Raw — direct TCP connection using the local IP address.
-//!   Tor — all outbound connections are tunnelled through a SOCKS5 proxy that
-//!         must be listening on 127.0.0.1:9050 (standard Tor daemon port).
-//!         The Tor process itself must be running separately.
+//!   Raw — direct TCP connection, exposes the real IP address to peers.
+//!   Tor — outbound connections are made through an embedded Tor client (arti).
+//!         No external Tor daemon is required; the daemon bootstraps its own
+//!         Tor circuits.  Bootstrap takes 10–60 s on first use.
+//!   I2p — outbound connections are tunnelled through the local I2P SOCKS5
+//!         proxy on 127.0.0.1:4447.  The I2P router must be running.
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+use arti_client::{TorClient, TorClientConfig};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use chrono::Utc;
 use ed25519_dalek::{Signature, Signer, Verifier};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::{TcpListener, TcpStream},
-    sync::{mpsc, RwLock},
+    sync::{mpsc, Mutex, RwLock},
     time,
 };
 use tokio_socks::tcp::Socks5Stream;
+use tor_rtcompat::PreferredRuntime;
 
 use crate::{
     dht::Dht,
@@ -29,22 +33,34 @@ use crate::{
 };
 
 pub const DEFAULT_PORT: u16 = 7777;
-/// SOCKS5 port used by the Tor daemon.
-const TOR_SOCKS5_PORT: u16 = 9050;
 /// SOCKS5 port exposed by the I2P router (Java I2P and i2pd both default to 4447).
 const I2P_SOCKS5_PORT: u16 = 4447;
 
 const MAX_MESSAGE_AGE: Duration = Duration::from_secs(30);
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// Tor circuits take longer to build than raw TCP.
+const TOR_CONNECT_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_FRAME_LEN: u32 = 4 * 1024 * 1024;
+
+// ── Stream abstraction ────────────────────────────────────────────────────────
+
+/// Combined supertrait so we can erase the concrete stream type (TcpStream,
+/// DataStream, etc.) behind a single Box.
+pub trait ReadWrite: AsyncRead + AsyncWrite + Unpin + Send {}
+impl<T: AsyncRead + AsyncWrite + Unpin + Send> ReadWrite for T {}
+
+/// Heap-allocated peer stream, type-erased.
+pub type PeerStream = Box<dyn ReadWrite>;
+
+// ── ConnMode ──────────────────────────────────────────────────────────────────
 
 /// How outbound TCP connections are established.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConnMode {
     /// Direct TCP — exposes the real IP address to peers.
     Raw,
-    /// Route every outbound connection through the local Tor SOCKS5 proxy
-    /// (`127.0.0.1:9050`).  The Tor process must already be running.
+    /// Route every outbound connection through the daemon's own embedded Tor
+    /// client (arti).  No external `tor` binary is needed.
     Tor,
     /// Route every outbound connection through the local I2P SOCKS5 proxy
     /// (`127.0.0.1:4447`).  The I2P router (Java I2P or i2pd) must be
@@ -68,6 +84,8 @@ impl std::fmt::Display for ConnMode {
     }
 }
 
+// ── Network ───────────────────────────────────────────────────────────────────
+
 pub type MessageHandler = Arc<
     dyn Fn(WireMessage, SocketAddr) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
         + Send
@@ -84,6 +102,8 @@ pub struct Network {
     ipc: Option<IpcBroadcaster>,
     post_store: Option<PostStore>,
     pub conn_mode: Arc<RwLock<ConnMode>>,
+    /// Embedded Tor client.  None until bootstrap_tor() succeeds.
+    tor_client: Arc<Mutex<Option<TorClient<PreferredRuntime>>>>,
 }
 
 impl Network {
@@ -97,6 +117,7 @@ impl Network {
             ipc: None,
             post_store: None,
             conn_mode: Arc::new(RwLock::new(ConnMode::Raw)),
+            tor_client: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -112,41 +133,61 @@ impl Network {
         self.conn_mode.read().await.clone()
     }
 
-    /// Open an outbound TCP stream according to the current [`ConnMode`].
+    /// Bootstrap the embedded Tor client.  This downloads the Tor consensus,
+    /// builds circuits, and stores the ready client for use by open_stream().
     ///
-    /// * `Raw` — plain `TcpStream::connect`, exposes the real IP.
-    /// * `Tor` — SOCKS5 via `127.0.0.1:9050`; requires a running Tor daemon.
-    /// * `I2p` — SOCKS5 via `127.0.0.1:4447`; requires a running I2P router
-    ///   with its SOCKS5 tunnel enabled (Java I2P and i2pd both default to
-    ///   this port).  After the handshake, `into_inner()` gives a plain
-    ///   `TcpStream` that is transparently tunnelled through the I2P network.
-    async fn open_stream(&self, addr: SocketAddr) -> Result<TcpStream> {
+    /// Should be called once in the background when Tor mode is requested.
+    /// Safe to call multiple times — if a client is already ready it is
+    /// replaced with a fresh one.
+    pub async fn bootstrap_tor(&self) -> Result<()> {
+        tracing::info!("network: starting Tor bootstrap (this may take up to a minute)…");
+        let config = TorClientConfig::default();
+        let client = TorClient::create_bootstrapped(config)
+            .await
+            .map_err(|e| P2pError::Network(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Tor bootstrap failed: {e}"),
+            )))?;
+        *self.tor_client.lock().await = Some(client);
+        tracing::info!("network: Tor client ready");
+        Ok(())
+    }
+
+    /// Open an outbound stream according to the current ConnMode.
+    async fn open_stream(&self, addr: SocketAddr) -> Result<PeerStream> {
         match *self.conn_mode.read().await {
             ConnMode::Raw => {
-                time::timeout(HANDSHAKE_TIMEOUT, TcpStream::connect(addr))
+                let stream = time::timeout(HANDSHAKE_TIMEOUT, TcpStream::connect(addr))
                     .await
                     .map_err(|_| P2pError::Network(std::io::Error::new(
                         std::io::ErrorKind::TimedOut, "connect timed out",
                     )))?
-                    .map_err(P2pError::Network)
+                    .map_err(P2pError::Network)?;
+                Ok(Box::new(stream))
             }
             ConnMode::Tor => {
-                let proxy = SocketAddr::from(([127, 0, 0, 1], TOR_SOCKS5_PORT));
-                tracing::debug!("network: routing {} through Tor SOCKS5 proxy", addr);
-                let socks = time::timeout(
-                    HANDSHAKE_TIMEOUT,
-                    Socks5Stream::connect(proxy, addr),
+                let guard = self.tor_client.lock().await;
+                let tor = guard.as_ref().ok_or_else(|| P2pError::Network(
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotConnected,
+                        "Tor client not ready — bootstrap is still in progress or failed",
+                    )
+                ))?;
+                tracing::debug!("network: routing {} through embedded Tor", addr);
+                let stream = time::timeout(
+                    TOR_CONNECT_TIMEOUT,
+                    tor.connect((addr.ip().to_string(), addr.port())),
                 )
                 .await
                 .map_err(|_| P2pError::Network(std::io::Error::new(
                     std::io::ErrorKind::TimedOut,
-                    "Tor connect timed out — is the Tor daemon running on port 9050?",
+                    "Tor connect timed out",
                 )))?
                 .map_err(|e| P2pError::Network(std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    format!("SOCKS5/Tor error: {e}"),
+                    format!("Tor connect error: {e}"),
                 )))?;
-                Ok(socks.into_inner())
+                Ok(Box::new(stream))
             }
             ConnMode::I2p => {
                 let proxy = SocketAddr::from(([127, 0, 0, 1], I2P_SOCKS5_PORT));
@@ -164,7 +205,7 @@ impl Network {
                     std::io::ErrorKind::Other,
                     format!("SOCKS5/I2P error: {e}"),
                 )))?;
-                Ok(socks.into_inner())
+                Ok(Box::new(socks.into_inner()))
             }
         }
     }
@@ -192,7 +233,8 @@ impl Network {
                     Ok((stream, peer_addr)) => {
                         let net2 = net.clone();
                         tokio::spawn(async move {
-                            if let Err(e) = net2.handle_connection(stream, peer_addr).await {
+                            let boxed: PeerStream = Box::new(stream);
+                            if let Err(e) = net2.handle_connection(boxed, peer_addr).await {
                                 tracing::warn!("connection from {} error: {}", peer_addr, e);
                             }
                         });
@@ -264,7 +306,7 @@ impl Network {
         }
     }
 
-    async fn handle_connection(&self, mut stream: TcpStream, peer_addr: SocketAddr) -> Result<()> {
+    async fn handle_connection(&self, mut stream: PeerStream, peer_addr: SocketAddr) -> Result<()> {
         let hello = self.build_hello().await?;
         write_frame(&mut stream, &WireMessage::Hello(hello)).await?;
 
