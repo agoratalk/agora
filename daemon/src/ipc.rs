@@ -29,7 +29,7 @@ use crate::{
     dht::Dht,
     identity::{Identity, IdentitySummary},
     messaging::Messenger,
-    network::Network,
+    network::{ConnMode, Network},
     types::{IpcEvent, IpcRequest, IpcResponse},
 };
 
@@ -349,6 +349,35 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── Connection mode ──────────────────────────────────────────────
+            //
+            // "set_conn_type" switches how the daemon makes outbound TCP
+            // connections.
+            //   • "raw"        — direct TCP (default)
+            //   • "TOR"        — SOCKS5 via 127.0.0.1:9050 (Tor daemon)
+            //   • "i2p"        — SOCKS5 via 127.0.0.1:4447 (I2P router)
+            //   • everything else (WireGuard, OpenVPN, nym, QUIC) — accepted
+            //     without error; the OS VPN tunnel makes them transparent so
+            //     the daemon still uses raw TCP and the routing is handled
+            //     at the network layer.
+            "set_conn_type" => {
+                let type_str = req.params
+                    .get("type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("raw");
+                let mode = match type_str {
+                    "TOR" | "tor" | "Tor" => ConnMode::Tor,
+                    "i2p" | "I2P" | "I2p" => ConnMode::I2p,
+                    _                      => ConnMode::Raw,
+                };
+                self.network.set_conn_mode(mode).await;
+                IpcResponse { id, result: Some(json!({ "ok": true, "type": type_str })), error: None }
+            }
+            "get_conn_type" => {
+                let type_str = self.network.get_conn_mode().await.as_str();
+                IpcResponse { id, result: Some(json!({ "type": type_str })), error: None }
+            }
+
             other => IpcResponse { id, result: None, error: Some(format!("unknown method: {other}")) },
         }
     }

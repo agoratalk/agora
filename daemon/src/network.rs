@@ -1,4 +1,10 @@
 //! Network layer: TCP listener, outbound connections, handshake, IPC events.
+//!
+//! Connection modes:
+//!   Raw — direct TCP connection using the local IP address.
+//!   Tor — all outbound connections are tunnelled through a SOCKS5 proxy that
+//!         must be listening on 127.0.0.1:9050 (standard Tor daemon port).
+//!         The Tor process itself must be running separately.
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
@@ -11,6 +17,8 @@ use tokio::{
     sync::{mpsc, RwLock},
     time,
 };
+use tokio_socks::tcp::Socks5Stream;
+
 use crate::{
     dht::Dht,
     discovery::DiscoveredAddr,
@@ -21,9 +29,44 @@ use crate::{
 };
 
 pub const DEFAULT_PORT: u16 = 7777;
+/// SOCKS5 port used by the Tor daemon.
+const TOR_SOCKS5_PORT: u16 = 9050;
+/// SOCKS5 port exposed by the I2P router (Java I2P and i2pd both default to 4447).
+const I2P_SOCKS5_PORT: u16 = 4447;
+
 const MAX_MESSAGE_AGE: Duration = Duration::from_secs(30);
-const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_FRAME_LEN: u32 = 4 * 1024 * 1024;
+
+/// How outbound TCP connections are established.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConnMode {
+    /// Direct TCP — exposes the real IP address to peers.
+    Raw,
+    /// Route every outbound connection through the local Tor SOCKS5 proxy
+    /// (`127.0.0.1:9050`).  The Tor process must already be running.
+    Tor,
+    /// Route every outbound connection through the local I2P SOCKS5 proxy
+    /// (`127.0.0.1:4447`).  The I2P router (Java I2P or i2pd) must be
+    /// running and have its SOCKS5 tunnel enabled.
+    I2p,
+}
+
+impl ConnMode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ConnMode::Raw => "raw",
+            ConnMode::Tor => "TOR",
+            ConnMode::I2p => "i2p",
+        }
+    }
+}
+
+impl std::fmt::Display for ConnMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 pub type MessageHandler = Arc<
     dyn Fn(WireMessage, SocketAddr) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
@@ -40,6 +83,7 @@ pub struct Network {
     active_peers: Arc<RwLock<std::collections::HashSet<String>>>,
     ipc: Option<IpcBroadcaster>,
     post_store: Option<PostStore>,
+    pub conn_mode: Arc<RwLock<ConnMode>>,
 }
 
 impl Network {
@@ -52,6 +96,76 @@ impl Network {
             active_peers: Arc::new(RwLock::new(std::collections::HashSet::new())),
             ipc: None,
             post_store: None,
+            conn_mode: Arc::new(RwLock::new(ConnMode::Raw)),
+        }
+    }
+
+    /// Switch the active connection mode.  Takes effect for all subsequent
+    /// outbound connections; existing connections are not affected.
+    pub async fn set_conn_mode(&self, mode: ConnMode) {
+        tracing::info!("network: connection mode → {}", mode);
+        *self.conn_mode.write().await = mode;
+    }
+
+    /// Return a copy of the current connection mode.
+    pub async fn get_conn_mode(&self) -> ConnMode {
+        self.conn_mode.read().await.clone()
+    }
+
+    /// Open an outbound TCP stream according to the current [`ConnMode`].
+    ///
+    /// * `Raw` — plain `TcpStream::connect`, exposes the real IP.
+    /// * `Tor` — SOCKS5 via `127.0.0.1:9050`; requires a running Tor daemon.
+    /// * `I2p` — SOCKS5 via `127.0.0.1:4447`; requires a running I2P router
+    ///   with its SOCKS5 tunnel enabled (Java I2P and i2pd both default to
+    ///   this port).  After the handshake, `into_inner()` gives a plain
+    ///   `TcpStream` that is transparently tunnelled through the I2P network.
+    async fn open_stream(&self, addr: SocketAddr) -> Result<TcpStream> {
+        match *self.conn_mode.read().await {
+            ConnMode::Raw => {
+                time::timeout(HANDSHAKE_TIMEOUT, TcpStream::connect(addr))
+                    .await
+                    .map_err(|_| P2pError::Network(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut, "connect timed out",
+                    )))?
+                    .map_err(P2pError::Network)
+            }
+            ConnMode::Tor => {
+                let proxy = SocketAddr::from(([127, 0, 0, 1], TOR_SOCKS5_PORT));
+                tracing::debug!("network: routing {} through Tor SOCKS5 proxy", addr);
+                let socks = time::timeout(
+                    HANDSHAKE_TIMEOUT,
+                    Socks5Stream::connect(proxy, addr),
+                )
+                .await
+                .map_err(|_| P2pError::Network(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "Tor connect timed out — is the Tor daemon running on port 9050?",
+                )))?
+                .map_err(|e| P2pError::Network(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("SOCKS5/Tor error: {e}"),
+                )))?;
+                Ok(socks.into_inner())
+            }
+            ConnMode::I2p => {
+                let proxy = SocketAddr::from(([127, 0, 0, 1], I2P_SOCKS5_PORT));
+                tracing::debug!("network: routing {} through I2P SOCKS5 proxy", addr);
+                let socks = time::timeout(
+                    HANDSHAKE_TIMEOUT,
+                    Socks5Stream::connect(proxy, addr),
+                )
+                .await
+                .map_err(|_| P2pError::Network(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "I2P connect timed out — is the I2P router running with SOCKS5 on port 4447?",
+                )))?
+                .map_err(|e| P2pError::Network(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("SOCKS5/I2P error: {e}"),
+                )))?;
+                Ok(socks.into_inner())
+            }
         }
     }
 
@@ -105,11 +219,8 @@ impl Network {
     }
 
     pub async fn dial(&self, addr: SocketAddr) -> Result<()> {
-        let stream = time::timeout(HANDSHAKE_TIMEOUT, TcpStream::connect(addr))
-            .await
-            .map_err(|_| P2pError::Network(std::io::Error::new(std::io::ErrorKind::TimedOut, "connect timed out")))?
-            .map_err(P2pError::Network)?;
-        tracing::info!("network: outbound connection to {}", addr);
+        let stream = self.open_stream(addr).await?;
+        tracing::info!("network: outbound connection to {} ({})", addr, self.conn_mode.read().await);
         self.handle_connection(stream, addr).await
     }
 
@@ -117,10 +228,7 @@ impl Network {
         let peer = self.dht.get(pubkey).await
             .ok_or_else(|| P2pError::PeerNotFound(pubkey[..8.min(pubkey.len())].to_string()))?;
 
-        let mut stream = time::timeout(HANDSHAKE_TIMEOUT, TcpStream::connect(peer.addr))
-            .await
-            .map_err(|_| P2pError::Network(std::io::Error::new(std::io::ErrorKind::TimedOut, "connect timed out")))?
-            .map_err(P2pError::Network)?;
+        let mut stream = self.open_stream(peer.addr).await?;
 
         let hello = self.build_hello().await?;
         write_frame(&mut stream, &WireMessage::Hello(hello)).await?;

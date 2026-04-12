@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const net = require('net');
+const fs   = require('fs');
+const net  = require('net');
 const { spawn } = require('child_process');
 
 // ── Config ─────────────────────────────────────────────────────────────────────
@@ -11,8 +12,13 @@ const DAEMON_PATH = path.join(process.resourcesPath || __dirname, 'bin', DAEMON_
 const DAEMON_DEV_PATH = path.join(__dirname, '..', 'daemon', 'target', 'release', DAEMON_BIN);
 
 let mainWindow;
-let daemonProc = null;
-let ipcSocket = null;
+let daemonProc  = null;
+let ipcSocket   = null;
+
+// ── VPN state ─────────────────────────────────────────────────────────────────
+let vpnProc       = null;  // long-running process (openvpn); null for wg-quick
+let vpnType       = null;  // 'WireGuard' | 'OpenVPN' | null
+let vpnConfigPath = null;  // path to the written config file
 let ipcBuffer = '';
 let ipcReqId = 1;
 const pendingRequests = new Map();
@@ -133,6 +139,133 @@ ipcMain.on('window-control', (_event, action) => {
   if (action === 'close') mainWindow.close();
 });
 
+// ── VPN management ────────────────────────────────────────────────────────────
+//
+// WireGuard: wg-quick exits after setting up the kernel tunnel.
+//   • start: wg-quick up <config.conf>
+//   • stop:  wg-quick down <config.conf>
+//
+// OpenVPN: long-running process, stays alive while tunnel is active.
+//   • start: openvpn --config <config.ovpn>
+//   • stop:  SIGTERM to the process
+//
+// Both require elevated privileges on most Linux/macOS systems.
+// The app writes the config to <userData>/agora-vpn.{conf,ovpn} (mode 0600)
+// and passes the full path to the tool.
+
+async function doStopVpn() {
+  if (!vpnType) return;
+  const type = vpnType;
+  const cfgPath = vpnConfigPath;
+  vpnType = null;
+  vpnConfigPath = null;
+
+  try {
+    if (type === 'WireGuard' && cfgPath) {
+      await new Promise(resolve => {
+        const p = spawn('wg-quick', ['down', cfgPath], { stdio: 'pipe' });
+        p.on('exit', resolve);
+        p.on('error', resolve);
+        setTimeout(resolve, 6000);
+      });
+    } else if (vpnProc) {
+      vpnProc.kill('SIGTERM');
+      await new Promise(resolve => {
+        vpnProc?.on('exit', resolve);
+        setTimeout(resolve, 3000);
+      });
+    }
+  } catch (e) {
+    console.error('[vpn] stop error:', e.message);
+  }
+  vpnProc = null;
+}
+
+ipcMain.handle('vpn-start', async (_event, type, configContent) => {
+  // Tear down any running VPN first
+  await doStopVpn();
+
+  try {
+    const userDataDir = app.getPath('userData');
+    const ext     = type === 'WireGuard' ? '.conf' : '.ovpn';
+    const cfgPath = path.join(userDataDir, `agora-vpn${ext}`);
+
+    fs.writeFileSync(cfgPath, configContent, { mode: 0o600 });
+    vpnConfigPath = cfgPath;
+    vpnType = type;
+
+    const [cmd, args] = type === 'WireGuard'
+      ? ['wg-quick', ['up', cfgPath]]
+      : ['openvpn', ['--config', cfgPath, '--verb', '1']];
+
+    return await new Promise(resolve => {
+      let output = '';
+      const proc = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+      proc.stdout?.on('data', d => {
+        const s = d.toString().trim();
+        output += s + '\n';
+        console.log(`[vpn/${type}]`, s);
+      });
+      proc.stderr?.on('data', d => {
+        const s = d.toString().trim();
+        output += s + '\n';
+        console.error(`[vpn/${type}]`, s);
+      });
+
+      proc.on('error', e => {
+        vpnType = null;
+        vpnConfigPath = null;
+        vpnProc = null;
+        resolve({ error: `'${cmd}' not found or could not start: ${e.message}. Make sure it is installed and the process has the required permissions.` });
+      });
+
+      if (type === 'WireGuard') {
+        // wg-quick exits (code 0) once the interface is up; the kernel module keeps it alive.
+        proc.on('exit', code => {
+          vpnProc = null; // wg-quick is not a daemon
+          if (code === 0) {
+            resolve({ ok: true });
+          } else {
+            vpnType = null;
+            vpnConfigPath = null;
+            const tail = output.split('\n').slice(-6).join('\n');
+            resolve({ error: `wg-quick exited with code ${code}.\n${tail}` });
+          }
+        });
+        setTimeout(() => resolve({ error: 'wg-quick timed out after 15 s' }), 15000);
+      } else {
+        // OpenVPN runs as a long-lived process.
+        vpnProc = proc;
+        proc.on('exit', code => {
+          vpnProc = null;
+          // Only report exit as an error if it happens early (within 5 s) and we haven't resolved yet.
+        });
+        // Give OpenVPN 5 s to fail on its own; if still alive assume success.
+        const timer = setTimeout(() => { if (vpnProc === proc) resolve({ ok: true }); }, 5000);
+        proc.on('exit', code => {
+          clearTimeout(timer);
+          if (code !== null && code !== 0) {
+            vpnType = null;
+            vpnConfigPath = null;
+            const tail = output.split('\n').slice(-8).join('\n');
+            resolve({ error: `openvpn exited with code ${code}.\n${tail}` });
+          }
+        });
+      }
+    });
+  } catch (e) {
+    vpnType = null;
+    vpnConfigPath = null;
+    return { error: e.message };
+  }
+});
+
+ipcMain.handle('vpn-stop', async () => {
+  await doStopVpn();
+  return { ok: true };
+});
+
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   createWindow();
@@ -141,7 +274,8 @@ app.whenReady().then(() => {
   setTimeout(connectToIpc, 800);
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+  await doStopVpn();
   if (daemonProc) daemonProc.kill();
   app.quit();
 });

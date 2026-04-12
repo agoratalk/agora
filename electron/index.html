@@ -25,6 +25,30 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .status-bar{font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:0 12px;display:flex;align-items:center;gap:6px}
 .conn-dot{width:5px;height:5px;border-radius:50%;background:var(--text-muted);transition:background .3s,box-shadow .3s}
 .conn-dot.connected{background:var(--green);box-shadow:0 0 6px var(--green)}
+.conn-btn{background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--text-dim);cursor:pointer;padding:0;-webkit-app-region:no-drag;display:flex;align-items:center;gap:6px}
+.conn-btn:hover{color:var(--text)}
+.conn-menu{position:absolute;top:38px;right:0;background:var(--bg1);border:1px solid var(--line);border-radius:4px;padding:4px 0;z-index:9999;min-width:120px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.conn-menu-item{display:block;width:100%;padding:6px 14px;font-family:var(--mono);font-size:10px;color:var(--text-dim);background:none;border:none;cursor:pointer;text-align:left;white-space:nowrap}
+.conn-menu-item:hover{background:var(--bg2);color:var(--text)}
+.conn-menu-item.active{color:var(--accent)}
+.conn-wrap{position:relative;-webkit-app-region:no-drag}
+/* ── Settings ── */
+#settings-btn{background:none;border:none;color:var(--text-muted);font-size:14px;cursor:pointer;padding:0 8px;-webkit-app-region:no-drag;transition:color .15s;display:flex;align-items:center;height:38px}
+#settings-btn:hover{color:var(--text)}
+#settings-panel{position:fixed;top:38px;right:0;width:280px;background:var(--bg1);border:1px solid var(--line);border-left:none;border-top:none;border-radius:0 0 0 8px;z-index:90;display:none;flex-direction:column}
+#settings-panel.open{display:flex}
+.settings-header{padding:10px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.settings-close{background:none;border:none;color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:color .15s}
+.settings-close:hover{color:var(--text)}
+.settings-section{padding:14px 14px 10px}
+.settings-label{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+.settings-conn-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.settings-conn-btn{padding:7px 10px;border-radius:5px;font-family:var(--mono);font-size:10px;cursor:pointer;background:var(--bg2);border:1px solid var(--line);color:var(--text-dim);transition:all .15s;text-align:left}
+.settings-conn-btn:hover{border-color:var(--accent2);color:var(--text)}
+.settings-conn-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(79,214,190,.08)}
+.settings-lang-select{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 10px;outline:none;cursor:pointer;transition:border-color .15s;appearance:none}
+.settings-lang-select:focus{border-color:var(--accent)}
+.settings-divider{height:1px;background:var(--line);margin:0 14px}
 .wm-controls{display:flex;-webkit-app-region:no-drag}
 .wm-controls button{width:40px;height:38px;border:none;background:transparent;cursor:pointer;color:var(--text-dim);font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
 .wm-controls button:hover{background:var(--bg2);color:var(--text)}
@@ -298,6 +322,65 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 #blocked-by-notice{display:none;padding:10px 20px;background:rgba(224,96,112,.08);border-top:1px solid var(--danger);font-family:var(--mono);font-size:11px;color:var(--danger);text-align:center;flex-shrink:0}
 #blocked-by-notice.show{display:block}
 
+/* ── VPN config modal ── */
+.vpn-modal{width:420px}
+.vpn-drop-zone{border:1px dashed var(--line);border-radius:7px;padding:18px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;font-family:var(--mono);font-size:10px;color:var(--text-muted);line-height:1.8}
+.vpn-drop-zone:hover,.vpn-drop-zone.drag-over{border-color:var(--accent2);background:rgba(123,158,240,.06);color:var(--text-dim)}
+.vpn-drop-zone.has-file{border-color:var(--accent);color:var(--accent);background:rgba(79,214,190,.06)}
+.vpn-or{text-align:center;font-family:var(--mono);font-size:9px;color:var(--text-muted);margin:8px 0}
+.vpn-paste{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:10px;padding:9px 11px;outline:none;resize:vertical;min-height:90px;max-height:200px;line-height:1.6;transition:border-color .15s;margin-bottom:2px}
+.vpn-paste:focus{border-color:var(--accent2)}
+.vpn-status{font-family:var(--mono);font-size:10px;padding:6px 10px;border-radius:5px;margin-top:6px;display:none}
+.vpn-status.err{background:rgba(224,96,112,.1);border:1px solid var(--danger);color:var(--danger);display:block;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow-y:auto}
+.vpn-status.ok{background:rgba(109,208,138,.1);border:1px solid var(--green);color:var(--green);display:block}
+/* inline config section inside onboarding step 1 */
+.ob-vpn-section{background:var(--bg2);border:1px solid var(--line);border-radius:7px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.ob-vpn-drop{border:1px dashed var(--line);border-radius:6px;padding:12px;text-align:center;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--text-muted);transition:border-color .15s,background .15s}
+.ob-vpn-drop:hover,.ob-vpn-drop.drag-over{border-color:var(--accent2);background:rgba(123,158,240,.06);color:var(--text-dim)}
+.ob-vpn-drop.has-file{border-color:var(--accent);color:var(--accent)}
+
+/* ── Onboarding ── */
+#onboarding-overlay{position:fixed;inset:0;background:var(--bg0);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+#onboarding-overlay.hidden{display:none}
+.ob-shell{width:100%;max-width:460px;display:flex;flex-direction:column;gap:0}
+.ob-logo{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:.18em;color:var(--accent);margin-bottom:4px;display:flex;align-items:center;gap:10px}
+.ob-logo .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 2.5s ease-in-out infinite}
+.ob-step{display:none;flex-direction:column;gap:16px;animation:ob-in .25s ease}
+.ob-step.active{display:flex}
+@keyframes ob-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.ob-title{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:2px}
+.ob-hint{font-family:var(--mono);font-size:10px;color:var(--text-muted);line-height:1.7}
+.ob-input{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 13px;outline:none;transition:border-color .15s}
+.ob-input::placeholder{color:var(--text-muted)}
+.ob-input:focus{border-color:var(--accent)}
+.ob-textarea{resize:none;min-height:72px;line-height:1.6}
+.ob-row{display:flex;gap:10px;align-items:center}
+.ob-btn{padding:9px 22px;border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;border:1px solid var(--accent);background:var(--accent);color:var(--bg0)}
+.ob-btn:hover{filter:brightness(1.1)}
+.ob-btn-sec{background:transparent;border-color:var(--line);color:var(--text-dim)}
+.ob-btn-sec:hover{border-color:var(--accent2);color:var(--accent2);filter:none}
+.ob-skip{font-family:var(--mono);font-size:10px;color:var(--text-muted);cursor:pointer;padding:4px 0;background:none;border:none;transition:color .15s;align-self:flex-start}
+.ob-skip:hover{color:var(--text)}
+.ob-progress{display:flex;gap:5px;margin-bottom:28px}
+.ob-pip{width:18px;height:3px;border-radius:2px;background:var(--line);transition:background .3s}
+.ob-pip.done{background:var(--accent)}
+.ob-pip.cur{background:var(--accent2)}
+.ob-connecting{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+.ob-spinner{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ob-lang-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ob-lang-btn{padding:8px 12px;border-radius:5px;font-family:var(--mono);font-size:11px;cursor:pointer;background:var(--bg2);border:1px solid var(--line);color:var(--text-dim);transition:all .15s;text-align:left}
+.ob-lang-btn:hover{border-color:var(--accent2);color:var(--text)}
+.ob-lang-btn.selected{border-color:var(--accent);color:var(--accent);background:rgba(79,214,190,.08)}
+.ob-avatar-pick{width:80px;height:80px;border-radius:12px;background:var(--bg2);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:28px;color:var(--text-muted);cursor:pointer;overflow:hidden;transition:border-color .15s;flex-shrink:0}
+.ob-avatar-pick:hover{border-color:var(--accent)}
+.ob-avatar-pick img{width:100%;height:100%;object-fit:cover;border-radius:10px;display:block}
+.ob-blocklist-card{background:var(--bg2);border:1px solid var(--line);border-radius:7px;padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ob-blocklist-name{font-family:var(--mono);font-size:11px;color:var(--text)}
+.ob-blocklist-count{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+.ob-check{width:18px;height:18px;border-radius:4px;border:1px solid var(--line);background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .15s;flex-shrink:0}
+.ob-check.on{border-color:var(--accent);background:rgba(79,214,190,.15);color:var(--accent)}
+
 /* ── Blocklist sharing ── */
 .btn-publish-blocklist{margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--accent2);background:var(--bg3);border:1px solid var(--accent2);border-radius:4px;padding:5px 12px;cursor:pointer;transition:all .15s;width:100%}
 .btn-publish-blocklist:hover{background:var(--accent2);color:var(--bg0)}
@@ -322,9 +405,24 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
   <div class="logo"><span class="dot"></span>agora</div>
   <div class="tb-spacer"></div>
   <div class="status-bar">
-    <span class="conn-dot" id="conn-dot"></span>
-    <span id="conn-label">connecting…</span>
+    <div class="conn-wrap">
+      <button class="conn-btn" id="conn-btn" onclick="toggleConnMenu(event)">
+        <span class="conn-dot" id="conn-dot"></span>
+        <span id="conn-label">connecting…</span>
+      </button>
+      <div class="conn-menu" id="conn-menu" style="display:none">
+        <button class="conn-menu-item active" onclick="clickConnType('raw')">raw</button>
+        <button class="conn-menu-item" onclick="clickConnType('WireGuard')">WireGuard</button>
+        <button class="conn-menu-item" onclick="clickConnType('OpenVPN')">OpenVPN</button>
+        <button class="conn-menu-item" onclick="clickConnType('TOR')">TOR</button>
+        <button class="conn-menu-item" onclick="clickConnType('i2p')">i2p</button>
+        <button class="conn-menu-item" onclick="clickConnType('nym')">nym</button>
+        <button class="conn-menu-item" onclick="clickConnType('QUIC')">QUIC</button>
+      </div>
+    </div>
   </div>
+  <!-- Settings gear -->
+  <button id="settings-btn" onclick="toggleSettingsPanel(event)" title="Settings">⚙</button>
   <!-- Notification bell -->
   <button id="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
     🔔<span id="notif-badge"></span>
@@ -333,6 +431,20 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
     <button onclick="window.agora?.windowControl('minimize')">&#x2013;</button>
     <button onclick="window.agora?.windowControl('maximize')">&#x25A1;</button>
     <button class="close" onclick="window.agora?.windowControl('close')">&#x2715;</button>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div id="settings-panel">
+  <div class="settings-header">Settings <button class="settings-close" onclick="closeSettingsPanel()">✕</button></div>
+  <div class="settings-section">
+    <div class="settings-label">Connection type</div>
+    <div class="settings-conn-grid" id="settings-conn-grid"></div>
+  </div>
+  <div class="settings-divider"></div>
+  <div class="settings-section">
+    <div class="settings-label">Language</div>
+    <select class="settings-lang-select" id="settings-lang-select" onchange="settingsSaveLang(this.value)"></select>
   </div>
 </div>
 
@@ -509,6 +621,133 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
   </div>
 </div>
 
+<!-- Onboarding overlay -->
+<div id="onboarding-overlay" class="hidden">
+  <div class="ob-shell">
+    <div class="ob-logo"><span class="dot"></span>agora</div>
+    <p style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-bottom:20px;letter-spacing:.06em">welcome to the network</p>
+    <div class="ob-progress" id="ob-progress"></div>
+
+    <!-- Step 0: bootstrap server -->
+    <div class="ob-step active" id="ob-step-0">
+      <div class="ob-title">Bootstrap server</div>
+      <div class="ob-hint">Enter an optional bootstrap node to connect through.<br/>Leave blank to start in local-only mode.</div>
+      <input class="ob-input" id="ob-bootstrap-input" type="text" placeholder="host:port  (optional)" autocomplete="off"/>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obBootstrapNext()">Connect</button>
+        <button class="ob-skip" onclick="obBootstrapNext(true)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 1: connection type -->
+    <div class="ob-step" id="ob-step-1">
+      <div class="ob-title">Connection type</div>
+      <div class="ob-hint">Choose how you connect to the network. This becomes your default and can be changed later in Settings.</div>
+      <div class="ob-lang-grid" id="ob-conntype-grid"></div>
+      <!-- Shown only when WireGuard or OpenVPN is selected -->
+      <div class="ob-vpn-section" id="ob-vpn-section" style="display:none">
+        <div class="ob-title" id="ob-vpn-section-title" style="margin-bottom:0">Config file</div>
+        <div class="ob-vpn-drop" id="ob-vpn-drop" onclick="document.getElementById('ob-vpn-file').click()">
+          <span id="ob-vpn-drop-label">Drop .conf / .ovpn here or click to browse</span>
+        </div>
+        <input type="file" id="ob-vpn-file" accept=".conf,.ovpn,.txt" style="display:none"/>
+        <div class="vpn-or" style="margin:4px 0">— or paste —</div>
+        <textarea class="ob-input ob-textarea" id="ob-vpn-paste" placeholder="Paste config text…" style="min-height:60px;font-size:10px"></textarea>
+        <div class="vpn-status" id="ob-vpn-status"></div>
+      </div>
+      <div class="ob-row" style="margin-top:4px">
+        <button class="ob-btn" onclick="obSaveConnType()">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: connecting + language -->
+    <div class="ob-step" id="ob-step-2">
+      <div class="ob-connecting" id="ob-conn-status">
+        <div class="ob-spinner"></div>
+        <span>Connecting to network…</span>
+      </div>
+      <div class="ob-title" style="margin-top:8px">Language</div>
+      <div class="ob-hint">Choose your preferred language. This setting will be used by the interface in a future update.</div>
+      <div class="ob-lang-grid" id="ob-lang-grid"></div>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obNext(3)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: username -->
+    <div class="ob-step" id="ob-step-3">
+      <div class="ob-title">Username</div>
+      <div class="ob-hint">Pick a display name. Your cryptographic fingerprint is always shown alongside it.</div>
+      <input class="ob-input" id="ob-username-input" type="text" placeholder="your_username  (optional)" maxlength="32" autocomplete="off"/>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obSaveUsername()">Next →</button>
+        <button class="ob-skip" onclick="obNext(4)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: avatar -->
+    <div class="ob-step" id="ob-step-4">
+      <div class="ob-title">Profile picture</div>
+      <div class="ob-hint">Upload an avatar so peers can recognise you. Visible to everyone on the network.</div>
+      <div class="ob-row" style="gap:16px">
+        <div class="ob-avatar-pick" id="ob-avatar-pick" onclick="document.getElementById('ob-avatar-file').click()" title="Click to pick image">
+          <span id="ob-avatar-initial">?</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="ob-btn-sec ob-btn" onclick="document.getElementById('ob-avatar-file').click()">Choose image</button>
+          <button class="ob-btn-sec ob-btn" id="ob-avatar-clear-btn" onclick="obClearAvatar()" style="display:none">Remove</button>
+        </div>
+      </div>
+      <input type="file" id="ob-avatar-file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obSaveAvatar()">Next →</button>
+        <button class="ob-skip" onclick="obNext(5)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 5: blocklists from peers (shown only if available) -->
+    <div class="ob-step" id="ob-step-5">
+      <div class="ob-title">Community blocklists</div>
+      <div class="ob-hint">These blocklists were found from peers already on the network. Subscribe to any you trust.</div>
+      <div id="ob-blocklist-list" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto"></div>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obImportSelectedBlocklists()">Apply &amp; Next →</button>
+        <button class="ob-skip" onclick="obNext(6)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 6: first post -->
+    <div class="ob-step" id="ob-step-6">
+      <div class="ob-title">Say hello</div>
+      <div class="ob-hint">Make your first post to the public feed. Anyone on the network will see it for 24 hours.</div>
+      <textarea class="ob-input ob-textarea" id="ob-first-post" placeholder="What's on your mind?  (optional)"></textarea>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obPublishFirstPost()">Post &amp; Finish</button>
+        <button class="ob-skip" onclick="obFinish()">Skip →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VPN config modal (shared by WireGuard & OpenVPN) -->
+<div class="modal-backdrop" id="vpn-modal">
+  <div class="modal vpn-modal">
+    <h3 id="vpn-modal-title">VPN Configuration</h3>
+    <p class="hint" id="vpn-modal-hint"></p>
+    <div class="vpn-drop-zone" id="vpn-drop-zone" onclick="document.getElementById('vpn-file-input').click()">
+      <span id="vpn-drop-label">Drop config file here or click to browse</span>
+    </div>
+    <input type="file" id="vpn-file-input" style="display:none"/>
+    <div class="vpn-or">— or paste config below —</div>
+    <textarea class="vpn-paste" id="vpn-paste" placeholder="Paste WireGuard .conf or OpenVPN .ovpn content…"></textarea>
+    <div class="vpn-status" id="vpn-status"></div>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn-cancel" onclick="closeVpnModal()">Cancel</button>
+      <button class="btn-ok" id="vpn-apply-btn" onclick="applyVpnModal()">Connect</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -554,6 +793,18 @@ async function init() {
   await refreshPeers();
   await refreshPosts();
   setConnected(true);
+  // Push the persisted connection mode to the daemon so it routes correctly
+  await window.agora.request('set_conn_type', { type: connType });
+  // Auto-reconnect WireGuard/OpenVPN if a saved config exists
+  if (VPN_TYPES.includes(connType) && window.agora?.vpnStart) {
+    const saved = getStoredVpnConfig(connType);
+    if (saved) {
+      window.agora.vpnStart(connType, saved).then(resp => {
+        if (resp?.error) toast(`${connType} auto-connect failed: ${resp.error}`, 'error');
+        else toast(`${connType} tunnel restored`, 'success');
+      });
+    }
+  }
   // Re-broadcast our blocklist every 30 minutes so subscribers receive fresh updates
   setInterval(() => { if (blockedPubkeys.size > 0) publishBlocklist(true); }, 30 * 60 * 1000);
 }
@@ -1595,10 +1846,244 @@ function toggleNotifPanel() {
 function clearNotifs() { notifications = []; renderNotifications(); }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+const CONN_TYPES = ['raw', 'WireGuard', 'OpenVPN', 'TOR', 'i2p', 'nym', 'QUIC'];
+let connType = localStorage.getItem('agora_conn_type') || 'raw';
+
 function setConnected(ok) {
   document.getElementById('conn-dot').className = 'conn-dot' + (ok ? ' connected' : '');
-  document.getElementById('conn-label').textContent = ok ? 'connected' : 'disconnected';
+  document.getElementById('conn-label').textContent = ok ? 'connected - ' + connType : 'disconnected';
 }
+
+function toggleConnMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('conn-menu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+// Types that need a config file before they can be used
+const VPN_TYPES = ['WireGuard', 'OpenVPN'];
+
+// ── VPN helpers ────────────────────────────────────────────────────────────────
+function getStoredVpnConfig(type) {
+  try { return localStorage.getItem(`agora_vpn_config_${type}`) || ''; } catch { return ''; }
+}
+function saveStoredVpnConfig(type, config) {
+  try { if (config) localStorage.setItem(`agora_vpn_config_${type}`, config); } catch {}
+}
+
+function validateVpnConfig(type, text) {
+  const t = text.trim();
+  if (!t) return 'Config is empty.';
+  if (type === 'WireGuard') {
+    if (!t.includes('[Interface]')) return 'Missing [Interface] section — is this a valid WireGuard config?';
+    if (!t.includes('[Peer]'))      return 'Missing [Peer] section — is this a valid WireGuard config?';
+    if (!t.includes('PrivateKey')) return 'Missing PrivateKey — is this a valid WireGuard config?';
+  } else if (type === 'OpenVPN') {
+    if (!t.includes('remote') && !t.includes('client'))
+      return 'Does not look like an OpenVPN config (no "remote" or "client" directive found).';
+  }
+  return null; // valid
+}
+
+// Called when a VPN type is chosen but we want to set it without opening the modal
+// (e.g. after obSaveConnType has already handled the config)
+function applyConnType(type, save = true) {
+  const prev = connType;
+  connType = type;
+  if (save) { try { localStorage.setItem('agora_conn_type', type); } catch {} }
+
+  // Stop any running VPN if the user is switching away from a VPN type
+  if (VPN_TYPES.includes(prev) && type !== prev) {
+    window.agora?.vpnStop();
+  }
+
+  window.agora?.request('set_conn_type', { type });
+  document.getElementById('conn-menu').style.display = 'none';
+  document.querySelectorAll('.conn-menu-item').forEach(el => {
+    el.classList.toggle('active', el.textContent === type);
+  });
+  document.querySelectorAll('.settings-conn-btn').forEach(el => {
+    el.classList.toggle('active', el.dataset.ct === type);
+  });
+  const label = document.getElementById('conn-label');
+  if (label.textContent !== 'disconnected' && label.textContent !== 'connecting…') {
+    label.textContent = 'connected - ' + connType;
+  }
+}
+
+// Public entry point used by titlebar dropdown, settings panel, and any other caller.
+// For WireGuard/OpenVPN it opens the config modal; for others it applies immediately.
+function clickConnType(type) {
+  if (VPN_TYPES.includes(type)) {
+    openVpnModal(type);
+  } else {
+    applyConnType(type);
+  }
+}
+
+// Keep old name working (called from obSaveConnType which already resolved config)
+function setConnType(type, save = true) { applyConnType(type, save); }
+
+// ── VPN config modal ───────────────────────────────────────────────────────────
+let vpnModalTargetType = null;
+
+function openVpnModal(type) {
+  vpnModalTargetType = type;
+  document.getElementById('vpn-modal-title').textContent = `${type} Configuration`;
+  const isWg = type === 'WireGuard';
+  document.getElementById('vpn-modal-hint').textContent =
+    isWg ? 'Provide your WireGuard .conf file. wg-quick must be installed and the process needs permission to modify network interfaces.'
+          : 'Provide your OpenVPN .ovpn file. openvpn must be installed and the process needs permission to modify network interfaces.';
+  document.getElementById('vpn-file-input').accept = isWg ? '.conf,.txt' : '.ovpn,.conf,.txt';
+
+  // Pre-fill with any previously saved config for this type
+  const stored = getStoredVpnConfig(type);
+  document.getElementById('vpn-paste').value = stored;
+  const drop = document.getElementById('vpn-drop-zone');
+  drop.classList.toggle('has-file', !!stored);
+  document.getElementById('vpn-drop-label').textContent =
+    stored ? `${type} config loaded — click to replace` : 'Drop config file here or click to browse';
+
+  document.getElementById('vpn-status').className = 'vpn-status';
+  document.getElementById('vpn-status').textContent = '';
+  document.getElementById('vpn-modal').classList.add('open');
+}
+
+function closeVpnModal() {
+  document.getElementById('vpn-modal').classList.remove('open');
+  vpnModalTargetType = null;
+}
+
+async function applyVpnModal() {
+  const type   = vpnModalTargetType;
+  const config = document.getElementById('vpn-paste').value.trim();
+  const status = document.getElementById('vpn-status');
+  const btn    = document.getElementById('vpn-apply-btn');
+
+  const err = validateVpnConfig(type, config);
+  if (err) { status.className = 'vpn-status err'; status.textContent = err; return; }
+
+  btn.textContent = 'Connecting…';
+  btn.disabled = true;
+  status.className = 'vpn-status';
+  status.textContent = '';
+
+  saveStoredVpnConfig(type, config);
+  const resp = await window.agora?.vpnStart(type, config);
+
+  btn.textContent = 'Connect';
+  btn.disabled = false;
+
+  if (resp?.error) {
+    status.className = 'vpn-status err';
+    status.textContent = resp.error;
+    return;
+  }
+
+  status.className = 'vpn-status ok';
+  status.textContent = `${type} tunnel up`;
+  applyConnType(type);
+  setTimeout(closeVpnModal, 800);
+}
+
+// Wire up the VPN modal file picker and drag-and-drop
+function initVpnModal() {
+  const fileInput = document.getElementById('vpn-file-input');
+  const drop      = document.getElementById('vpn-drop-zone');
+  const paste     = document.getElementById('vpn-paste');
+
+  fileInput?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      paste.value = ev.target.result;
+      drop.classList.add('has-file');
+      document.getElementById('vpn-drop-label').textContent = file.name;
+    };
+    reader.readAsText(file);
+  });
+
+  ['dragenter','dragover'].forEach(ev => drop?.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.add('drag-over');
+  }));
+  ['dragleave','drop'].forEach(ev => drop?.addEventListener(ev, e => {
+    e.preventDefault(); drop.classList.remove('drag-over');
+  }));
+  drop?.addEventListener('drop', e => {
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      paste.value = ev.target.result;
+      drop.classList.add('has-file');
+      document.getElementById('vpn-drop-label').textContent = file.name;
+    };
+    reader.readAsText(file);
+  });
+}
+
+// ── Settings panel ─────────────────────────────────────────────────────────────
+let settingsPanelOpen = false;
+
+function buildSettingsPanel() {
+  // Connection type grid
+  const grid = document.getElementById('settings-conn-grid');
+  if (grid && !grid.childElementCount) {
+    CONN_TYPES.forEach(ct => {
+      const btn = document.createElement('button');
+      btn.className = 'settings-conn-btn' + (ct === connType ? ' active' : '');
+      btn.dataset.ct = ct;
+      btn.textContent = ct;
+      btn.onclick = () => { closeSettingsPanel(); clickConnType(ct); };
+      grid.appendChild(btn);
+    });
+  }
+  // Language select
+  const sel = document.getElementById('settings-lang-select');
+  if (sel && !sel.childElementCount) {
+    const savedLang = localStorage.getItem('agora_lang') || 'en';
+    OB_LANGUAGES.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.code;
+      opt.textContent = l.label;
+      opt.selected = l.code === savedLang;
+      sel.appendChild(opt);
+    });
+  }
+}
+
+function settingsSaveLang(code) {
+  try { localStorage.setItem('agora_lang', code); } catch {}
+}
+
+function toggleSettingsPanel(e) {
+  e.stopPropagation();
+  settingsPanelOpen = !settingsPanelOpen;
+  buildSettingsPanel();
+  document.getElementById('settings-panel').classList.toggle('open', settingsPanelOpen);
+  // Close notif panel if open
+  if (settingsPanelOpen && notifPanelOpen) {
+    notifPanelOpen = false;
+    document.getElementById('notif-panel').classList.remove('open');
+  }
+}
+
+function closeSettingsPanel() {
+  settingsPanelOpen = false;
+  document.getElementById('settings-panel').classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  const menu = document.getElementById('conn-menu');
+  if (menu) menu.style.display = 'none';
+  if (settingsPanelOpen &&
+      !document.getElementById('settings-panel').contains(e.target) &&
+      e.target.id !== 'settings-btn') {
+    closeSettingsPanel();
+  }
+});
 
 function displayName(d) { return d.sender_username || d.sender_fingerprint || d.sender_pubkey?.slice(0,8) || '?'; }
 
@@ -1626,8 +2111,355 @@ function toast(msg, type = 'info') {
   toastTimer = setTimeout(() => { el.className = ''; }, 3500);
 }
 
+// ── Onboarding ────────────────────────────────────────────────────────────────
+const OB_LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Español' },
+  { code: 'fr', label: 'Français' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'pt', label: 'Português' },
+  { code: 'zh', label: '中文' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'ru', label: 'Русский' },
+  { code: 'ja', label: '日本語' },
+  { code: 'hi', label: 'हिन्दी' },
+];
+const OB_TOTAL_STEPS = 7; // steps 0-6
+let obCurrentStep = 0;
+let obSelectedLang = 'en';
+let obSelectedConnType = connType;
+let obPendingAvatar = null;
+let obBlocklistSelections = {}; // pubkey → bool
+
+function obIsFirstRun() {
+  return !localStorage.getItem('agora_onboarded');
+}
+
+function obStart() {
+  document.getElementById('onboarding-overlay').classList.remove('hidden');
+  obBuildProgress();
+  obBuildConnTypeGrid();
+  obBuildLangGrid();
+  obShowStep(0);
+}
+
+function obBuildConnTypeGrid() {
+  const grid = document.getElementById('ob-conntype-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  CONN_TYPES.forEach(ct => {
+    const btn = document.createElement('button');
+    btn.className = 'ob-lang-btn' + (ct === obSelectedConnType ? ' selected' : '');
+    btn.textContent = ct;
+    btn.onclick = () => {
+      obSelectedConnType = ct;
+      document.querySelectorAll('#ob-conntype-grid .ob-lang-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      // Show/hide inline config section for VPN types
+      const section = document.getElementById('ob-vpn-section');
+      if (section) {
+        const isVpn = VPN_TYPES.includes(ct);
+        section.style.display = isVpn ? 'flex' : 'none';
+        if (isVpn) {
+          document.getElementById('ob-vpn-section-title').textContent = `${ct} config file`;
+          // Pre-fill with any stored config
+          const stored = getStoredVpnConfig(ct);
+          document.getElementById('ob-vpn-paste').value = stored;
+          const drop = document.getElementById('ob-vpn-drop');
+          drop.classList.toggle('has-file', !!stored);
+          document.getElementById('ob-vpn-drop-label').textContent =
+            stored ? `${ct} config loaded — click to replace` : 'Drop .conf / .ovpn here or click to browse';
+          document.getElementById('ob-vpn-status').className = 'vpn-status';
+        }
+      }
+    };
+    grid.appendChild(btn);
+  });
+
+  // Wire up the inline file picker for the onboarding section
+  const obFileInput = document.getElementById('ob-vpn-file');
+  const obDrop      = document.getElementById('ob-vpn-drop');
+  const obPaste     = document.getElementById('ob-vpn-paste');
+
+  obFileInput?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      obPaste.value = ev.target.result;
+      obDrop.classList.add('has-file');
+      document.getElementById('ob-vpn-drop-label').textContent = file.name;
+    };
+    reader.readAsText(file);
+  });
+  ['dragenter','dragover'].forEach(ev => obDrop?.addEventListener(ev, e => {
+    e.preventDefault(); obDrop.classList.add('drag-over');
+  }));
+  ['dragleave','drop'].forEach(ev => obDrop?.addEventListener(ev, e => {
+    e.preventDefault(); obDrop.classList.remove('drag-over');
+  }));
+  obDrop?.addEventListener('drop', e => {
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      obPaste.value = ev.target.result;
+      obDrop.classList.add('has-file');
+      document.getElementById('ob-vpn-drop-label').textContent = file.name;
+    };
+    reader.readAsText(file);
+  });
+}
+
+async function obSaveConnType() {
+  const type = obSelectedConnType;
+
+  if (VPN_TYPES.includes(type)) {
+    const config = document.getElementById('ob-vpn-paste')?.value.trim() || '';
+    const status = document.getElementById('ob-vpn-status');
+
+    const err = validateVpnConfig(type, config);
+    if (err && config) {
+      // Config was provided but is invalid
+      if (status) { status.className = 'vpn-status err'; status.textContent = err; }
+      return;
+    }
+
+    if (config) {
+      // Valid config provided — try to start the VPN
+      saveStoredVpnConfig(type, config);
+      if (status) { status.className = 'vpn-status'; status.textContent = ''; }
+      const resp = await window.agora?.vpnStart(type, config);
+      if (resp?.error) {
+        if (status) { status.className = 'vpn-status err'; status.textContent = resp.error; }
+        // Non-blocking: let the user skip past the VPN error and continue
+      } else if (status) {
+        status.className = 'vpn-status ok';
+        status.textContent = `${type} tunnel up`;
+      }
+    }
+    // If no config provided, just set the type without starting — user can configure later
+  }
+
+  setConnType(type);
+  obNext(2);
+}
+
+function obBuildProgress() {
+  const el = document.getElementById('ob-progress');
+  el.innerHTML = '';
+  for (let i = 0; i < OB_TOTAL_STEPS; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'ob-pip';
+    pip.id = 'ob-pip-' + i;
+    el.appendChild(pip);
+  }
+}
+
+function obUpdateProgress(step) {
+  for (let i = 0; i < OB_TOTAL_STEPS; i++) {
+    const pip = document.getElementById('ob-pip-' + i);
+    if (!pip) continue;
+    pip.className = 'ob-pip' + (i < step ? ' done' : i === step ? ' cur' : '');
+  }
+}
+
+function obBuildLangGrid() {
+  const grid = document.getElementById('ob-lang-grid');
+  grid.innerHTML = '';
+  OB_LANGUAGES.forEach(lang => {
+    const btn = document.createElement('button');
+    btn.className = 'ob-lang-btn' + (lang.code === obSelectedLang ? ' selected' : '');
+    btn.textContent = lang.label;
+    btn.onclick = () => {
+      obSelectedLang = lang.code;
+      document.querySelectorAll('.ob-lang-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      try { localStorage.setItem('agora_lang', obSelectedLang); } catch {}
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function obShowStep(n) {
+  obCurrentStep = n;
+  document.querySelectorAll('.ob-step').forEach((el, i) => {
+    el.classList.toggle('active', i === n);
+  });
+  obUpdateProgress(n);
+
+  // Step 2: update the connecting-status text to reflect the chosen transport
+  if (n === 2) {
+    const span = document.querySelector('#ob-conn-status span');
+    if (span) {
+      if (connType === 'TOR') {
+        span.textContent = 'Routing through Tor… (Tor must be running on port 9050)';
+      } else if (connType === 'i2p') {
+        span.textContent = 'Routing through I2P… (I2P router must be running with SOCKS5 on port 4447)';
+      } else {
+        span.textContent = 'Connecting to network…';
+      }
+    }
+  }
+
+  // Step 5: populate blocklists from peers who published one
+  if (n === 5) {
+    const available = obFindPeerBlocklists();
+    if (available.length === 0) {
+      // Nobody has blocklists yet — skip this step silently
+      obShowStep(6);
+      return;
+    }
+    const list = document.getElementById('ob-blocklist-list');
+    list.innerHTML = '';
+    obBlocklistSelections = {};
+    available.forEach(item => {
+      obBlocklistSelections[item.pubkey] = false;
+      const card = document.createElement('div');
+      card.className = 'ob-blocklist-card';
+      const info = document.createElement('div');
+      info.innerHTML = `<div class="ob-blocklist-name">${escHtml(item.name)}</div><div class="ob-blocklist-count">${item.count} entr${item.count === 1 ? 'y' : 'ies'}</div>`;
+      const chk = document.createElement('div');
+      chk.className = 'ob-check';
+      chk.dataset.pk = item.pubkey;
+      chk.onclick = () => {
+        obBlocklistSelections[item.pubkey] = !obBlocklistSelections[item.pubkey];
+        chk.classList.toggle('on', obBlocklistSelections[item.pubkey]);
+        chk.textContent = obBlocklistSelections[item.pubkey] ? '✓' : '';
+      };
+      card.appendChild(info);
+      card.appendChild(chk);
+      list.appendChild(card);
+    });
+  }
+}
+
+function obNext(n) { obShowStep(n); }
+
+// Find peers who have published a blocklist post that we already received
+function obFindPeerBlocklists() {
+  const seen = {};
+  posts.forEach(p => {
+    const bl = parseBlocklistPost(p.content);
+    if (!bl || !bl.pubkeys?.length) return;
+    if (p.sender_pubkey === myIdentity?.pubkey) return;
+    if (!seen[p.sender_pubkey] || new Date(p.timestamp) > new Date(seen[p.sender_pubkey].timestamp)) {
+      seen[p.sender_pubkey] = {
+        pubkey: p.sender_pubkey,
+        name: p.sender_username || p.sender_fingerprint || p.sender_pubkey.slice(0, 12),
+        count: bl.pubkeys.length,
+        pubkeys: bl.pubkeys,
+        timestamp: p.timestamp,
+      };
+    }
+  });
+  return Object.values(seen);
+}
+
+async function obBootstrapNext(skip = false) {
+  if (!skip) {
+    const addr = document.getElementById('ob-bootstrap-input').value.trim();
+    if (addr) {
+      const resp = await window.agora?.request('connect', { addr });
+      if (resp?.error) { toast('Connect failed: ' + resp.error, 'error'); }
+      else { toast('Dialling ' + addr + '…', 'success'); }
+    }
+  }
+  obShowStep(1); // → connection type
+}
+
+async function obSaveUsername() {
+  const uname = document.getElementById('ob-username-input').value.trim();
+  if (uname) {
+    const resp = await window.agora?.request('set_username', { username: uname });
+    if (resp?.error) { toast('Username error: ' + resp.error, 'error'); return; }
+    if (myIdentity) myIdentity.username = uname;
+    document.getElementById('my-name').textContent = uname;
+    document.getElementById('ob-avatar-initial').textContent = uname.charAt(0).toUpperCase();
+  }
+  obShowStep(4); // → avatar
+}
+
+function obClearAvatar() {
+  obPendingAvatar = null;
+  document.getElementById('ob-avatar-pick').innerHTML = '<span id="ob-avatar-initial">' +
+    escHtml((myIdentity?.username || '?').charAt(0).toUpperCase()) + '</span>';
+  document.getElementById('ob-avatar-clear-btn').style.display = 'none';
+}
+
+async function obSaveAvatar() {
+  if (obPendingAvatar) {
+    const resp = await window.agora?.request('set_avatar', { data: obPendingAvatar });
+    if (resp?.error) { toast('Avatar error: ' + resp.error, 'error'); return; }
+    if (myIdentity) myIdentity.avatar = obPendingAvatar;
+    renderIdentityAvatar();
+    obPendingAvatar = null;
+  }
+  obShowStep(5); // → blocklists
+}
+
+function obImportSelectedBlocklists() {
+  const available = obFindPeerBlocklists();
+  available.forEach(item => {
+    if (obBlocklistSelections[item.pubkey]) {
+      importBlocklistPubkeys(item.pubkeys, true);
+      subscribedToBlocklists.add(item.pubkey);
+    }
+  });
+  saveSubscriptions();
+  obShowStep(6); // → first post
+}
+
+async function obPublishFirstPost() {
+  const content = document.getElementById('ob-first-post').value.trim();
+  if (content) {
+    const resp = await window.agora?.request('post', { content });
+    if (resp?.error) { toast('Post failed: ' + resp.error, 'error'); return; }
+    await refreshPosts();
+    switchTab('feed');
+  }
+  obFinish();
+}
+
+function obFinish() {
+  try { localStorage.setItem('agora_onboarded', '1'); } catch {}
+  document.getElementById('onboarding-overlay').classList.add('hidden');
+}
+
+// Wire up the avatar file picker for onboarding
+function obInitAvatarPicker() {
+  const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+  document.getElementById('ob-avatar-file')?.addEventListener('change', e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!ALLOWED.includes(file.type)) { toast('Avatar must be JPEG, PNG, or WebP', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = () => toast('Could not load image', 'error');
+      img.onload = () => {
+        const SIZE = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE; canvas.height = SIZE;
+        const ctx = canvas.getContext('2d');
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, SIZE, SIZE);
+        const outType = file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+        obPendingAvatar = canvas.toDataURL(outType, 0.75);
+        document.getElementById('ob-avatar-pick').innerHTML = `<img src="${escHtml(obPendingAvatar)}" alt=""/>`;
+        document.getElementById('ob-avatar-clear-btn').style.display = '';
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ── Bootstrap ──────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Auto-resize textareas
   ['msg-input', 'post-input'].forEach(id => {
     const ta = document.getElementById(id);
@@ -1717,7 +2549,14 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('notif-panel').classList.remove('open');
     }
   });
-  init();
+  obInitAvatarPicker();
+  initVpnModal();
+  // Keyboard shortcuts inside onboarding steps
+  document.getElementById('ob-bootstrap-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') obBootstrapNext(); });
+  document.getElementById('ob-username-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') obSaveUsername(); });
+  document.getElementById('ob-first-post')?.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') obPublishFirstPost(); });
+  await init();
+  if (obIsFirstRun()) obStart();
 });
 
 // ── Demo data (when running outside Electron) ─────────────────────────────────
