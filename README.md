@@ -37,8 +37,7 @@ Tor transport is being actively worked on. The daemon now includes an embedded
 Tor client (via [arti](https://gitlab.torproject.org/tpo/core/arti)) — no
 external `tor` binary required. When you switch to Tor mode the daemon
 bootstraps its own Tor circuits in the background (takes 10–60 s). This is
-functional but not yet stable enough to recommend for safety-critical use.
-Until it is: assume every peer you talk to knows where you are.
+not yet functional, assume every peer you talk to knows where you are.
 
 ---
 
@@ -170,11 +169,11 @@ decide things in the open. That's the idea. Come build it.
 
 Everything in this list is actively being worked on right now.
 
-- **Secure connections that hide your IP** — route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings.
-- **Fixing all the bugs** — the ever-present one. Stability and correctness come before new features.
-- **Following and blocking, and shareable lists** — follow users and organise them into named follow lists you can publish for others to subscribe to. Block individual users and share blocklists curated by you or imported from peers you trust. Moderation that lives with the user, not a central authority.
+- **Secure connections that hide your IP** — route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings. BE CAREFULL, IT DOES NOT WORK YET AS OF WRITING!!!
+- **Fixing all the bugs** — the ever-present one. I need colaborators please help I'm tired.
+- **Following and blocking, and shareable lists** — follow users and organise them into named follow lists you can publish for others to subscribe to. Block individual users and share blocklists curated by you or imported from peers you trust. Moderation that lives with the user, not a central authority. This feature is almost done.
 - **Channels for different topics** — topic-scoped channels inside the public feed, so conversations can be organised without central moderators. Posts in a channel only appear in that channel; the public feed stays uncluttered.
-- **Multilanguage support** — full UI localisation covering a range of languages so Agora is accessible to a wider global audience without needing to read English.
+- **Multilanguage support** — full UI localisation covering a range of languages so Agora is accessible to a wider global audience without needing to read English. If a translation feels off or you are fluent in a language not yet translated, please I need your help.
 - **Group chats** — encrypted group messaging built on top of the existing DM layer, with admin roles, invite/kick controls, and forward secrecy inherited from the per-message key exchange.
 - **Profile pictures and richer profile metadata** — upload an avatar and write a short bio that other peers can see when they open your profile.
 - **Embedding content from other platforms** — paste a link into a post and have it rendered as a preview (video player, image, or link card) inline in the feed.
@@ -186,7 +185,7 @@ Everything in this list is actively being worked on right now.
 
 These are on the roadmap but not currently being worked on.
 
-- **Social media accounts to promote the project and Monero donation wallet** — public accounts on major platforms to grow awareness of Agora, and a Monero wallet address for anyone who wants to support development with a private donation.
+- **Social media accounts to promote the project and Monero donation wallet** — public accounts on major platforms to grow awareness of Agora, and a Monero wallet address for anyone who wants to support development with a private donation. If you want to help even just getting the word out would be appreciated.
 - **Windows desktop app** — a native `.exe` installer so Windows users can run Agora without a terminal or manual setup.
 - **Linux packages** — packaged releases for major distros (`.deb`, `.rpm`, and others) so Agora can be installed through standard system package managers.
 - **Android app** — a native mobile client distributed as an APK so people can use Agora without needing a desktop.
