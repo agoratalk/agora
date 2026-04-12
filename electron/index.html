@@ -78,11 +78,28 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .switch-accounts-btn{margin-top:6px;font-family:var(--mono);font-size:9px;color:var(--text-dim);background:var(--bg3);border:1px solid var(--line);border-radius:4px;padding:3px 8px;cursor:pointer;transition:all .15s;width:100%}
 .switch-accounts-btn:hover{border-color:var(--accent2);color:var(--accent2)}
 
-/* nav tabs */
-#nav-tabs{display:flex;border-bottom:1px solid var(--line);flex-shrink:0}
-.nav-tab{flex:1;padding:8px 0;font-family:var(--mono);font-size:10px;text-align:center;cursor:pointer;color:var(--text-muted);border:none;background:none;transition:color .15s,border-bottom .15s;border-bottom:2px solid transparent;letter-spacing:.06em}
+/* nav tabs — 2 × 2 grid */
+#nav-tabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);flex-shrink:0}
+.nav-tab{padding:7px 0;font-family:var(--mono);font-size:10px;text-align:center;cursor:pointer;color:var(--text-muted);border:none;border-right:1px solid var(--line);border-bottom:2px solid transparent;background:none;transition:color .15s,border-bottom .15s;letter-spacing:.06em}
+.nav-tab:nth-child(2n){border-right:none}
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .nav-tab:hover:not(.active){color:var(--text-dim)}
+/* channel strip */
+#channel-strip{display:flex;gap:6px;padding:6px 12px;border-bottom:1px solid var(--line);overflow-x:auto;flex-shrink:0;align-items:center}
+#channel-strip::-webkit-scrollbar{height:3px}
+#channel-strip::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.ch-pill{font-family:var(--mono);font-size:10px;padding:3px 9px;border-radius:10px;border:1px solid var(--line);background:none;color:var(--text-muted);cursor:pointer;white-space:nowrap;transition:all .15s;letter-spacing:.04em}
+.ch-pill:hover:not(.active){color:var(--text);border-color:var(--text-muted)}
+.ch-pill.active{background:var(--accent);color:var(--bg0);border-color:var(--accent)}
+.ch-pill.ch-add{border-style:dashed}
+.ch-block-btn{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--line);background:none;color:var(--text-muted);cursor:pointer;transition:all .15s;margin-left:auto;flex-shrink:0}
+.ch-block-btn:hover,.ch-block-btn.is-blocked{border-color:#e55;color:#e55}
+/* blocked-channels section in blocklists modal */
+.bl-channels-section{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.bl-ch-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--text-dim)}
+/* stub views */
+.view-stub{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-family:var(--mono);font-size:11px;gap:8px}
+.view-stub .stub-icon{font-size:28px;opacity:.3}
 
 /* peer list */
 #peer-list{flex:1;overflow-y:auto;padding:6px 0}
@@ -150,6 +167,43 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 #no-peer .big{font-family:var(--mono);font-size:48px;opacity:.15;line-height:1}
 #no-peer .hint{font-family:var(--mono);font-size:11px;letter-spacing:.08em}
 
+/* ── Group chat ── */
+.group-item{padding:7px 14px;cursor:pointer;transition:background .12s;display:flex;align-items:center;gap:10px}
+.group-item:hover{background:var(--bg2)}
+.group-item.active{background:var(--bg3);border-left:2px solid var(--accent)}
+.group-avatar-sm{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:700;color:var(--accent);border:1px solid var(--line);flex-shrink:0}
+.group-item-meta{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#no-group{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted)}
+#no-group .big{font-family:var(--mono);font-size:48px;opacity:.15;line-height:1}
+#no-group .hint{font-family:var(--mono);font-size:11px;letter-spacing:.08em}
+#group-chat-header{min-height:48px;border-bottom:1px solid var(--line);padding:0 16px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.group-chat-avatar{width:38px;height:38px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;font-weight:700;color:var(--accent);border:1px solid var(--line);flex-shrink:0}
+#group-chat-name{font-weight:500;font-size:14px;color:var(--text)}
+#group-chat-members{font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:1px}
+#group-messages{flex:1;overflow-y:auto;padding:14px 20px;display:flex;flex-direction:column;gap:2px}
+#group-messages::-webkit-scrollbar{width:4px}
+#group-messages::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+#group-input-bar{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:flex-end;flex-shrink:0}
+#group-msg-input{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:10px 14px;outline:none;resize:none;min-height:42px;max-height:120px;line-height:1.5;transition:border-color .15s}
+#group-msg-input::placeholder{color:var(--text-muted)}
+#group-msg-input:focus{border-color:var(--accent2)}
+#new-group-wrap{display:none}
+/* group settings modal */
+.group-member-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.group-member-row:last-child{border-bottom:none}
+.group-member-info{flex:1;min-width:0}
+.group-member-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.group-member-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+.group-admin-badge{font-family:var(--mono);font-size:8px;padding:1px 5px;border-radius:3px;background:var(--accent);color:var(--bg0);flex-shrink:0}
+.group-member-actions{display:flex;gap:4px;flex-shrink:0}
+/* group peer picker */
+.group-peer-picker{max-height:180px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;margin:8px 0}
+.group-pick-item{display:flex;align-items:center;gap:10px;padding:6px 10px;cursor:pointer;transition:background .1s}
+.group-pick-item:hover{background:var(--bg2)}
+.group-pick-item input[type="checkbox"]{width:13px;height:13px;cursor:pointer;accent-color:var(--accent)}
+.group-pick-name{font-size:12px;color:var(--text)}
+.group-pick-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted)}
+
 #input-bar{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:flex-end;flex-shrink:0}
 #msg-input{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:10px 14px;outline:none;resize:none;min-height:42px;max-height:120px;line-height:1.5;transition:border-color .15s}
 #msg-input::placeholder{color:var(--text-muted)}
@@ -164,9 +218,9 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .attach-preview .attach-remove{position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:var(--danger);border:none;border-radius:50%;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
 
 /* ── Feed view ── */
-#feed-header{height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#feed-header{min-height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 #feed-header h2{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--text);font-weight:600}
-#feed-header .feed-hint{font-size:10px;color:var(--text-muted);font-family:var(--mono);margin-left:auto}
+#feed-header .feed-hint{font-size:10px;color:var(--text-muted);font-family:var(--mono)}
 #post-compose{padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;display:flex;flex-direction:column;gap:8px}
 .post-compose-row{display:flex;gap:10px;align-items:flex-end}
 #post-input{flex:1;background:var(--bg2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:13px;padding:10px 14px;outline:none;resize:none;min-height:42px;max-height:100px;line-height:1.5;transition:border-color .15s}
@@ -302,11 +356,14 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 #toast.error{border-color:var(--danger);color:var(--danger)}
 #toast.like{border-color:var(--pink);color:var(--pink)}
 
-/* ── Block feature ── */
+/* ── Block / follow feature ── */
 .peer-item{position:relative}
-.peer-block-btn{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:1px solid transparent;border-radius:4px;color:var(--text-muted);font-size:9px;padding:2px 6px;cursor:pointer;font-family:var(--mono);white-space:nowrap;transition:all .15s}
-.peer-item:hover .peer-block-btn{display:block}
+.peer-block-btn,.peer-follow-btn{display:none;position:absolute;background:none;border:1px solid transparent;border-radius:4px;font-size:9px;padding:2px 6px;cursor:pointer;font-family:var(--mono);white-space:nowrap;transition:all .15s}
+.peer-block-btn{right:8px;top:50%;transform:translateY(-50%);color:var(--text-muted)}
+.peer-follow-btn{right:52px;top:50%;transform:translateY(-50%);color:var(--text-muted)}
+.peer-item:hover .peer-block-btn,.peer-item:hover .peer-follow-btn{display:block}
 .peer-block-btn:hover{border-color:var(--danger);color:var(--danger);background:rgba(224,96,112,.08)}
+.peer-follow-btn:hover,.peer-follow-btn.is-following{border-color:var(--accent);color:var(--accent)}
 .chat-block-btn{background:none;border:1px solid transparent;border-radius:4px;color:var(--text-muted);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;transition:all .15s;flex-shrink:0}
 .chat-block-btn:hover{border-color:var(--danger);color:var(--danger)}
 .chat-block-btn.is-blocked{border-color:var(--danger);color:var(--danger)}
@@ -321,6 +378,26 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .blocked-user-name{font-size:12px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .blocked-user-fp{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:1px}
 #blocked-empty{font-family:var(--mono);font-size:11px;color:var(--text-muted);text-align:center;padding:16px 0}
+/* ── Following feature ── */
+#following-indicator-wrap{padding-top:2px}
+#following-indicator{display:none;font-family:var(--mono);font-size:9px;color:var(--text-muted);text-align:left;cursor:pointer;background:none;border:none;padding:2px 0;transition:color .15s;width:100%}
+#following-indicator:hover{color:var(--accent)}
+#following-indicator.has-following{display:block}
+#following-header{min-height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#following-header h2{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--text);font-weight:600}
+#following-header .feed-hint{font-size:10px;color:var(--text-muted);font-family:var(--mono)}
+#following-feed-list{flex:1;overflow-y:auto;padding:12px}
+#following-feed-list .feed-empty{padding:40px 20px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-muted);line-height:2}
+.post-channel-tag{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:8px;border:1px solid var(--line);color:var(--text-muted);margin-left:6px;letter-spacing:.04em}
+/* profile modal action buttons */
+.profile-action-row{display:flex;gap:8px;margin-top:10px}
+.profile-follow-btn{flex:1;font-family:var(--mono);font-size:10px;padding:6px 0;border-radius:4px;border:1px solid var(--accent);color:var(--accent);background:none;cursor:pointer;transition:all .15s}
+.profile-follow-btn:hover{background:var(--accent);color:var(--bg0)}
+.profile-follow-btn.is-following{background:var(--accent);color:var(--bg0)}
+.profile-follow-btn.is-following:hover{background:none;color:var(--accent)}
+.profile-block-btn-sm{flex:1;font-family:var(--mono);font-size:10px;padding:6px 0;border-radius:4px;border:1px solid var(--line);color:var(--text-muted);background:none;cursor:pointer;transition:all .15s}
+.profile-block-btn-sm:hover{border-color:var(--danger);color:var(--danger)}
+.profile-block-btn-sm.is-blocked{border-color:var(--danger);color:var(--danger)}
 
 /* ── Blocked-by notice ── */
 #blocked-by-notice{display:none;padding:10px 20px;background:rgba(224,96,112,.08);border-top:1px solid var(--danger);font-family:var(--mono);font-size:11px;color:var(--danger);text-align:center;flex-shrink:0}
@@ -532,10 +609,12 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       </div>
     </div>
 
-    <!-- Nav tabs -->
+    <!-- Nav tabs (2 × 2) -->
     <div id="nav-tabs">
       <button class="nav-tab active" onclick="switchTab('peers')" id="tab-peers">Peers</button>
       <button class="nav-tab" onclick="switchTab('feed')" id="tab-feed">Feed</button>
+      <button class="nav-tab" onclick="switchTab('groups')" id="tab-groups">Groups</button>
+      <button class="nav-tab" onclick="switchTab('following')" id="tab-following">Following</button>
     </div>
 
     <!-- Peer list -->
@@ -549,6 +628,12 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       </div>
       <div id="blocked-indicator-wrap">
         <button id="blocked-indicator" onclick="openBlockedModal()">🚫 <span id="blocked-count">0</span> <span id="blocked-label">blocked user(s)</span></button>
+      </div>
+      <div id="following-indicator-wrap">
+        <button id="following-indicator" onclick="openFollowModal()">👥 <span id="following-count">0</span> following</button>
+      </div>
+      <div id="new-group-wrap" style="display:none">
+        <button id="new-group-btn" onclick="openCreateGroupModal()" style="width:100%;font-family:var(--mono);font-size:10px;padding:5px 8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--text-dim);cursor:pointer;transition:all .15s;text-align:left">+ New Group</button>
       </div>
     </div>
   </div>
@@ -588,9 +673,11 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
     <!-- Feed view -->
     <div class="view" id="view-feed">
       <div id="feed-header">
-        <h2>📢 Public Feed</h2>
-        <span class="feed-hint">Posts propagate for 24h</span>
+        <h2 id="feed-title">📢 Public Feed</h2>
+        <span class="feed-hint" id="feed-hint">Posts propagate for 24h</span>
+        <button id="ch-block-btn" class="ch-block-btn" onclick="toggleBlockActiveChannel()" style="display:none">Block Channel</button>
       </div>
+      <div id="channel-strip"></div>
       <div id="post-compose">
         <div class="post-compose-row">
           <textarea id="post-input" rows="1" placeholder="Share something with the network…"></textarea>
@@ -611,6 +698,40 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
         </div>
       </div>
       <div id="feed-list"><div class="feed-empty">No posts yet.<br/>Be the first to post!</div></div>
+    </div>
+
+    <!-- Groups view -->
+    <div class="view" id="view-groups">
+      <div id="no-group">
+        <div class="big">⬡</div>
+        <div class="hint">No group selected</div>
+        <button class="ob-btn" style="font-size:11px;padding:7px 18px;margin-top:4px" onclick="openCreateGroupModal()">+ New Group</button>
+      </div>
+      <div id="group-chat-pane" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+        <div id="group-chat-header">
+          <div class="group-chat-avatar" id="group-chat-avatar">⬡</div>
+          <div style="flex:1;min-width:0">
+            <div id="group-chat-name">—</div>
+            <div id="group-chat-members">—</div>
+          </div>
+          <button class="ch-block-btn" onclick="openGroupSettingsModal()" title="Group settings">⚙ Settings</button>
+        </div>
+        <div id="group-messages"></div>
+        <div id="group-input-bar">
+          <textarea id="group-msg-input" rows="1" placeholder="Message group…"></textarea>
+          <button class="send-btn" onclick="sendGroupMsg()" title="Send (Ctrl+Enter)">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Following view -->
+    <div class="view" id="view-following">
+      <div id="following-header">
+        <h2>👥 Following</h2>
+        <span class="feed-hint">Posts from people you follow</span>
+        <button class="ch-block-btn" onclick="openFollowModal()" style="margin-left:auto">Manage Lists</button>
+      </div>
+      <div id="following-feed-list"><div class="feed-empty">You are not following anyone yet.<br>Follow users from the Peers tab or their profile.</div></div>
     </div>
 
     <!-- Identity manager view -->
@@ -669,7 +790,11 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 <div class="modal-backdrop" id="blocked-modal">
   <div class="modal modal-wide">
     <h3>My Blocklists</h3>
-    <div id="blocklists-container" style="max-height:420px;overflow-y:auto"><div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">No blocklists yet.</div></div>
+    <div id="blocklists-container" style="max-height:360px;overflow-y:auto"><div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">No blocklists yet.</div></div>
+    <div id="blocked-channels-section" class="bl-channels-section" style="display:none">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px">BLOCKED CHANNELS</div>
+      <div id="blocked-channels-list"></div>
+    </div>
     <div class="btn-row" style="margin-top:12px">
       <button class="btn-sm accent" onclick="createNewBlocklist()">+ New List</button>
       <button class="btn-cancel" onclick="closeModal('blocked-modal')">Close</button>
@@ -708,9 +833,66 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       <textarea class="profile-bio-edit" id="profile-bio-textarea" maxlength="500" placeholder="Write a short bio…" oninput="onBioInput()"></textarea>
       <div class="profile-bio-counter" id="profile-bio-counter">0 / 500</div>
     </div>
-    <div class="btn-row" style="margin-top:14px">
+    <!-- Action buttons for other users' profiles -->
+    <div class="profile-action-row" id="profile-action-row" style="display:none">
+      <button class="profile-follow-btn" id="profile-follow-btn" onclick="toggleFollowFromProfile()">Follow</button>
+      <button class="profile-block-btn-sm" id="profile-block-btn" onclick="confirmBlockFromProfile()">Block</button>
+    </div>
+    <div class="btn-row" style="margin-top:10px">
       <button class="btn-cancel" onclick="closeModal('profile-modal')">Close</button>
       <button class="btn-ok" id="profile-save-btn" style="display:none" onclick="saveBio()">Save Bio</button>
+    </div>
+  </div>
+</div>
+
+<!-- Follow lists modal -->
+<div class="modal-backdrop" id="follow-modal">
+  <div class="modal modal-wide">
+    <h3>My Follow Lists</h3>
+    <div id="followlists-container" style="max-height:360px;overflow-y:auto"><div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">No follow lists yet.</div></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn-sm accent" onclick="createNewFollowlist()">+ New List</button>
+      <button class="btn-cancel" onclick="closeModal('follow-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Follow picker modal -->
+<div class="modal-backdrop" id="follow-picker-modal">
+  <div class="modal">
+    <h3>Follow User</h3>
+    <p id="follow-picker-name" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-bottom:12px"></p>
+    <div class="block-picker-list" id="follow-picker-lists"></div>
+  </div>
+</div>
+
+<!-- Create group modal -->
+<div class="modal-backdrop" id="create-group-modal">
+  <div class="modal">
+    <h3>New Group</h3>
+    <input class="modal-input" id="new-group-name-input" placeholder="Group name" maxlength="64" style="margin-bottom:10px"/>
+    <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px">Add members</div>
+    <div class="group-peer-picker" id="create-group-peer-picker"></div>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('create-group-modal')">Cancel</button>
+      <button class="btn-ok" onclick="submitCreateGroup()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group settings modal -->
+<div class="modal-backdrop" id="group-settings-modal">
+  <div class="modal">
+    <h3 id="gs-title">Group Settings</h3>
+    <div id="gs-members-list" style="margin-bottom:14px"></div>
+    <div id="gs-add-section" style="display:none">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px">Add members</div>
+      <div class="group-peer-picker" id="gs-peer-picker"></div>
+      <button class="btn-ok" style="width:100%;margin-top:6px" onclick="addSelectedPeersToGroup()">Add selected</button>
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn-cancel" onclick="closeModal('group-settings-modal')">Close</button>
+      <button class="btn-ok danger" id="gs-leave-btn" onclick="leaveOrDisbandGroup()" style="background:var(--danger);border-color:var(--danger)">Leave Group</button>
     </div>
   </div>
 </div>
@@ -722,14 +904,13 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
     <p style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-bottom:20px;letter-spacing:.06em">welcome to the network</p>
     <div class="ob-progress" id="ob-progress"></div>
 
-    <!-- Step 0: bootstrap server -->
+    <!-- Step 0: language -->
     <div class="ob-step active" id="ob-step-0">
-      <div class="ob-title">Bootstrap server</div>
-      <div class="ob-hint">Enter an optional bootstrap node to connect through.<br/>Leave blank to start in local-only mode.</div>
-      <input class="ob-input" id="ob-bootstrap-input" type="text" placeholder="host:port  (optional)" autocomplete="off"/>
+      <div class="ob-title">Language</div>
+      <div class="ob-hint">Choose your preferred language.</div>
+      <div class="ob-lang-grid" id="ob-lang-grid"></div>
       <div class="ob-row">
-        <button class="ob-btn" onclick="obBootstrapNext()">Connect</button>
-        <button class="ob-skip" onclick="obBootstrapNext(true)">Skip →</button>
+        <button class="ob-btn" onclick="obNext(1)">Next →</button>
       </div>
     </div>
 
@@ -751,36 +932,45 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       </div>
       <div class="ob-row" style="margin-top:4px">
         <button class="ob-btn" onclick="obSaveConnType()">Next →</button>
+        <button class="ob-skip" onclick="obSaveConnTypeSkip()">Skip →</button>
       </div>
     </div>
 
-    <!-- Step 2: connecting + language -->
+    <!-- Step 2: connecting -->
     <div class="ob-step" id="ob-step-2">
       <div class="ob-connecting" id="ob-conn-status">
         <div class="ob-spinner"></div>
         <span>Connecting to network…</span>
       </div>
-      <div class="ob-title" style="margin-top:8px">Language</div>
-      <div class="ob-hint">Choose your preferred language.</div>
-      <div class="ob-lang-grid" id="ob-lang-grid"></div>
       <div class="ob-row">
         <button class="ob-btn" onclick="obNext(3)">Next →</button>
       </div>
     </div>
 
-    <!-- Step 3: username -->
+    <!-- Step 3: bootstrap server -->
     <div class="ob-step" id="ob-step-3">
+      <div class="ob-title">Bootstrap server</div>
+      <div class="ob-hint">Enter an optional bootstrap node to connect through.<br/>Leave blank to continue without one.</div>
+      <input class="ob-input" id="ob-bootstrap-input" type="text" placeholder="host:port  (optional)" autocomplete="off"/>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obBootstrapNext()">Connect</button>
+        <button class="ob-skip" onclick="obBootstrapNext(true)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: username -->
+    <div class="ob-step" id="ob-step-4">
       <div class="ob-title">Username</div>
       <div class="ob-hint">Pick a display name. Your cryptographic fingerprint is always shown alongside it.</div>
       <input class="ob-input" id="ob-username-input" type="text" placeholder="your_username  (optional)" maxlength="32" autocomplete="off"/>
       <div class="ob-row">
         <button class="ob-btn" onclick="obSaveUsername()">Next →</button>
-        <button class="ob-skip" onclick="obNext(4)">Skip →</button>
+        <button class="ob-skip" onclick="obNext(5)">Skip →</button>
       </div>
     </div>
 
-    <!-- Step 4: avatar -->
-    <div class="ob-step" id="ob-step-4">
+    <!-- Step 5: avatar -->
+    <div class="ob-step" id="ob-step-5">
       <div class="ob-title">Profile picture</div>
       <div class="ob-hint">Upload an avatar so peers can recognise you. Visible to everyone on the network.</div>
       <div class="ob-row" style="gap:16px">
@@ -795,23 +985,34 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       <input type="file" id="ob-avatar-file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
       <div class="ob-row">
         <button class="ob-btn" onclick="obSaveAvatar()">Next →</button>
-        <button class="ob-skip" onclick="obNext(5)">Skip →</button>
-      </div>
-    </div>
-
-    <!-- Step 5: blocklists from peers (shown only if available) -->
-    <div class="ob-step" id="ob-step-5">
-      <div class="ob-title">Community blocklists</div>
-      <div class="ob-hint">These blocklists were found from peers already on the network. Subscribe to any you trust.</div>
-      <div id="ob-blocklist-list" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto"></div>
-      <div class="ob-row">
-        <button class="ob-btn" onclick="obImportSelectedBlocklists()">Apply &amp; Next →</button>
         <button class="ob-skip" onclick="obNext(6)">Skip →</button>
       </div>
     </div>
 
-    <!-- Step 6: first post -->
+    <!-- Step 6: join a channel (shown only if channels found) -->
     <div class="ob-step" id="ob-step-6">
+      <div class="ob-title">Join a channel</div>
+      <div class="ob-hint">These channels have activity on the network. Select any you'd like to follow.</div>
+      <div id="ob-channel-list" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto"></div>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obJoinSelectedChannels()">Join &amp; Next →</button>
+        <button class="ob-skip" onclick="obNext(7)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 7: community lists — blocklists + followlists (shown only if found) -->
+    <div class="ob-step" id="ob-step-7">
+      <div class="ob-title">Community lists</div>
+      <div class="ob-hint">Subscribe to blocklists and follow lists from trusted peers on the network.</div>
+      <div id="ob-community-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto"></div>
+      <div class="ob-row">
+        <button class="ob-btn" onclick="obImportSelected()">Apply &amp; Next →</button>
+        <button class="ob-skip" onclick="obNext(8)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 8: first post -->
+    <div class="ob-step" id="ob-step-8">
       <div class="ob-title">Say hello</div>
       <div class="ob-hint">Make your first post to the public feed. Anyone on the network will see it for 24 hours.</div>
       <textarea class="ob-input ob-textarea" id="ob-first-post" placeholder="What's on your mind?  (optional)"></textarea>
@@ -858,8 +1059,12 @@ let activePeer = null;
 let messages = [];
 let notifications = [];
 let notifPanelOpen = false;
-let activeView = 'chat'; // 'chat' | 'feed' | 'identities'
-let activeTab = 'peers'; // 'peers' | 'feed'
+let activeView = 'chat'; // 'chat' | 'feed' | 'groups' | 'following' | 'identities'
+let activeTab = 'peers'; // 'peers' | 'feed' | 'groups' | 'following'
+let activeChannel = null; // null = public feed, string = channel name
+let blockedChannels = new Set(); // channel names the user has blocked
+let followlists = {}; // { [id]: { name, pubkeys: Set<string>, owned: boolean } }
+let _profilePubkey = null; // pubkey currently shown in profile modal
 // Map of pubkey → avatar data URL (populated from peers list + own identity)
 let peerAvatars = {};
 // Map of pubkey → bio string (populated from peers list + own identity)
@@ -878,6 +1083,9 @@ let embedUserCleared = false;
 async function init() {
   loadBlocklists();
   loadBlockedByList();
+  loadBlockedChannels();
+  loadFollowlists();
+  loadGroups();
   loadSubscriptions();
   if (!window.agora) {
     setConnected(false);
@@ -1004,6 +1212,448 @@ function saveBlockedByList() {
   try { localStorage.setItem('agora_blocked_by', JSON.stringify([...blockedByPubkeys])); } catch {}
 }
 
+// ── Channels ───────────────────────────────────────────────────────────────────
+const CHANNEL_MAGIC = 'agora:channel:v1:';
+const CHANNEL_NAME_RE = /^[a-zA-Z0-9_-]{1,32}$/;
+
+function encodeChannelPost(channelName, text) {
+  return CHANNEL_MAGIC + channelName + '\n' + text;
+}
+
+// Returns { channel, text } or null if not a channel post
+function parseChannelPost(content) {
+  if (typeof content !== 'string' || !content.startsWith(CHANNEL_MAGIC)) return null;
+  const rest = content.slice(CHANNEL_MAGIC.length);
+  const nl = rest.indexOf('\n');
+  if (nl < 0) return null;
+  const channel = rest.slice(0, nl);
+  if (!CHANNEL_NAME_RE.test(channel)) return null;
+  return { channel, text: rest.slice(nl + 1) };
+}
+
+function loadBlockedChannels() {
+  try {
+    const saved = localStorage.getItem('agora_blocked_channels');
+    if (saved) blockedChannels = new Set(JSON.parse(saved));
+  } catch {}
+}
+
+function saveBlockedChannels() {
+  try { localStorage.setItem('agora_blocked_channels', JSON.stringify([...blockedChannels])); } catch {}
+}
+
+function isChannelBlocked(name) { return blockedChannels.has(name); }
+
+function blockChannel(name) {
+  blockedChannels.add(name);
+  saveBlockedChannels();
+  if (activeChannel === name) setActiveChannel(null);
+  else renderFeed();
+  renderBlockedModal();
+  toast(`Channel #${name} blocked`, 'success');
+}
+
+function unblockChannel(name) {
+  blockedChannels.delete(name);
+  saveBlockedChannels();
+  renderFeedChannelStrip();
+  renderBlockedModal();
+  toast(`Channel #${name} unblocked`, 'info');
+}
+
+function toggleBlockActiveChannel() {
+  if (!activeChannel) return;
+  if (isChannelBlocked(activeChannel)) unblockChannel(activeChannel);
+  else blockChannel(activeChannel);
+  updateChannelBlockBtn();
+}
+
+function updateChannelBlockBtn() {
+  const btn = document.getElementById('ch-block-btn');
+  if (!btn) return;
+  const blocked = activeChannel && isChannelBlocked(activeChannel);
+  btn.textContent = blocked ? 'Unblock Channel' : 'Block Channel';
+  btn.classList.toggle('is-blocked', !!blocked);
+}
+
+// Returns sorted unique channel names found in posts (excluding blocked)
+function discoverChannels() {
+  const seen = new Set();
+  for (const p of posts) {
+    const ch = parseChannelPost(p.content);
+    if (ch && !isChannelBlocked(ch.channel)) seen.add(ch.channel);
+  }
+  return [...seen].sort();
+}
+
+function setActiveChannel(name) {
+  activeChannel = name || null;
+  const title = document.getElementById('feed-title');
+  const hint  = document.getElementById('feed-hint');
+  const btn   = document.getElementById('ch-block-btn');
+  if (title) title.textContent = name ? `# ${name}` : '📢 Public Feed';
+  if (hint)  hint.textContent  = name ? `Channel · posts propagate for 24h` : 'Posts propagate for 24h';
+  if (btn)   btn.style.display = name ? '' : 'none';
+  updateChannelBlockBtn();
+  renderFeedChannelStrip();
+  renderFeed();
+}
+
+function renderFeedChannelStrip() {
+  const strip = document.getElementById('channel-strip');
+  if (!strip) return;
+  const channels = discoverChannels();
+  const pills = [];
+  pills.push(`<button class="ch-pill${activeChannel === null ? ' active' : ''}" onclick="setActiveChannel(null)">Public</button>`);
+  for (const ch of channels) {
+    pills.push(`<button class="ch-pill${activeChannel === ch ? ' active' : ''}" onclick="setActiveChannel('${escHtml(ch)}')">#${escHtml(ch)}</button>`);
+  }
+  pills.push(`<button class="ch-pill ch-add" onclick="promptCreateChannel()" title="Create or join a channel">+</button>`);
+  strip.innerHTML = pills.join('');
+}
+
+function promptCreateChannel() {
+  const raw = prompt('Channel name (letters, numbers, _ and - only, max 32 chars):');
+  if (!raw) return;
+  const name = raw.trim().replace(/\s+/g, '-');
+  if (!CHANNEL_NAME_RE.test(name)) { toast('Invalid channel name', 'error'); return; }
+  setActiveChannel(name);
+}
+
+// ── Follow system ──────────────────────────────────────────────────────────────
+const DEFAULT_FOLLOW_LIST = 'Following';
+const FOLLOWLIST_MAGIC = 'agora:followlist:v1:';
+
+function isFollowing(pk) {
+  if (!pk) return false;
+  for (const list of Object.values(followlists)) {
+    if (list.owned && list.pubkeys.has(pk)) return true;
+  }
+  return false;
+}
+
+function allFollowedPubkeys() {
+  const all = new Set();
+  for (const list of Object.values(followlists)) {
+    if (list.owned) for (const pk of list.pubkeys) all.add(pk);
+  }
+  return all;
+}
+
+function newFollowListId() {
+  return 'fl_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function getOrCreateFollowList(name) {
+  for (const [id, list] of Object.entries(followlists)) {
+    if (list.owned && list.name === name) return id;
+  }
+  const id = newFollowListId();
+  followlists[id] = { name, pubkeys: new Set(), owned: true };
+  return id;
+}
+
+function getDefaultFollowListId() {
+  for (const [id, list] of Object.entries(followlists)) {
+    if (list.owned) return id;
+  }
+  return getOrCreateFollowList(DEFAULT_FOLLOW_LIST);
+}
+
+function loadFollowlists() {
+  try {
+    const saved = localStorage.getItem('agora_followlists');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      followlists = {};
+      for (const [id, list] of Object.entries(parsed)) {
+        followlists[id] = { name: list.name, pubkeys: new Set(list.pubkeys || []), owned: !!list.owned };
+      }
+    }
+  } catch {}
+  updateFollowingIndicator();
+}
+
+function saveFollowlists() {
+  try {
+    const serializable = {};
+    for (const [id, list] of Object.entries(followlists)) {
+      serializable[id] = { name: list.name, pubkeys: [...list.pubkeys], owned: list.owned };
+    }
+    localStorage.setItem('agora_followlists', JSON.stringify(serializable));
+  } catch {}
+  updateFollowingIndicator();
+}
+
+function updateFollowingIndicator() {
+  const n = allFollowedPubkeys().size;
+  const btn = document.getElementById('following-indicator');
+  const cnt = document.getElementById('following-count');
+  if (btn) btn.classList.toggle('has-following', n > 0);
+  if (cnt) cnt.textContent = n;
+}
+
+function followPeer(pubkey, listId) {
+  if (!listId) listId = getDefaultFollowListId();
+  followlists[listId].pubkeys.add(pubkey);
+  saveFollowlists();
+  renderPeerList();
+  renderFollowingFeed();
+  updateProfileFollowBtn(pubkey);
+  toast('User followed', 'success');
+}
+
+function unfollowPeer(pubkey, listId) {
+  if (listId) {
+    followlists[listId]?.pubkeys.delete(pubkey);
+  } else {
+    for (const list of Object.values(followlists)) list.pubkeys.delete(pubkey);
+  }
+  saveFollowlists();
+  renderPeerList();
+  renderFollowingFeed();
+  renderFollowModal();
+  updateProfileFollowBtn(pubkey);
+  toast('User unfollowed', 'info');
+}
+
+let _followPickerTarget = null;
+
+function confirmFollowPeer(pubkey) {
+  const ownedLists = Object.entries(followlists).filter(([, l]) => l.owned);
+  if (isFollowing(pubkey)) { unfollowPeer(pubkey); return; }
+  if (ownedLists.length <= 1) {
+    followPeer(pubkey, ownedLists[0]?.[0]);
+  } else {
+    showFollowPicker(pubkey);
+  }
+}
+
+function showFollowPicker(pubkey) {
+  _followPickerTarget = pubkey;
+  const peer = peers.find(p => p.pubkey === pubkey);
+  const post = posts.find(p => p.sender_pubkey === pubkey);
+  const name = peer?.username || post?.sender_username || peer?.fingerprint || pubkey.slice(0, 12);
+  document.getElementById('follow-picker-name').textContent = `Follow "${name}" — choose a list:`;
+  const ownedLists = Object.entries(followlists).filter(([, l]) => l.owned);
+  document.getElementById('follow-picker-lists').innerHTML = ownedLists.map(([id, list]) =>
+    `<button class="block-picker-btn" onclick="performFollow('${escHtml(pubkey)}','${escHtml(id)}')">${escHtml(list.name)} <span style="opacity:.5;font-size:9px">${list.pubkeys.size} users</span></button>`
+  ).join('') +
+  `<button class="block-picker-btn block-picker-new" onclick="followPickerNewList('${escHtml(pubkey)}')">+ New list…</button>`;
+  document.getElementById('follow-picker-modal').classList.add('open');
+}
+
+function performFollow(pubkey, listId) {
+  closeModal('follow-picker-modal');
+  followPeer(pubkey, listId);
+}
+
+function followPickerNewList(pubkey) {
+  const name = prompt('New follow list name:');
+  if (!name?.trim()) return;
+  const id = newFollowListId();
+  followlists[id] = { name: name.trim(), pubkeys: new Set(), owned: true };
+  closeModal('follow-picker-modal');
+  followPeer(pubkey, id);
+}
+
+// Toggle from peer list hover button
+function toggleFollowPeer(pubkey) {
+  if (isFollowing(pubkey)) unfollowPeer(pubkey);
+  else confirmFollowPeer(pubkey);
+  // Update button text in peer list
+  const btn = document.querySelector(`.peer-follow-btn[data-pk="${CSS.escape(pubkey)}"]`);
+  if (btn) {
+    btn.textContent = isFollowing(pubkey) ? 'Unfollow' : 'Follow';
+    btn.classList.toggle('is-following', isFollowing(pubkey));
+  }
+}
+
+// Toggle from profile modal
+function toggleFollowFromProfile() {
+  if (!_profilePubkey) return;
+  if (isFollowing(_profilePubkey)) unfollowPeer(_profilePubkey);
+  else confirmFollowPeer(_profilePubkey);
+  updateProfileFollowBtn(_profilePubkey);
+}
+
+function confirmBlockFromProfile() {
+  if (!_profilePubkey) return;
+  confirmBlockPeer(_profilePubkey);
+  updateProfileFollowBtn(_profilePubkey);
+}
+
+function updateProfileFollowBtn(pubkey) {
+  if (_profilePubkey !== pubkey) return;
+  const followBtn = document.getElementById('profile-follow-btn');
+  const blockBtn  = document.getElementById('profile-block-btn');
+  if (!followBtn || !blockBtn) return;
+  const following = isFollowing(pubkey);
+  const blocked   = isBlocked(pubkey);
+  followBtn.textContent = following ? 'Unfollow' : 'Follow';
+  followBtn.classList.toggle('is-following', following);
+  blockBtn.textContent = blocked ? 'Unblock' : 'Block';
+  blockBtn.classList.toggle('is-blocked', blocked);
+}
+
+function openFollowModal() {
+  renderFollowModal();
+  document.getElementById('follow-modal').classList.add('open');
+}
+
+function renderFollowModal() {
+  const container = document.getElementById('followlists-container');
+  if (!container) return;
+  const ownedLists = Object.entries(followlists).filter(([, l]) => l.owned);
+  if (ownedLists.length === 0) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:8px 0">No follow lists yet. Follow a user to create one.</div>';
+    return;
+  }
+  container.innerHTML = ownedLists.map(([id, list]) => {
+    const entries = [...list.pubkeys].map(pk => {
+      const peer = peers.find(p => p.pubkey === pk);
+      const post = posts.find(p => p.sender_pubkey === pk);
+      const name = peer?.username || post?.sender_username || '(unknown)';
+      const fp   = peer?.fingerprint || post?.sender_fingerprint || pk.slice(0, 24) + '…';
+      return `<div class="bl-user-row">
+        <div class="bl-user-info">
+          <div class="bl-user-name">${escHtml(name)}</div>
+          <div class="bl-user-fp">${escHtml(fp)}</div>
+        </div>
+        <button class="btn-sm" onclick="unfollowPeer('${escHtml(pk)}','${escHtml(id)}')" title="Unfollow">Unfollow</button>
+      </div>`;
+    }).join('');
+    return `<div class="bl-section">
+      <div class="bl-section-header">
+        <span class="bl-section-name">${escHtml(list.name)}</span>
+        <span class="bl-section-count">${list.pubkeys.size} user${list.pubkeys.size !== 1 ? 's' : ''}</span>
+        <div class="bl-section-actions">
+          <button class="btn-sm" onclick="publishFollowlist('${escHtml(id)}')" title="Publish this list">📢 Publish</button>
+          <button class="btn-danger" onclick="deleteFollowlist('${escHtml(id)}')" title="Delete list">✕</button>
+        </div>
+      </div>
+      <div class="bl-section-body">
+        ${entries || '<div class="bl-empty">No users in this list</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function createNewFollowlist() {
+  const name = prompt('New follow list name:');
+  if (!name?.trim()) return;
+  const id = newFollowListId();
+  followlists[id] = { name: name.trim(), pubkeys: new Set(), owned: true };
+  saveFollowlists();
+  renderFollowModal();
+  toast(`Created list "${name.trim()}"`, 'success');
+}
+
+function deleteFollowlist(id) {
+  const list = followlists[id];
+  if (!list) return;
+  if (!confirm(`Delete follow list "${list.name}"?`)) return;
+  delete followlists[id];
+  saveFollowlists();
+  renderPeerList();
+  renderFollowingFeed();
+  renderFollowModal();
+  toast('Follow list deleted', 'info');
+}
+
+async function publishFollowlist(listId, silent = false) {
+  const list = followlists[listId];
+  if (!list || !list.owned) { if (!silent) toast('List not found', 'error'); return; }
+  if (list.pubkeys.size === 0) { if (!silent) toast('No followed users to publish', 'error'); return; }
+  const names = {};
+  for (const pk of list.pubkeys) {
+    const peer = peers.find(p => p.pubkey === pk);
+    const post = posts.find(p => p.sender_pubkey === pk);
+    names[pk] = peer?.username || post?.sender_username || peer?.fingerprint || post?.sender_fingerprint || '';
+  }
+  const payload = JSON.stringify({ list_name: list.name, pubkeys: [...list.pubkeys], names });
+  const content = FOLLOWLIST_MAGIC + payload;
+  const resp = await window.agora?.request('broadcast', { content });
+  if (resp?.error) { if (!silent) toast('Failed to publish: ' + resp.error, 'error'); return; }
+  if (!silent) {
+    closeModal('follow-modal');
+    toast(`Follow list "${list.name}" published`, 'success');
+    await refreshPosts();
+  }
+}
+
+function parseFollowlistPost(content) {
+  if (!content.startsWith(FOLLOWLIST_MAGIC)) return null;
+  try { return JSON.parse(content.slice(FOLLOWLIST_MAGIC.length)); } catch { return null; }
+}
+
+function renderFollowingFeed() {
+  const list = document.getElementById('following-feed-list');
+  if (!list) return;
+  const followed = allFollowedPubkeys();
+  if (followed.size === 0) {
+    list.innerHTML = '<div class="feed-empty">You are not following anyone yet.<br>Follow users from the Peers tab or their profile.</div>';
+    return;
+  }
+  try {
+    const arr = Array.isArray(posts) ? posts.filter(p =>
+      !isBlocked(p.sender_pubkey) &&
+      !blockedByPubkeys.has(p.sender_pubkey) &&
+      followed.has(p.sender_pubkey) &&
+      !parseFollowlistPost(p.content) // skip follow list broadcast posts
+    ) : [];
+    if (arr.length === 0) {
+      list.innerHTML = '<div class="feed-empty">No posts from people you follow yet.</div>';
+      return;
+    }
+    const sorted = [...arr].sort((a, b) =>
+      (new Date(b?.timestamp || 0).getTime() || 0) - (new Date(a?.timestamp || 0).getTime() || 0)
+    );
+    list.innerHTML = sorted.map(p => {
+      if (!p || typeof p !== 'object') return '';
+      const postId      = String(p.post_id || '');
+      const fingerprint = String(p.sender_fingerprint || '');
+      const username    = typeof p.sender_username === 'string' ? p.sender_username : '';
+      const name        = username || fingerprint || 'unknown';
+      const rawContent  = String(p.content ?? '');
+      const chParsed    = parseChannelPost(rawContent);
+      const content     = chParsed ? chParsed.text : rawContent;
+      const likeCount   = Number.isFinite(p.like_count) ? p.like_count : 0;
+      const isOwn       = !!p.is_own;
+      const liked       = likedPostIds.has(postId);
+      const shortId     = postId ? postId.slice(0, 8) : '--------';
+      if (p.sender_pubkey && p.sender_avatar) peerAvatars[p.sender_pubkey] = p.sender_avatar;
+      let timeStr = '';
+      try { timeStr = formatTime(p.timestamp); } catch {}
+      const profileClick = p.sender_pubkey ? `onclick="openProfile('${escHtml(p.sender_pubkey)}')"` : '';
+      const channelTag = chParsed ? `<span class="post-channel-tag">#${escHtml(chParsed.channel)}</span>` : '';
+      const imageHtml = p.image ? `<div class="post-image"><img src="${escHtml(p.image)}" alt="attached image" onclick="openImageViewer(this.src)"/></div>` : '';
+      const embedHtml = p.embed_url ? renderEmbedHtml(p.embed_url) : '';
+      return `<div class="post-card${isOwn ? ' own-post' : ''}" id="fw-post-${escHtml(postId)}">
+        <div class="post-header">
+          <div class="post-avatar${isOwn ? ' own' : ''}">${escHtml((name || '?')[0].toUpperCase())}</div>
+          <div class="post-author">
+            <div class="post-author-name profile-link" ${profileClick} title="View profile">${escHtml(name)}${channelTag}</div>
+            <div class="post-author-fp">${escHtml(fingerprint)}</div>
+          </div>
+          <div class="post-time">${escHtml(timeStr)}</div>
+        </div>
+        ${content ? `<div class="post-content">${escHtml(content)}</div>` : ''}
+        ${imageHtml}
+        ${embedHtml}
+        <div class="post-footer">
+          <button class="like-btn${liked ? ' liked' : ''}" onclick="likePost('${escHtml(postId)}')" title="Like">
+            <span class="heart">❤</span> <span class="like-count">${likeCount}</span>
+          </button>
+          <span class="post-id-tag">${escHtml(shortId)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="feed-empty">Feed render error:<br/>' + escHtml(String(e?.message || e)) + '</div>';
+  }
+}
+
 function loadSubscriptions() {
   try {
     const saved = localStorage.getItem('agora_blocklist_subs');
@@ -1019,6 +1669,479 @@ function loadSubscriptions() {
 
 function saveSubscriptions() {
   try { localStorage.setItem('agora_blocklist_subs', JSON.stringify([...subscribedToBlocklists])); } catch {}
+}
+
+// ── Group chats ────────────────────────────────────────────────────────────────
+const GROUP_MSG_MAGIC = 'agora:group:msg:v1:';
+const GROUP_SYS_MAGIC = 'agora:group:sys:v1:';
+
+let groups = {};     // { [gid]: { name, members: Set<pubkey>, admins: Set<pubkey>, messages: [], createdAt } }
+let activeGroup = null;
+
+function genGroupId()  { return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function genMsgId()    { return 'm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function loadGroups() {
+  try {
+    const saved = localStorage.getItem('agora_groups');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      groups = {};
+      for (const [gid, g] of Object.entries(parsed)) {
+        groups[gid] = {
+          name: g.name || '',
+          members: new Set(g.members || []),
+          admins: new Set(g.admins || []),
+          messages: g.messages || [],
+          createdAt: g.createdAt || new Date().toISOString(),
+        };
+      }
+    }
+  } catch {}
+}
+
+function saveGroups() {
+  try {
+    const s = {};
+    for (const [gid, g] of Object.entries(groups)) {
+      s[gid] = { name: g.name, members: [...g.members], admins: [...g.admins], messages: g.messages, createdAt: g.createdAt };
+    }
+    localStorage.setItem('agora_groups', JSON.stringify(s));
+  } catch {}
+}
+
+function amAdmin(gid) {
+  const g = groups[gid];
+  if (!g) return false;
+  return g.admins.has(myIdentity?.pubkey);
+}
+
+// Encode a chat message for fan-out DMs
+function encodeGroupMsg(gid, mid, content, image) {
+  const meta = JSON.stringify({ gid, mid, image: image || undefined });
+  return GROUP_MSG_MAGIC + meta + '\n' + content;
+}
+function parseGroupMsg(raw) {
+  if (!raw.startsWith(GROUP_MSG_MAGIC)) return null;
+  const rest = raw.slice(GROUP_MSG_MAGIC.length);
+  const nl = rest.indexOf('\n');
+  if (nl < 0) return null;
+  try {
+    const meta = JSON.parse(rest.slice(0, nl));
+    return { gid: meta.gid, mid: meta.mid, image: meta.image || null, content: rest.slice(nl + 1) };
+  } catch { return null; }
+}
+
+// Encode a system control message
+function encodeGroupSys(payload) { return GROUP_SYS_MAGIC + JSON.stringify(payload); }
+function parseGroupSys(raw) {
+  if (!raw.startsWith(GROUP_SYS_MAGIC)) return null;
+  try { return JSON.parse(raw.slice(GROUP_SYS_MAGIC.length)); } catch { return null; }
+}
+
+// Send a fan-out DM to every group member except ourselves (and optionally one more excluded key)
+async function fanout(gid, encoded, excludePk) {
+  const g = groups[gid];
+  if (!g) return;
+  const myPk = myIdentity?.pubkey;
+  for (const pk of g.members) {
+    if (pk === myPk) continue;
+    if (excludePk && pk === excludePk) continue;
+    await window.agora?.request('send_dm', { recipient: pk, content: encoded }).catch(() => {});
+  }
+}
+
+async function createGroup(name, memberPubkeys) {
+  const gid = genGroupId();
+  const myPk = myIdentity?.pubkey;
+  const members = new Set([myPk, ...memberPubkeys]);
+  const admins  = new Set([myPk]);
+  groups[gid] = { name, members, admins, messages: [], createdAt: new Date().toISOString() };
+  saveGroups();
+  // Notify all members
+  const sysMsg = encodeGroupSys({ op: 'create', gid, name, members: [...members], admins: [...admins] });
+  await fanout(gid, sysMsg);
+  renderGroupList();
+  selectGroup(gid);
+  toast(`Group "${name}" created`, 'success');
+}
+
+async function sendGroupMsg() {
+  if (!activeGroup) return;
+  const input = document.getElementById('group-msg-input');
+  const content = input.value.trim();
+  if (!content) return;
+  input.value = '';
+  input.style.height = '';
+  const mid = genMsgId();
+  const encoded = encodeGroupMsg(activeGroup, mid, content);
+  const myPk = myIdentity?.pubkey;
+  const msg = { mid, own: true, sender_pubkey: myPk, content, image: null, timestamp: new Date().toISOString() };
+  groups[activeGroup].messages.push(msg);
+  saveGroups();
+  appendGroupMessage(msg, true);
+  await fanout(activeGroup, encoded);
+}
+
+async function kickMember(gid, pk) {
+  const g = groups[gid];
+  if (!g || !amAdmin(gid)) return;
+  g.members.delete(pk);
+  g.admins.delete(pk);
+  saveGroups();
+  const sysMsg = encodeGroupSys({ op: 'kick', gid, pubkey: pk });
+  await fanout(gid, sysMsg);
+  // Notify the kicked person
+  await window.agora?.request('send_dm', { recipient: pk, content: sysMsg }).catch(() => {});
+  renderGroupHeader();
+  openGroupSettingsModal();
+  appendGroupSystemMsg(gid, 'Member removed');
+}
+
+async function inviteMemberToGroup(gid, pk) {
+  const g = groups[gid];
+  if (!g || !amAdmin(gid)) return;
+  g.members.add(pk);
+  saveGroups();
+  // Send them the full group state so they can reconstruct it
+  const sysMsg = encodeGroupSys({ op: 'invite', gid, name: g.name, members: [...g.members], admins: [...g.admins] });
+  await window.agora?.request('send_dm', { recipient: pk, content: sysMsg }).catch(() => {});
+  // Notify existing members
+  const notifyMsg = encodeGroupSys({ op: 'member_added', gid, pubkey: pk });
+  await fanout(gid, notifyMsg, pk);
+  renderGroupHeader();
+  openGroupSettingsModal();
+  appendGroupSystemMsg(gid, 'New member added');
+}
+
+async function promoteAdmin(gid, pk) {
+  const g = groups[gid];
+  if (!g || !amAdmin(gid)) return;
+  g.admins.add(pk);
+  saveGroups();
+  const sysMsg = encodeGroupSys({ op: 'promote', gid, pubkey: pk });
+  await fanout(gid, sysMsg);
+  renderGroupHeader();
+  openGroupSettingsModal();
+}
+
+async function demoteAdmin(gid, pk) {
+  const g = groups[gid];
+  if (!g || !amAdmin(gid)) return;
+  g.admins.delete(pk);
+  saveGroups();
+  const sysMsg = encodeGroupSys({ op: 'demote', gid, pubkey: pk });
+  await fanout(gid, sysMsg);
+  renderGroupHeader();
+  openGroupSettingsModal();
+}
+
+async function leaveOrDisbandGroup() {
+  if (!activeGroup) return;
+  const g = groups[activeGroup];
+  if (!g) return;
+  const gid = activeGroup;
+  const myPk = myIdentity?.pubkey;
+  if (!confirm(`Leave "${g.name}"?`)) return;
+  closeModal('group-settings-modal');
+  const sysMsg = encodeGroupSys({ op: 'leave', gid, pubkey: myPk });
+  await fanout(gid, sysMsg);
+  delete groups[gid];
+  saveGroups();
+  activeGroup = null;
+  renderGroupList();
+  showGroupEmpty(true);
+  toast('Left group', 'info');
+}
+
+// ── Incoming group DM routing ──────────────────────────────────────────────────
+function handleGroupDm(d) {
+  const raw = d.content || '';
+  const gmsg = parseGroupMsg(raw);
+  if (gmsg) { handleGroupMsg(d, gmsg); return; }
+  const gsys = parseGroupSys(raw);
+  if (gsys) { handleGroupSys(d, gsys); }
+}
+
+function handleGroupMsg(d, gmsg) {
+  const { gid, mid, image, content } = gmsg;
+  const g = groups[gid];
+  if (!g) return; // unknown group — ignore
+  if (!g.members.has(d.sender_pubkey)) return; // not a member — drop
+  // Dedup by mid
+  if (g.messages.some(m => m.mid === mid)) return;
+  const msg = { mid, own: false, sender_pubkey: d.sender_pubkey, content, image: image || null, timestamp: d.timestamp || new Date().toISOString() };
+  g.messages.push(msg);
+  saveGroups();
+  if (activeGroup === gid) appendGroupMessage(msg, true);
+  else toast(`💬 [${g.name}] ${peerName(d.sender_pubkey)}: ${content.slice(0, 50)}`, 'info');
+}
+
+function handleGroupSys(d, gsys) {
+  const { op, gid } = gsys;
+  const myPk = myIdentity?.pubkey;
+
+  if (op === 'create' || op === 'invite') {
+    // Reconstruct group from system message
+    if (!groups[gid]) {
+      groups[gid] = { name: gsys.name, members: new Set(gsys.members || []), admins: new Set(gsys.admins || []), messages: [], createdAt: new Date().toISOString() };
+      saveGroups();
+      renderGroupList();
+      toast(`You were added to group "${gsys.name}"`, 'success');
+    }
+    return;
+  }
+
+  const g = groups[gid];
+  if (!g) return;
+
+  if (op === 'kick' && gsys.pubkey === myPk) {
+    if (activeGroup === gid) { activeGroup = null; showGroupEmpty(true); }
+    delete groups[gid];
+    saveGroups();
+    renderGroupList();
+    toast('You were removed from a group', 'error');
+  } else if (op === 'kick') {
+    g.members.delete(gsys.pubkey);
+    g.admins.delete(gsys.pubkey);
+    saveGroups();
+    if (activeGroup === gid) { renderGroupHeader(); appendGroupSystemMsg(gid, peerName(gsys.pubkey) + ' was removed'); }
+  } else if (op === 'member_added') {
+    g.members.add(gsys.pubkey);
+    saveGroups();
+    if (activeGroup === gid) { renderGroupHeader(); appendGroupSystemMsg(gid, peerName(gsys.pubkey) + ' joined'); }
+  } else if (op === 'leave') {
+    g.members.delete(gsys.pubkey);
+    g.admins.delete(gsys.pubkey);
+    saveGroups();
+    if (activeGroup === gid) { renderGroupHeader(); appendGroupSystemMsg(gid, peerName(gsys.pubkey) + ' left'); }
+  } else if (op === 'promote') {
+    g.admins.add(gsys.pubkey);
+    saveGroups();
+    if (activeGroup === gid) { renderGroupHeader(); }
+  } else if (op === 'demote') {
+    g.admins.delete(gsys.pubkey);
+    saveGroups();
+    if (activeGroup === gid) { renderGroupHeader(); }
+  }
+}
+
+// ── Group UI ───────────────────────────────────────────────────────────────────
+function peerName(pk) {
+  if (!pk) return 'unknown';
+  if (pk === myIdentity?.pubkey) return 'You';
+  const peer = peers.find(p => p.pubkey === pk);
+  return peer?.username || peer?.fingerprint?.slice(0, 10) || pk.slice(0, 10);
+}
+
+function showGroupEmpty(show) {
+  const noGroup = document.getElementById('no-group');
+  const pane    = document.getElementById('group-chat-pane');
+  if (noGroup) noGroup.style.display = show ? '' : 'none';
+  if (pane)    { pane.style.display = show ? 'none' : 'flex'; pane.style.flexDirection = show ? '' : 'column'; }
+}
+
+function renderGroupList() {
+  // In the groups tab the sidebar peer-list shows groups
+  if (activeTab !== 'groups') return;
+  const list = document.getElementById('peer-list');
+  if (!list) return;
+  const entries = Object.entries(groups);
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="peer-empty">No groups yet.<br/>Create one below.</div>';
+    return;
+  }
+  list.innerHTML = entries.map(([gid, g]) => {
+    const initial = (g.name || '?')[0].toUpperCase();
+    const memberCount = g.members.size;
+    const isActive = gid === activeGroup;
+    const lastMsg = g.messages[g.messages.length - 1];
+    const lastText = lastMsg ? lastMsg.content.slice(0, 30) : 'No messages yet';
+    return `<div class="group-item${isActive ? ' active' : ''}" onclick="selectGroup('${escHtml(gid)}')">
+      <div class="group-avatar-sm">${escHtml(initial)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(g.name)}</div>
+        <div class="group-item-meta">${memberCount} members · ${escHtml(lastText)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectGroup(gid) {
+  if (!groups[gid]) return;
+  activeGroup = gid;
+  renderGroupList();
+  showGroupEmpty(false);
+  renderGroupHeader();
+  renderGroupMessages();
+  // Auto-scroll
+  const msgs = document.getElementById('group-messages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  // Set up Enter key
+  const inp = document.getElementById('group-msg-input');
+  if (inp) {
+    inp.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGroupMsg(); } };
+    inp.oninput = () => { inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 120) + 'px'; };
+    inp.focus();
+  }
+}
+
+function renderGroupHeader() {
+  if (!activeGroup || !groups[activeGroup]) return;
+  const g = groups[activeGroup];
+  const avatarEl = document.getElementById('group-chat-avatar');
+  const nameEl   = document.getElementById('group-chat-name');
+  const membersEl = document.getElementById('group-chat-members');
+  if (avatarEl) avatarEl.textContent = (g.name || '?')[0].toUpperCase();
+  if (nameEl) nameEl.textContent = g.name;
+  if (membersEl) membersEl.textContent = g.members.size + ' member' + (g.members.size !== 1 ? 's' : '') + (amAdmin(activeGroup) ? ' · admin' : '');
+}
+
+function renderGroupMessages() {
+  const container = document.getElementById('group-messages');
+  if (!container || !activeGroup || !groups[activeGroup]) return;
+  const g = groups[activeGroup];
+  if (g.messages.length === 0) {
+    container.innerHTML = '<div style="text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:20px">No messages yet. Say hello!</div>';
+    return;
+  }
+  container.innerHTML = '';
+  for (const m of g.messages) appendGroupMessage(m, false);
+}
+
+function appendGroupMessage(m, scroll) {
+  const container = document.getElementById('group-messages');
+  if (!container) return;
+  const own   = !!m.own;
+  const name  = own ? 'You' : peerName(m.sender_pubkey);
+  let timeStr = '';
+  try { timeStr = formatTime(m.timestamp); } catch {}
+  const imageHtml = m.image ? `<div class="post-image" style="margin-top:4px"><img src="${escHtml(m.image)}" alt="image" onclick="openImageViewer(this.src)" style="max-width:100%;border-radius:6px"/></div>` : '';
+  const div = document.createElement('div');
+  div.className = 'msg' + (own ? ' own' : '');
+  div.innerHTML = `
+    <div class="msg-sender" style="font-size:10px;font-family:var(--mono);color:${own ? 'var(--accent)' : 'var(--text-dim)'};margin-bottom:2px">${escHtml(name)}</div>
+    <div class="msg-bubble">${escHtml(m.content)}${imageHtml}</div>
+    <div class="msg-time">${escHtml(timeStr)}</div>`;
+  container.appendChild(div);
+  if (scroll) container.scrollTop = container.scrollHeight;
+}
+
+function appendGroupSystemMsg(gid, text) {
+  if (activeGroup !== gid) return;
+  const container = document.getElementById('group-messages');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'text-align:center;font-family:var(--mono);font-size:10px;color:var(--text-muted);padding:6px 0;opacity:.7';
+  div.textContent = '— ' + text + ' —';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function openCreateGroupModal() {
+  const picker = document.getElementById('create-group-peer-picker');
+  const nameIn = document.getElementById('new-group-name-input');
+  if (nameIn) nameIn.value = '';
+  if (picker) {
+    const available = peers.filter(p => !isBlocked(p.pubkey) && !blockedByPubkeys.has(p.pubkey));
+    if (available.length === 0) {
+      picker.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:8px">No peers available to add.</div>';
+    } else {
+      picker.innerHTML = available.map(p => {
+        const name = p.username || p.fingerprint || p.pubkey.slice(0, 10);
+        const fp   = p.fingerprint || p.pubkey.slice(0, 24);
+        return `<label class="group-pick-item">
+          <input type="checkbox" class="group-pick-check" value="${escHtml(p.pubkey)}"/>
+          <div><div class="group-pick-name">${escHtml(name)}</div><div class="group-pick-fp">${escHtml(fp)}</div></div>
+        </label>`;
+      }).join('');
+    }
+  }
+  document.getElementById('create-group-modal').classList.add('open');
+}
+
+function submitCreateGroup() {
+  const nameIn = document.getElementById('new-group-name-input');
+  const name = nameIn?.value.trim();
+  if (!name) { toast('Enter a group name', 'error'); return; }
+  const checks = document.querySelectorAll('#create-group-peer-picker .group-pick-check:checked');
+  const memberPks = [...checks].map(c => c.value);
+  closeModal('create-group-modal');
+  createGroup(name, memberPks);
+}
+
+function openGroupSettingsModal() {
+  if (!activeGroup || !groups[activeGroup]) return;
+  const g = groups[activeGroup];
+  const isAdmin = amAdmin(activeGroup);
+
+  const titleEl = document.getElementById('gs-title');
+  if (titleEl) titleEl.textContent = g.name + ' — Settings';
+
+  // Members list
+  const membersEl = document.getElementById('gs-members-list');
+  if (membersEl) {
+    const myPk = myIdentity?.pubkey;
+    membersEl.innerHTML = [...g.members].map(pk => {
+      const name = peerName(pk);
+      const fp   = peers.find(p => p.pubkey === pk)?.fingerprint || pk.slice(0, 20) + '…';
+      const isAdm = g.admins.has(pk);
+      const isSelf = pk === myPk;
+      let actions = '';
+      if (isAdmin && !isSelf) {
+        if (isAdm) {
+          actions += `<button class="btn-sm" onclick="demoteAdmin('${escHtml(activeGroup)}','${escHtml(pk)}')">Demote</button>`;
+        } else {
+          actions += `<button class="btn-sm" onclick="promoteAdmin('${escHtml(activeGroup)}','${escHtml(pk)}')">Make admin</button>`;
+        }
+        actions += `<button class="btn-danger" onclick="kickMember('${escHtml(activeGroup)}','${escHtml(pk)}')">Remove</button>`;
+      }
+      return `<div class="group-member-row">
+        <div class="group-member-info">
+          <div class="group-member-name">${escHtml(name)}${isAdm ? ' <span class="group-admin-badge">admin</span>' : ''}</div>
+          <div class="group-member-fp">${escHtml(fp)}</div>
+        </div>
+        <div class="group-member-actions">${actions}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Add members section (admin only)
+  const addSection = document.getElementById('gs-add-section');
+  if (addSection) addSection.style.display = isAdmin ? '' : 'none';
+  if (isAdmin) {
+    const gsPicker = document.getElementById('gs-peer-picker');
+    if (gsPicker) {
+      const notInGroup = peers.filter(p => !g.members.has(p.pubkey) && !isBlocked(p.pubkey));
+      if (notInGroup.length === 0) {
+        gsPicker.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:6px">No peers to add.</div>';
+      } else {
+        gsPicker.innerHTML = notInGroup.map(p => {
+          const name = p.username || p.fingerprint || p.pubkey.slice(0, 10);
+          const fp   = p.fingerprint || p.pubkey.slice(0, 20);
+          return `<label class="group-pick-item">
+            <input type="checkbox" class="gs-pick-check" value="${escHtml(p.pubkey)}"/>
+            <div><div class="group-pick-name">${escHtml(name)}</div><div class="group-pick-fp">${escHtml(fp)}</div></div>
+          </label>`;
+        }).join('');
+      }
+    }
+  }
+
+  // Leave button label
+  const leaveBtn = document.getElementById('gs-leave-btn');
+  if (leaveBtn) leaveBtn.textContent = 'Leave Group';
+
+  document.getElementById('group-settings-modal').classList.add('open');
+}
+
+async function addSelectedPeersToGroup() {
+  if (!activeGroup) return;
+  const checks = document.querySelectorAll('#gs-peer-picker .gs-pick-check:checked');
+  const pks = [...checks].map(c => c.value);
+  for (const pk of pks) await inviteMemberToGroup(activeGroup, pk);
+  if (pks.length === 0) { toast('No peers selected', 'error'); return; }
+  openGroupSettingsModal(); // re-render
 }
 
 // Core import logic shared by manual import, subscribe, and auto-update.
@@ -1211,6 +2334,19 @@ function openBlockedModal() {
 }
 
 function renderBlockedModal() {
+  // Blocked channels section
+  const chSection = document.getElementById('blocked-channels-section');
+  const chList    = document.getElementById('blocked-channels-list');
+  if (chSection && chList) {
+    if (blockedChannels.size > 0) {
+      chSection.style.display = '';
+      chList.innerHTML = [...blockedChannels].sort().map(name =>
+        `<div class="bl-ch-row"><span>#${escHtml(name)}</span><button class="btn-sm" onclick="unblockChannel('${escHtml(name)}')">Unblock</button></div>`
+      ).join('');
+    } else {
+      chSection.style.display = 'none';
+    }
+  }
   const container = document.getElementById('blocklists-container');
   if (!container) return;
   const ownedLists = Object.entries(blocklists).filter(([, l]) => l.owned);
@@ -1325,6 +2461,7 @@ async function refreshPeers() {
 // ── Profile modal ──────────────────────────────────────────────────────────────
 function openProfile(pubkey) {
   if (!pubkey) return;
+  _profilePubkey = pubkey;
   const isOwn = pubkey === myIdentity?.pubkey;
   const peer = peers.find(p => p.pubkey === pubkey);
   const name = isOwn
@@ -1367,6 +2504,11 @@ function openProfile(pubkey) {
       bioView.innerHTML = '<span class="profile-bio-empty">No bio yet.</span>';
     }
   }
+
+  // Show Follow/Block action row for other users
+  const actionRow = document.getElementById('profile-action-row');
+  if (actionRow) actionRow.style.display = isOwn ? 'none' : '';
+  if (!isOwn) updateProfileFollowBtn(pubkey);
 
   document.getElementById('profile-modal').classList.add('open');
 }
@@ -1411,6 +2553,7 @@ async function refreshPosts() {
     }
     posts = Array.isArray(resp?.result) ? resp.result : [];
     renderFeed();
+    renderFollowingFeed();
     // Auto-import latest blocklist from any peers we're subscribed to
     for (const key of subscribedToBlocklists) {
       const sepIdx = key.indexOf('::');
@@ -1483,6 +2626,7 @@ function handleDaemonEvent(ev) {
         if (existing >= 0) posts[existing] = post;
         else posts.unshift(post);
         renderFeed();
+        renderFollowingFeed();
         if (!post.is_own) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
         // Auto-import if we're subscribed to this peer's blocklist
         if (!post.is_own) {
@@ -1497,11 +2641,16 @@ function handleDaemonEvent(ev) {
           }
         }
       } else {
-        // DM
-        const msg = { kind:'dm', own:false, sender_pubkey:d.sender_pubkey, sender_fingerprint:d.sender_fingerprint, sender_username:d.sender_username, content:d.content, image:d.image||null, timestamp:d.timestamp||new Date().toISOString() };
+        // DM — check if it's a group protocol message first
+        const rawContent = String(d.content || '');
+        if (rawContent.startsWith(GROUP_MSG_MAGIC) || rawContent.startsWith(GROUP_SYS_MAGIC)) {
+          handleGroupDm(d);
+          break;
+        }
+        const msg = { kind:'dm', own:false, sender_pubkey:d.sender_pubkey, sender_fingerprint:d.sender_fingerprint, sender_username:d.sender_username, content:rawContent, image:d.image||null, timestamp:d.timestamp||new Date().toISOString() };
         messages.push(msg);
         if (activePeer === d.sender_pubkey) appendMessage(msg);
-        else toast(`💬 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
+        else toast(`💬 ${displayName(d)}: ${rawContent.slice(0, 60)}`, 'info');
       }
       break;
     }
@@ -1570,11 +2719,15 @@ function renderIdentityAvatar() {
 
 // ── Rendering ──────────────────────────────────────────────────────────────────
 function renderPeerList() {
+  if (activeTab === 'groups') { renderGroupList(); return; }
   const list = document.getElementById('peer-list');
-  const visible = peers.filter(p => !isBlocked(p.pubkey) && !blockedByPubkeys.has(p.pubkey));
+  let visible = peers.filter(p => !isBlocked(p.pubkey) && !blockedByPubkeys.has(p.pubkey));
+  if (activeTab === 'following') visible = visible.filter(p => isFollowing(p.pubkey));
   document.getElementById('peer-count') && (document.getElementById('peer-count').textContent = visible.length);
   if (visible.length === 0) {
-    list.innerHTML = `<div class="peer-empty">${t('no_peers')}</div>`;
+    list.innerHTML = activeTab === 'following'
+      ? `<div class="peer-empty">No followed peers online.<br>Follow users from the Feed tab.</div>`
+      : `<div class="peer-empty">${t('no_peers')}</div>`;
     return;
   }
   list.innerHTML = visible.map(p => {
@@ -1582,6 +2735,7 @@ function renderPeerList() {
     const active = activePeer === p.pubkey ? ' active' : '';
     const hasAvatar = !!peerAvatars[p.pubkey];
     const avatarClick = hasAvatar ? ` onclick="event.stopPropagation();openPeerAvatarViewer('${escHtml(p.pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
+    const following = isFollowing(p.pubkey);
     return `<div class="peer-item${active}" onclick="selectPeer('${escHtml(p.pubkey)}', event)">
       <div class="peer-avatar"${avatarClick}>${avatarContent(p.pubkey, p.username || p.fingerprint)}</div>
       <div class="peer-info">
@@ -1589,6 +2743,7 @@ function renderPeerList() {
         <div class="peer-fp">${escHtml(p.fingerprint)}</div>
         <div class="peer-via">${escHtml((p.discovery||'').toLowerCase())}</div>
       </div>
+      <button class="peer-follow-btn${following ? ' is-following' : ''}" data-pk="${escHtml(p.pubkey)}" onclick="event.stopPropagation();toggleFollowPeer('${escHtml(p.pubkey)}')" title="${following ? 'Unfollow' : 'Follow'} user">${following ? 'Unfollow' : 'Follow'}</button>
       <button class="peer-block-btn" onclick="event.stopPropagation();confirmBlockPeer('${escHtml(p.pubkey)}')" title="Block user">Block</button>
     </div>`;
   }).join('');
@@ -1684,10 +2839,21 @@ function onPostInputChange() {
 }
 
 function renderFeed() {
+  renderFeedChannelStrip();
   const list = document.getElementById('feed-list');
   if (!list) { console.warn('[feed] feed-list element missing'); return; }
   try {
-    const arr = Array.isArray(posts) ? posts.filter(p => !isBlocked(p.sender_pubkey) && !blockedByPubkeys.has(p.sender_pubkey)) : [];
+    const arr = Array.isArray(posts) ? posts.filter(p => {
+      if (isBlocked(p.sender_pubkey) || blockedByPubkeys.has(p.sender_pubkey)) return false;
+      const ch = parseChannelPost(p.content);
+      if (activeChannel === null) {
+        // Public feed: only posts with no channel tag
+        return ch === null;
+      } else {
+        // Channel view: only posts for this channel (skip blocked channels)
+        return ch !== null && ch.channel === activeChannel && !isChannelBlocked(ch.channel);
+      }
+    }) : [];
     if (arr.length === 0) {
       list.innerHTML = `<div class="feed-empty">${t('feed_empty')}</div>`;
       return;
@@ -1703,7 +2869,9 @@ function renderFeed() {
       const fingerprint = String(p.sender_fingerprint || '');
       const username    = (typeof p.sender_username === 'string' && p.sender_username) ? p.sender_username : '';
       const name        = username || fingerprint || 'unknown';
-      const content     = String(p.content ?? '');
+      const rawContent  = String(p.content ?? '');
+      const chParsed    = parseChannelPost(rawContent);
+      const content     = chParsed ? chParsed.text : rawContent;
       const likeCount   = Number.isFinite(p.like_count) ? p.like_count : 0;
       const isOwn       = !!p.is_own;
       const liked       = likedPostIds.has(postId);
@@ -1897,8 +3065,10 @@ async function loadDmHistory(pubkey) {
   const loadedIds = new Set(messages.filter(m => m.loaded).map(m => m._key));
   messages = messages.filter(m => !m.loaded || !loadedIds.has(m._key));
   for (const r of records) {
-    // Filter out block signal messages from history so they never appear as chat bubbles
-    if (String(r.content || '') === BLOCK_SIGNAL) continue;
+    // Filter out block signal and group protocol messages from DM history
+    const rc = String(r.content || '');
+    if (rc === BLOCK_SIGNAL) continue;
+    if (rc.startsWith(GROUP_MSG_MAGIC) || rc.startsWith(GROUP_SYS_MAGIC)) continue;
     const own = r.direction === 'out';
     const msg = {
       kind: 'dm',
@@ -1957,12 +3127,13 @@ async function submitPost() {
   embedUserCleared = false;
   updateEmbedPreview(null);
 
-  const params = { content };
+  const encodedContent = activeChannel ? encodeChannelPost(activeChannel, content) : content;
+  const params = { content: encodedContent };
   if (image) params.image = image;
   if (embedUrl) params.embed_url = embedUrl;
   const resp = await window.agora?.request('broadcast', params);
   if (resp?.error) { toast('Post failed: ' + resp.error, 'error'); return; }
-  toast('Posted! Propagating for 24h…', 'success');
+  toast(activeChannel ? `Posted to #${activeChannel}!` : 'Posted! Propagating for 24h…', 'success');
   await refreshPosts();
 }
 
@@ -2145,7 +3316,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // classes for views and tabs. switchTab is a thin alias that maps the sidebar
 // tab names ('peers', 'feed') to view names. Neither function calls the other,
 // so there is no possible recursion.
-const VIEW_IDS = { chat: 'view-chat', feed: 'view-feed', identities: 'view-identities' };
+const VIEW_IDS = { chat: 'view-chat', feed: 'view-feed', groups: 'view-groups', following: 'view-following', identities: 'view-identities' };
 
 function showView(name) {
   if (!VIEW_IDS[name]) { console.warn('[view] unknown view:', name); return; }
@@ -2157,26 +3328,42 @@ function showView(name) {
   if (el) el.classList.add('active');
   else { console.warn('[view] missing element:', VIEW_IDS[name]); return; }
 
-  // Toggle .active on the sidebar tabs (only chat/feed have tabs).
-  const tabName = (name === 'chat') ? 'peers' : (name === 'feed') ? 'feed' : null;
+  // Toggle .active on the sidebar tabs.
+  const tabName = (name === 'chat') ? 'peers' : (name === 'feed') ? 'feed' : (name === 'groups') ? 'groups' : (name === 'following') ? 'following' : null;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   if (tabName) {
     activeTab = tabName;
     document.getElementById('tab-' + tabName)?.classList.add('active');
   }
 
-  // Trigger per-view data loads. Each is wrapped so a failure can't kill the
-  // synchronous DOM-update path above.
+  // Show/hide sidebar footer elements based on tab
+  const connectWrap  = document.getElementById('connect-input-wrap');
+  const newGroupWrap = document.getElementById('new-group-wrap');
+  if (connectWrap)  connectWrap.style.display  = name === 'groups' ? 'none' : '';
+  if (newGroupWrap) newGroupWrap.style.display  = name === 'groups' ? '' : 'none';
+
+  // Trigger per-view data loads.
   if (name === 'feed') {
     Promise.resolve().then(() => refreshPosts()).catch(e => console.error('[feed] load failed:', e));
+  } else if (name === 'following') {
+    Promise.resolve().then(() => refreshPosts().then(() => renderFollowingFeed())).catch(e => console.error('[following] load failed:', e));
+    renderPeerList(); // re-render filtered to followed peers
   } else if (name === 'identities') {
     Promise.resolve().then(() => renderIdentityManager()).catch(e => console.error('[identities] load failed:', e));
+  } else if (name === 'chat') {
+    renderPeerList(); // restore unfiltered peer list when coming back from following
+  } else if (name === 'groups') {
+    renderGroupList();
+    if (!activeGroup) showGroupEmpty(true);
+    else { showGroupEmpty(false); renderGroupHeader(); renderGroupMessages(); }
   }
 }
 
 function switchTab(tab) {
   if (tab === 'feed') showView('feed');
   else if (tab === 'peers') showView('chat');
+  else if (tab === 'groups') showView('groups');
+  else if (tab === 'following') showView('following');
 }
 
 // ── Notifications ──────────────────────────────────────────────────────────────
@@ -2211,7 +3398,7 @@ const TRANSLATIONS = {
   en: {
     settings_title:'Settings', settings_conn_type:'Connection type', settings_language:'Language',
     notif_title:'Notifications', notif_clear:'Clear all', notif_empty:'No notifications yet',
-    tab_peers:'Peers', tab_feed:'Feed',
+    tab_peers:'Peers', tab_feed:'Feed', tab_groups:'Groups', tab_following:'Following',
     no_peers:'No peers yet.<br>Use Dial to connect.',
     dial_placeholder:'host:port', dial_btn:'Dial',
     switch_account:'Switch Account', edit_profile:'Profile',
@@ -2251,6 +3438,11 @@ const TRANSLATIONS = {
     ob_blocklist_title:'Community blocklists',
     ob_blocklist_hint:'These blocklists were found from peers already on the network. Subscribe to any you trust.',
     ob_apply_next:'Apply & Next →',
+    ob_channel_title:'Join a channel',
+    ob_channel_hint:"These channels have activity on the network. Select any you'd like to follow.",
+    ob_join_next:'Join & Next →',
+    ob_community_title:'Community lists',
+    ob_community_hint:'Subscribe to blocklists and follow lists from trusted peers on the network.',
     ob_first_post_title:'Say hello',
     ob_first_post_hint:'Make your first post to the public feed. Anyone on the network will see it for 24 hours.',
     ob_first_post_ph:"What's on your mind?  (optional)", ob_post_finish:'Post & Finish', ob_next:'Next →',
@@ -2747,6 +3939,8 @@ function applyTranslations(lang) {
   // Sidebar
   tx($('tab-peers'), 'tab_peers');
   tx($('tab-feed'), 'tab_feed');
+  tx($('tab-groups'), 'tab_groups');
+  tx($('tab-following'), 'tab_following');
   const peerList = $('peer-list');
   if (peerList?.querySelector('.peer-empty'))
     peerList.innerHTML = `<div class="peer-empty">${t('no_peers')}</div>`;
@@ -2765,8 +3959,7 @@ function applyTranslations(lang) {
   ph($('msg-input'), 'msg_placeholder');
 
   // Feed
-  tx(Q('#feed-header h2'), 'feed_title');
-  tx(Q('.feed-hint'), 'feed_hint');
+  if (activeChannel === null) { tx(Q('#feed-header h2'), 'feed_title'); tx(Q('.feed-hint'), 'feed_hint'); }
   ph($('post-input'), 'post_placeholder');
   tx(Q('.post-btn'), 'post_btn');
   const feedList = $('feed-list');
@@ -2813,36 +4006,40 @@ function applyTranslations(lang) {
   // Onboarding
   const obP = Q('#onboarding-overlay > .ob-shell > p');
   tx(obP, 'ob_welcome');
-  tx(Q('#ob-step-0 .ob-title'), 'ob_bootstrap_title');
-  tx(Q('#ob-step-0 .ob-hint'), 'ob_bootstrap_hint');
-  ph($('ob-bootstrap-input'), 'ob_bootstrap_ph');
-  tx(Q('#ob-step-0 .ob-btn:not(.ob-skip)'), 'ob_connect');
-  QA('.ob-skip').forEach(b => tx(b, 'ob_skip'));
+  tx(Q('#ob-step-0 .ob-title'), 'ob_lang_title');
+  tx(Q('#ob-step-0 .ob-hint'), 'ob_lang_hint');
+  tx(Q('#ob-step-0 .ob-row .ob-btn'), 'ob_next');
   tx(Q('#ob-step-1 .ob-title'), 'ob_conn_title');
   tx(Q('#ob-step-1 > .ob-hint'), 'ob_conn_hint');
   tx($('ob-vpn-section-title'), 'ob_config_file');
   tx($('ob-vpn-drop-label'), 'ob_drop_hint');
   tx(Q('#ob-step-1 .vpn-or'), 'ob_or_paste');
   ph($('ob-vpn-paste'), 'ob_paste_ph');
-  tx(Q('#ob-step-1 .ob-row .ob-btn'), 'ob_next');
+  tx(Q('#ob-step-1 .ob-row .ob-btn:not(.ob-skip)'), 'ob_next');
   tx(Q('#ob-conn-status span'), 'ob_connecting');
-  tx(Q('#ob-step-2 .ob-title'), 'ob_lang_title');
-  tx(Q('#ob-step-2 .ob-hint'), 'ob_lang_hint');
   tx(Q('#ob-step-2 .ob-row .ob-btn'), 'ob_next');
-  tx(Q('#ob-step-3 .ob-title'), 'ob_username_title');
-  tx(Q('#ob-step-3 .ob-hint'), 'ob_username_hint');
+  tx(Q('#ob-step-3 .ob-title'), 'ob_bootstrap_title');
+  tx(Q('#ob-step-3 .ob-hint'), 'ob_bootstrap_hint');
+  ph($('ob-bootstrap-input'), 'ob_bootstrap_ph');
+  tx(Q('#ob-step-3 .ob-btn:not(.ob-skip)'), 'ob_connect');
+  QA('.ob-skip').forEach(b => tx(b, 'ob_skip'));
+  tx(Q('#ob-step-4 .ob-title'), 'ob_username_title');
+  tx(Q('#ob-step-4 .ob-hint'), 'ob_username_hint');
   ph($('ob-username-input'), 'ob_username_ph');
-  tx(Q('#ob-step-3 .ob-btn:not(.ob-skip)'), 'ob_next');
-  tx(Q('#ob-step-4 .ob-title'), 'ob_avatar_title');
-  tx(Q('#ob-step-4 .ob-hint'), 'ob_avatar_hint');
-  tx(Q('#ob-step-4 .ob-btn:not(.ob-skip):not(#ob-avatar-clear-btn)'), 'ob_next');
-  tx(Q('#ob-step-5 .ob-title'), 'ob_blocklist_title');
-  tx(Q('#ob-step-5 .ob-hint'), 'ob_blocklist_hint');
-  tx(Q('#ob-step-5 .ob-btn:not(.ob-skip)'), 'ob_apply_next');
-  tx(Q('#ob-step-6 .ob-title'), 'ob_first_post_title');
-  tx(Q('#ob-step-6 .ob-hint'), 'ob_first_post_hint');
+  tx(Q('#ob-step-4 .ob-btn:not(.ob-skip)'), 'ob_next');
+  tx(Q('#ob-step-5 .ob-title'), 'ob_avatar_title');
+  tx(Q('#ob-step-5 .ob-hint'), 'ob_avatar_hint');
+  tx(Q('#ob-step-5 .ob-btn:not(.ob-skip):not(#ob-avatar-clear-btn)'), 'ob_next');
+  tx(Q('#ob-step-6 .ob-title'), 'ob_channel_title');
+  tx(Q('#ob-step-6 .ob-hint'), 'ob_channel_hint');
+  tx(Q('#ob-step-6 .ob-btn:not(.ob-skip)'), 'ob_join_next');
+  tx(Q('#ob-step-7 .ob-title'), 'ob_community_title');
+  tx(Q('#ob-step-7 .ob-hint'), 'ob_community_hint');
+  tx(Q('#ob-step-7 .ob-btn:not(.ob-skip)'), 'ob_apply_next');
+  tx(Q('#ob-step-8 .ob-title'), 'ob_first_post_title');
+  tx(Q('#ob-step-8 .ob-hint'), 'ob_first_post_hint');
   ph($('ob-first-post'), 'ob_first_post_ph');
-  tx(Q('#ob-step-6 .ob-btn:not(.ob-skip)'), 'ob_post_finish');
+  tx(Q('#ob-step-8 .ob-btn:not(.ob-skip)'), 'ob_post_finish');
 
   // VPN modal
   tx($('vpn-drop-label'), 'vpn_drop_hint');
@@ -3157,12 +4354,14 @@ const OB_LANGUAGES = [
   { code: 'ja', label: '日本語' },
   { code: 'hi', label: 'हिन्दी' },
 ];
-const OB_TOTAL_STEPS = 7; // steps 0-6
+const OB_TOTAL_STEPS = 9; // steps 0-8
 let obCurrentStep = 0;
 let obSelectedLang = 'en';
 let obSelectedConnType = connType;
 let obPendingAvatar = null;
-let obBlocklistSelections = {}; // pubkey → bool
+let obBlocklistSelections = {};  // subKey → bool
+let obFollowlistSelections = {}; // "pk::fl::listname" → bool
+let obChannelSelections = new Set(); // channel names the user wants to join
 
 function obIsFirstRun() {
   return !localStorage.getItem('agora_onboarded');
@@ -3279,6 +4478,12 @@ async function obSaveConnType() {
   obNext(2);
 }
 
+// Skip conn-type step: use raw, proceed to connecting
+function obSaveConnTypeSkip() {
+  setConnType('raw');
+  obNext(2);
+}
+
 function obBuildProgress() {
   const el = document.getElementById('ob-progress');
   el.innerHTML = '';
@@ -3336,36 +4541,90 @@ function obShowStep(n) {
     }
   }
 
-  // Step 5: populate blocklists from peers who published one
-  if (n === 5) {
-    const available = obFindPeerBlocklists();
-    if (available.length === 0) {
-      // Nobody has blocklists yet — skip this step silently
-      obShowStep(6);
-      return;
-    }
-    const list = document.getElementById('ob-blocklist-list');
+  // Step 6: populate channels discovered from peers; auto-skip if none
+  if (n === 6) {
+    const channels = obFindChannels();
+    if (channels.length === 0) { obShowStep(7); return; }
+    const list = document.getElementById('ob-channel-list');
     list.innerHTML = '';
-    obBlocklistSelections = {};
-    available.forEach(item => {
-      const selKey = subKey(item.pubkey, item.listName);
-      obBlocklistSelections[selKey] = false;
+    obChannelSelections.clear();
+    channels.forEach(ch => {
       const card = document.createElement('div');
       card.className = 'ob-blocklist-card';
       const info = document.createElement('div');
-      info.innerHTML = `<div class="ob-blocklist-name">${escHtml(item.name)}</div><div class="ob-blocklist-count">${item.count} entr${item.count === 1 ? 'y' : 'ies'}</div>`;
+      info.innerHTML = `<div class="ob-blocklist-name">#${escHtml(ch.name)}</div><div class="ob-blocklist-count">${ch.postCount} post${ch.postCount !== 1 ? 's' : ''}</div>`;
       const chk = document.createElement('div');
       chk.className = 'ob-check';
-      chk.dataset.selKey = selKey;
       chk.onclick = () => {
-        obBlocklistSelections[selKey] = !obBlocklistSelections[selKey];
-        chk.classList.toggle('on', obBlocklistSelections[selKey]);
-        chk.textContent = obBlocklistSelections[selKey] ? '✓' : '';
+        const sel = obChannelSelections.has(ch.name);
+        if (sel) { obChannelSelections.delete(ch.name); chk.classList.remove('on'); chk.textContent = ''; }
+        else { obChannelSelections.add(ch.name); chk.classList.add('on'); chk.textContent = '✓'; }
       };
       card.appendChild(info);
       card.appendChild(chk);
       list.appendChild(card);
     });
+  }
+
+  // Step 7: populate community lists (blocklists + followlists); auto-skip if none
+  if (n === 7) {
+    const bls = obFindPeerBlocklists();
+    const fls = obFindPeerFollowlists();
+    if (bls.length === 0 && fls.length === 0) { obShowStep(8); return; }
+    const list = document.getElementById('ob-community-list');
+    list.innerHTML = '';
+    obBlocklistSelections = {};
+    obFollowlistSelections = {};
+
+    if (bls.length > 0) {
+      const hdr = document.createElement('div');
+      hdr.style.cssText = 'font-family:var(--mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;padding:4px 0 2px';
+      hdr.textContent = 'Block lists';
+      list.appendChild(hdr);
+      bls.forEach(item => {
+        const selKey = subKey(item.pubkey, item.listName);
+        obBlocklistSelections[selKey] = false;
+        const card = document.createElement('div');
+        card.className = 'ob-blocklist-card';
+        const info = document.createElement('div');
+        info.innerHTML = `<div class="ob-blocklist-name">${escHtml(item.name)}</div><div class="ob-blocklist-count">${item.count} entr${item.count === 1 ? 'y' : 'ies'}</div>`;
+        const chk = document.createElement('div');
+        chk.className = 'ob-check';
+        chk.onclick = () => {
+          obBlocklistSelections[selKey] = !obBlocklistSelections[selKey];
+          chk.classList.toggle('on', obBlocklistSelections[selKey]);
+          chk.textContent = obBlocklistSelections[selKey] ? '✓' : '';
+        };
+        card.appendChild(info);
+        card.appendChild(chk);
+        list.appendChild(card);
+      });
+    }
+
+    if (fls.length > 0) {
+      const hdr = document.createElement('div');
+      hdr.style.cssText = 'font-family:var(--mono);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;padding:8px 0 2px';
+      hdr.textContent = 'Follow lists';
+      list.appendChild(hdr);
+      fls.forEach(item => {
+        const selKey = item.pubkey + '::fl::' + item.listName;
+        obFollowlistSelections[selKey] = false;
+        const card = document.createElement('div');
+        card.className = 'ob-blocklist-card';
+        const info = document.createElement('div');
+        info.innerHTML = `<div class="ob-blocklist-name">${escHtml(item.name)}</div><div class="ob-blocklist-count">${item.count} user${item.count !== 1 ? 's' : ''}</div>`;
+        const chk = document.createElement('div');
+        chk.className = 'ob-check';
+        chk.onclick = () => {
+          obFollowlistSelections[selKey] = !obFollowlistSelections[selKey];
+          chk.classList.toggle('on', obFollowlistSelections[selKey]);
+          chk.textContent = obFollowlistSelections[selKey] ? '✓' : '';
+        };
+        card.appendChild(info);
+        card.appendChild(chk);
+        list.appendChild(card);
+      });
+    }
   }
 }
 
@@ -3395,6 +4654,48 @@ function obFindPeerBlocklists() {
   return Object.values(seen);
 }
 
+// Discover channels that have posts on the network
+function obFindChannels() {
+  const counts = {};
+  posts.forEach(p => {
+    const ch = parseChannelPost(p.content);
+    if (!ch || isChannelBlocked(ch.channel)) return;
+    counts[ch.channel] = (counts[ch.channel] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .map(([name, postCount]) => ({ name, postCount }))
+    .sort((a, b) => b.postCount - a.postCount);
+}
+
+// Discover follow lists published by peers
+function obFindPeerFollowlists() {
+  const seen = {};
+  posts.forEach(p => {
+    const fl = parseFollowlistPost(p.content);
+    if (!fl || !fl.pubkeys?.length) return;
+    if (p.sender_pubkey === myIdentity?.pubkey) return;
+    const listName = fl.list_name || DEFAULT_FOLLOW_LIST;
+    const key = p.sender_pubkey + '::' + listName;
+    if (!seen[key] || new Date(p.timestamp) > new Date(seen[key].timestamp)) {
+      const author = p.sender_username || p.sender_fingerprint || p.sender_pubkey.slice(0, 12);
+      seen[key] = {
+        pubkey: p.sender_pubkey,
+        listName,
+        name: listName === DEFAULT_FOLLOW_LIST ? author : `${author} — ${listName}`,
+        count: fl.pubkeys.length,
+        pubkeys: fl.pubkeys,
+        timestamp: p.timestamp,
+      };
+    }
+  });
+  return Object.values(seen);
+}
+
+// Store selected channels and proceed to community step
+function obJoinSelectedChannels() {
+  obShowStep(7);
+}
+
 async function obBootstrapNext(skip = false) {
   if (!skip) {
     const addr = document.getElementById('ob-bootstrap-input').value.trim();
@@ -3404,7 +4705,7 @@ async function obBootstrapNext(skip = false) {
       else { toast('Dialling ' + addr + '…', 'success'); }
     }
   }
-  obShowStep(1); // → connection type
+  obShowStep(4); // → username
 }
 
 async function obSaveUsername() {
@@ -3416,7 +4717,7 @@ async function obSaveUsername() {
     document.getElementById('my-name').textContent = uname;
     document.getElementById('ob-avatar-initial').textContent = uname.charAt(0).toUpperCase();
   }
-  obShowStep(4); // → avatar
+  obShowStep(5); // → avatar
 }
 
 function obClearAvatar() {
@@ -3434,12 +4735,12 @@ async function obSaveAvatar() {
     renderIdentityAvatar();
     obPendingAvatar = null;
   }
-  obShowStep(5); // → blocklists
+  obShowStep(6); // → blocklists
 }
 
-function obImportSelectedBlocklists() {
-  const available = obFindPeerBlocklists();
-  available.forEach(item => {
+function obImportSelected() {
+  // Import selected blocklists
+  obFindPeerBlocklists().forEach(item => {
     const selKey = subKey(item.pubkey, item.listName);
     if (obBlocklistSelections[selKey]) {
       const importId = getOrCreateOwnedList('Imported from ' + item.name);
@@ -3449,7 +4750,19 @@ function obImportSelectedBlocklists() {
   });
   saveBlocklists();
   saveSubscriptions();
-  obShowStep(6); // → first post
+  // Import selected followlists
+  obFindPeerFollowlists().forEach(item => {
+    const selKey = item.pubkey + '::fl::' + item.listName;
+    if (obFollowlistSelections[selKey]) {
+      const listId = getOrCreateFollowList('Imported from ' + item.name);
+      for (const pk of item.pubkeys) {
+        if (pk !== myIdentity?.pubkey) followlists[listId].pubkeys.add(pk);
+      }
+    }
+  });
+  saveFollowlists();
+  updateFollowingIndicator();
+  obShowStep(8); // → first post
 }
 
 async function obPublishFirstPost() {
@@ -3458,7 +4771,6 @@ async function obPublishFirstPost() {
     const resp = await window.agora?.request('broadcast', { content });
     if (resp?.error) { toast('Post failed: ' + resp.error, 'error'); return; }
     await refreshPosts();
-    switchTab('feed');
   }
   obFinish();
 }
@@ -3466,6 +4778,12 @@ async function obPublishFirstPost() {
 function obFinish() {
   try { localStorage.setItem('agora_onboarded', '1'); } catch {}
   document.getElementById('onboarding-overlay').classList.add('hidden');
+  // Navigate to first joined channel (or just the feed if any channel was selected)
+  if (obChannelSelections.size > 0) {
+    const firstCh = [...obChannelSelections][0];
+    switchTab('feed');
+    setTimeout(() => setActiveChannel(firstCh), 80);
+  }
 }
 
 // Wire up the avatar file picker for onboarding
