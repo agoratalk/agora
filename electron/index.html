@@ -103,6 +103,11 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .view-stub .stub-icon{font-size:28px;opacity:.3}
 
 /* peer list */
+#peer-search-wrap{padding:6px 10px;border-bottom:1px solid var(--line);flex-shrink:0}
+#peer-search{width:100%;box-sizing:border-box;background:var(--bg2);border:1px solid var(--line);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:10px;padding:5px 8px;outline:none;transition:border-color .15s}
+#peer-search:focus{border-color:var(--accent)}
+#peer-search::placeholder{color:var(--text-muted)}
+.peer-unread-dot{width:7px;height:7px;border-radius:50%;background:var(--danger);flex-shrink:0;margin-top:5px;margin-left:2px}
 #peer-list{flex:1;overflow-y:auto;padding:6px 0}
 #peer-list::-webkit-scrollbar{width:4px}
 #peer-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
@@ -357,18 +362,21 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 #toast.error{border-color:var(--danger);color:var(--danger)}
 #toast.like{border-color:var(--pink);color:var(--pink)}
 
-/* ── Block / follow feature ── */
+/* ── Peer / chat action menu ── */
 .peer-item{position:relative}
-.peer-block-btn,.peer-follow-btn{display:none;position:absolute;background:none;border:1px solid transparent;border-radius:4px;font-size:9px;padding:2px 6px;cursor:pointer;font-family:var(--mono);white-space:nowrap;transition:all .15s}
-.peer-block-btn{right:8px;top:50%;transform:translateY(-50%);color:var(--text-muted)}
-.peer-follow-btn{right:52px;top:50%;transform:translateY(-50%);color:var(--text-muted)}
-.peer-item:hover .peer-block-btn,.peer-item:hover .peer-follow-btn{display:block}
-.peer-block-btn:hover{border-color:var(--danger);color:var(--danger);background:rgba(224,96,112,.08)}
-.peer-follow-btn:hover,.peer-follow-btn.is-following{border-color:var(--accent);color:var(--accent)}
-.chat-block-btn{background:none;border:1px solid transparent;border-radius:4px;color:var(--text-muted);font-family:var(--mono);font-size:10px;padding:4px 10px;cursor:pointer;transition:all .15s;flex-shrink:0}
-.chat-block-btn:hover{border-color:var(--danger);color:var(--danger)}
-.chat-block-btn.is-blocked{border-color:var(--danger);color:var(--danger)}
-.chat-block-btn.is-blocked:hover{background:var(--danger);color:#fff}
+.peer-menu-wrap{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:none}
+.peer-item:hover .peer-menu-wrap{display:block}
+.peer-menu-btn{background:none;border:1px solid transparent;border-radius:4px;color:var(--text-muted);font-family:var(--mono);font-size:13px;line-height:1;padding:2px 5px;cursor:pointer;transition:all .15s}
+.peer-menu-btn:hover{border-color:var(--line);color:var(--text)}
+.peer-menu-dropdown{display:none;position:absolute;right:0;top:calc(100% + 2px);background:var(--bg2);border:1px solid var(--line);border-radius:6px;min-width:110px;z-index:300;box-shadow:0 4px 14px rgba(0,0,0,.35);overflow:hidden}
+.peer-menu-dropdown.open{display:block}
+.peer-menu-item{display:block;width:100%;text-align:left;background:none;border:none;font-family:var(--mono);font-size:10px;color:var(--text-dim);padding:8px 14px;cursor:pointer;transition:color .12s,background .12s;white-space:nowrap}
+.peer-menu-item:hover{color:var(--text);background:var(--bg3)}
+.peer-menu-item.is-active{color:var(--accent)}
+.peer-menu-item.danger:hover{color:var(--danger);background:rgba(224,96,112,.08)}
+.chat-menu-wrap{position:relative;flex-shrink:0}
+.chat-menu-wrap .peer-menu-btn{font-size:15px;padding:3px 7px}
+.chat-menu-wrap .peer-menu-dropdown{top:calc(100% + 4px)}
 #blocked-indicator-wrap{padding-top:4px}
 #blocked-indicator{display:none;font-family:var(--mono);font-size:9px;color:var(--text-muted);text-align:left;cursor:pointer;background:none;border:none;padding:2px 0;transition:color .15s;width:100%}
 #blocked-indicator:hover{color:var(--danger)}
@@ -636,6 +644,11 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       <button class="nav-tab" onclick="switchTab('following')" id="tab-following">Following</button>
     </div>
 
+    <!-- Peer search -->
+    <div id="peer-search-wrap">
+      <input id="peer-search" type="text" placeholder="Search by name, fingerprint, key…" oninput="renderPeerList()" autocomplete="off" spellcheck="false"/>
+    </div>
+
     <!-- Peer list -->
     <div id="peer-list"><div class="peer-empty">No peers yet.<br/>Use Dial to connect.</div></div>
 
@@ -676,7 +689,13 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
           <div id="chat-target-fp">—</div>
         </div>
         <span class="chat-tag dm">E2E Encrypted DM</span>
-        <button class="chat-block-btn" id="chat-block-btn" onclick="toggleBlockActivePeer()" title="Block/unblock this user">Block</button>
+        <div class="chat-menu-wrap">
+          <button class="peer-menu-btn" onclick="openPeerMenu(this)" title="User actions">≡</button>
+          <div class="peer-menu-dropdown">
+            <button class="peer-menu-item" id="chat-follow-item" onclick="closeChatMenu();toggleFollowActivePeer()">Follow</button>
+            <button class="peer-menu-item danger" id="chat-block-btn" onclick="closeChatMenu();toggleBlockActivePeer()">Block</button>
+          </div>
+        </div>
       </div>
       <div id="messages" style="display:none"></div>
       <div id="blocked-by-notice">🚫 This user has blocked you — your messages will not reach them</div>
@@ -1090,6 +1109,7 @@ let blockedByPubkeys = new Set(); // pubkeys of users who have blocked us
 let subscribedToBlocklists = new Set(); // "pubkey::listname" keys
 let subscribedToFollowlists = new Set(); // "pubkey::listname" keys
 let knownFollowers = new Set();           // pubkeys we know follow us (persisted)
+let unreadDms = new Set();                // pubkeys with unread DMs
 let activePeer = null;
 let messages = [];
 let notifications = [];
@@ -1124,6 +1144,7 @@ async function init() {
   loadSubscriptions();
   loadFollowlistSubs();
   loadKnownFollowers();
+  loadUnreadDms();
   updateFollowersIndicator();
   if (!window.agora) {
     setConnected(false);
@@ -1536,16 +1557,10 @@ function followPickerNewList(pubkey) {
   followPeer(pubkey, id);
 }
 
-// Toggle from peer list hover button
+// Toggle from peer list menu or chat header menu
 function toggleFollowPeer(pubkey) {
   if (isFollowing(pubkey)) unfollowPeer(pubkey);
   else confirmFollowPeer(pubkey);
-  // Update button text in peer list
-  const btn = document.querySelector(`.peer-follow-btn[data-pk="${CSS.escape(pubkey)}"]`);
-  if (btn) {
-    btn.textContent = isFollowing(pubkey) ? 'Unfollow' : 'Follow';
-    btn.classList.toggle('is-following', isFollowing(pubkey));
-  }
 }
 
 // Toggle from profile modal
@@ -1770,6 +1785,17 @@ function loadKnownFollowers() {
 
 function saveKnownFollowers() {
   try { localStorage.setItem('agora_known_followers', JSON.stringify([...knownFollowers])); } catch {}
+}
+
+function loadUnreadDms() {
+  try {
+    const saved = localStorage.getItem('agora_unread_dms');
+    if (saved) unreadDms = new Set(JSON.parse(saved));
+  } catch {}
+}
+
+function saveUnreadDms() {
+  try { localStorage.setItem('agora_unread_dms', JSON.stringify([...unreadDms])); } catch {}
 }
 
 // Scan a list of posts for follow lists that contain our pubkey.
@@ -2469,12 +2495,24 @@ function toggleBlockActivePeer() {
 }
 
 function updateChatBlockBtn() {
-  const btn = document.getElementById('chat-block-btn');
-  if (!btn || !activePeer) return;
-  const blocked = isBlocked(activePeer);
-  btn.textContent = blocked ? 'Unblock' : 'Block';
-  btn.classList.toggle('is-blocked', blocked);
-  btn.title = blocked ? 'Unblock this user' : 'Block this user';
+  if (!activePeer) return;
+  const blockItem = document.getElementById('chat-block-btn');
+  if (blockItem) {
+    const blocked = isBlocked(activePeer);
+    blockItem.textContent = blocked ? 'Unblock' : 'Block';
+    blockItem.classList.toggle('danger', !blocked);
+  }
+  const followItem = document.getElementById('chat-follow-item');
+  if (followItem) {
+    followItem.textContent = isFollowing(activePeer) ? 'Unfollow' : 'Follow';
+    followItem.classList.toggle('is-active', isFollowing(activePeer));
+  }
+}
+
+function toggleFollowActivePeer() {
+  if (!activePeer) return;
+  toggleFollowPeer(activePeer);
+  updateChatBlockBtn();
 }
 
 function createNewBlocklist() {
@@ -2874,8 +2912,25 @@ function handleDaemonEvent(ev) {
         }
         const msg = { kind:'dm', own:false, sender_pubkey:d.sender_pubkey, sender_fingerprint:d.sender_fingerprint, sender_username:d.sender_username, content:rawContent, image:d.image||null, timestamp:d.timestamp||new Date().toISOString() };
         messages.push(msg);
-        if (activePeer === d.sender_pubkey) appendMessage(msg);
-        else toast(`💬 ${displayName(d)}: ${rawContent.slice(0, 60)}`, 'info');
+        if (activePeer === d.sender_pubkey) {
+          appendMessage(msg);
+        } else {
+          // Mark unread and re-sort peer list
+          unreadDms.add(d.sender_pubkey);
+          saveUnreadDms();
+          renderPeerList();
+          // Only notify if we follow this person
+          if (isFollowing(d.sender_pubkey)) {
+            const senderName = displayName(d);
+            pushNotification({
+              type: 'dm',
+              text: `<span class="notif-name">${escHtml(senderName)}</span> sent you a message`,
+              subtext: escHtml(rawContent.slice(0, 80)),
+              time: new Date().toISOString(),
+            });
+            toast(`💬 ${senderName}: ${rawContent.slice(0, 60)}`, 'info');
+          }
+        }
       }
       break;
     }
@@ -2946,21 +3001,49 @@ function renderIdentityAvatar() {
 function renderPeerList() {
   if (activeTab === 'groups') { renderGroupList(); return; }
   const list = document.getElementById('peer-list');
+
+  // Base filter: not blocked
   let visible = peers.filter(p => !isBlocked(p.pubkey) && !blockedByPubkeys.has(p.pubkey));
   if (activeTab === 'following') visible = visible.filter(p => isFollowing(p.pubkey));
+
+  // Search filter
+  const query = (document.getElementById('peer-search')?.value || '').trim().toLowerCase();
+  if (query) {
+    visible = visible.filter(p =>
+      (p.username || '').toLowerCase().includes(query) ||
+      (p.fingerprint || '').toLowerCase().includes(query) ||
+      (p.pubkey || '').toLowerCase().includes(query)
+    );
+  }
+
   document.getElementById('peer-count') && (document.getElementById('peer-count').textContent = visible.length);
+
   if (visible.length === 0) {
-    list.innerHTML = activeTab === 'following'
-      ? `<div class="peer-empty">No followed peers online.<br>Follow users from the Feed tab.</div>`
-      : `<div class="peer-empty">${t('no_peers')}</div>`;
+    list.innerHTML = query
+      ? `<div class="peer-empty">No peers match "${escHtml(query)}"</div>`
+      : activeTab === 'following'
+        ? `<div class="peer-empty">No followed peers online.<br>Follow users from the Feed tab.</div>`
+        : `<div class="peer-empty">${t('no_peers')}</div>`;
     return;
   }
+
+  // Sort: followed+unread → followed → unread → rest (stable within each group)
+  if (!query) {
+    visible = [...visible].sort((a, b) => {
+      const af = isFollowing(a.pubkey), bf = isFollowing(b.pubkey);
+      const au = unreadDms.has(a.pubkey), bu = unreadDms.has(b.pubkey);
+      const rank = p => (isFollowing(p.pubkey) ? 0 : 2) + (unreadDms.has(p.pubkey) ? 0 : 1);
+      return rank(a) - rank(b);
+    });
+  }
+
   list.innerHTML = visible.map(p => {
     const name = p.username || '(unnamed)';
     const active = activePeer === p.pubkey ? ' active' : '';
     const hasAvatar = !!peerAvatars[p.pubkey];
     const avatarClick = hasAvatar ? ` onclick="event.stopPropagation();openPeerAvatarViewer('${escHtml(p.pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
     const following = isFollowing(p.pubkey);
+    const unread = unreadDms.has(p.pubkey);
     return `<div class="peer-item${active}" onclick="selectPeer('${escHtml(p.pubkey)}', event)">
       <div class="peer-avatar"${avatarClick}>${avatarContent(p.pubkey, p.username || p.fingerprint)}</div>
       <div class="peer-info">
@@ -2968,8 +3051,7 @@ function renderPeerList() {
         <div class="peer-fp">${escHtml(p.fingerprint)}</div>
         <div class="peer-via">${escHtml((p.discovery||'').toLowerCase())}</div>
       </div>
-      <button class="peer-follow-btn${following ? ' is-following' : ''}" data-pk="${escHtml(p.pubkey)}" onclick="event.stopPropagation();toggleFollowPeer('${escHtml(p.pubkey)}')" title="${following ? 'Unfollow' : 'Follow'} user">${following ? 'Unfollow' : 'Follow'}</button>
-      <button class="peer-block-btn" onclick="event.stopPropagation();confirmBlockPeer('${escHtml(p.pubkey)}')" title="Block user">Block</button>
+      ${unread ? '<div class="peer-unread-dot" title="Unread messages"></div>' : ''}
     </div>`;
   }).join('');
 }
@@ -3309,6 +3391,12 @@ function selectPeer(pubkey, event) {
   chatNameEl.title = 'View profile';
   chatNameEl.onclick = () => openProfile(peer.pubkey);
   document.getElementById('chat-target-fp').textContent = peer.fingerprint + ' · ' + peer.pubkey.slice(0,16) + '…';
+  // Clear unread badge
+  if (unreadDms.has(pubkey)) {
+    unreadDms.delete(pubkey);
+    saveUnreadDms();
+    renderPeerList();
+  }
   updateChatBlockBtn();
   updateInputBarBlockedBy();
   renderMessages();
@@ -3602,6 +3690,8 @@ function showView(name) {
   const newGroupWrap = document.getElementById('new-group-wrap');
   if (connectWrap)  connectWrap.style.display  = name === 'groups' ? 'none' : '';
   if (newGroupWrap) newGroupWrap.style.display  = name === 'groups' ? '' : 'none';
+  const searchWrap = document.getElementById('peer-search-wrap');
+  if (searchWrap) searchWrap.style.display = (name === 'chat' || name === 'following') ? '' : 'none';
 
   // Trigger per-view data loads.
   if (name === 'feed') {
@@ -4566,9 +4656,36 @@ function closeSettingsPanel() {
   document.getElementById('settings-panel').classList.remove('open');
 }
 
+// ── Peer / chat action menus ────────────────────────────────────────────────────
+let _openPeerMenu = null;
+
+function openPeerMenu(btn) {
+  const dropdown = btn.nextElementSibling;
+  if (_openPeerMenu && _openPeerMenu !== dropdown) _openPeerMenu.classList.remove('open');
+  dropdown.classList.toggle('open');
+  _openPeerMenu = dropdown.classList.contains('open') ? dropdown : null;
+}
+
+function closePeerMenu(el) {
+  const dropdown = el.closest('.peer-menu-dropdown');
+  if (dropdown) dropdown.classList.remove('open');
+  if (_openPeerMenu === dropdown) _openPeerMenu = null;
+}
+
+function closeChatMenu() {
+  const dropdown = document.getElementById('chat-block-btn')?.closest('.peer-menu-dropdown');
+  if (dropdown) dropdown.classList.remove('open');
+  if (_openPeerMenu === dropdown) _openPeerMenu = null;
+}
+
 document.addEventListener('click', e => {
   const menu = document.getElementById('conn-menu');
   if (menu) menu.style.display = 'none';
+  // Close open peer/chat action menus when clicking outside
+  if (_openPeerMenu && !_openPeerMenu.contains(e.target) && !_openPeerMenu.previousElementSibling?.contains(e.target)) {
+    _openPeerMenu.classList.remove('open');
+    _openPeerMenu = null;
+  }
   if (settingsPanelOpen &&
       !document.getElementById('settings-panel').contains(e.target) &&
       e.target.id !== 'settings-btn') {
