@@ -495,6 +495,19 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .btn-subscribe-blocklist:hover{background:var(--accent);color:var(--bg0)}
 .btn-subscribe-blocklist.subscribed{border-color:var(--green);color:var(--green)}
 .btn-subscribe-blocklist.subscribed:hover{background:var(--danger);border-color:var(--danger);color:#fff}
+/* ── Follow list sharing ── */
+.followlist-card-body{background:rgba(80,200,120,.06);border:1px solid var(--green);border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.followlist-card-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green);margin-bottom:8px}
+.followlist-entry{font-family:var(--mono);font-size:10px;color:var(--text-dim);line-height:2}
+.followlist-entry-name{color:var(--text)}
+.followlist-entry-more{font-family:var(--mono);font-size:9px;color:var(--text-muted);margin-top:2px}
+.followlist-btn-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.btn-import-followlist{background:var(--bg3);border:1px solid var(--green);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:10px;padding:5px 14px;cursor:pointer;transition:all .15s}
+.btn-import-followlist:hover{background:var(--green);color:var(--bg0)}
+.btn-subscribe-followlist{background:var(--bg3);border:1px solid var(--accent);border-radius:5px;color:var(--accent);font-family:var(--mono);font-size:10px;padding:5px 14px;cursor:pointer;transition:all .15s}
+.btn-subscribe-followlist:hover{background:var(--accent);color:var(--bg0)}
+.btn-subscribe-followlist.subscribed{border-color:var(--green);color:var(--green)}
+.btn-subscribe-followlist.subscribed:hover{background:var(--danger);border-color:var(--danger);color:#fff}
 /* ── Blocklists accordion modal ── */
 .modal-wide{width:520px;max-width:96vw}
 .bl-section{background:var(--bg2);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden}
@@ -1055,6 +1068,7 @@ let likedPostIds = new Set(); // post_ids we've liked this session
 let blocklists = {}; // { [id]: { name, pubkeys: Set<string>, owned: boolean } }
 let blockedByPubkeys = new Set(); // pubkeys of users who have blocked us
 let subscribedToBlocklists = new Set(); // "pubkey::listname" keys
+let subscribedToFollowlists = new Set(); // "pubkey::listname" keys
 let activePeer = null;
 let messages = [];
 let notifications = [];
@@ -1087,6 +1101,7 @@ async function init() {
   loadFollowlists();
   loadGroups();
   loadSubscriptions();
+  loadFollowlistSubs();
   if (!window.agora) {
     setConnected(false);
     loadDemoData();
@@ -1671,6 +1686,17 @@ function saveSubscriptions() {
   try { localStorage.setItem('agora_blocklist_subs', JSON.stringify([...subscribedToBlocklists])); } catch {}
 }
 
+function loadFollowlistSubs() {
+  try {
+    const saved = localStorage.getItem('agora_followlist_subs');
+    if (saved) subscribedToFollowlists = new Set(JSON.parse(saved));
+  } catch {}
+}
+
+function saveFollowlistSubs() {
+  try { localStorage.setItem('agora_followlist_subs', JSON.stringify([...subscribedToFollowlists])); } catch {}
+}
+
 // ── Group chats ────────────────────────────────────────────────────────────────
 const GROUP_MSG_MAGIC = 'agora:group:msg:v1:';
 const GROUP_SYS_MAGIC = 'agora:group:sys:v1:';
@@ -2193,6 +2219,59 @@ function unsubscribeFromBlocklist(senderPubkey, listName = DEFAULT_LIST_NAME) {
   renderFeed();
 }
 
+// ── Follow list import / subscribe ────────────────────────────────────────────
+function importFollowlistPubkeys(pubkeys, listId, silent = false) {
+  if (!followlists[listId] || !followlists[listId].owned) listId = getDefaultFollowListId();
+  const list = followlists[listId];
+  let added = 0;
+  for (const pk of pubkeys) {
+    if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !list.pubkeys.has(pk)) {
+      list.pubkeys.add(pk);
+      added++;
+    }
+  }
+  if (added > 0) {
+    saveFollowlists();
+    renderPeerList();
+    renderFeed();
+    if (!silent) toast(`Imported ${added} followed user(s)`, 'success');
+  }
+  return added;
+}
+
+function importFollowlist(pubkeysJson, listName) {
+  let pubkeys;
+  try { pubkeys = JSON.parse(pubkeysJson); } catch { toast('Invalid follow list data', 'error'); return; }
+  if (!Array.isArray(pubkeys)) { toast('Invalid follow list data', 'error'); return; }
+  const listId = getOrCreateFollowList(listName || DEFAULT_FOLLOW_LIST);
+  const added = importFollowlistPubkeys(pubkeys, listId);
+  if (added === 0) toast('Nothing new to import — all already followed', 'info');
+}
+
+function subscribeToFollowlist(senderPubkey, listName = DEFAULT_FOLLOW_LIST) {
+  const key = subKey(senderPubkey, listName);
+  subscribedToFollowlists.add(key);
+  saveFollowlistSubs();
+  const latest = posts
+    .filter(p => p.sender_pubkey === senderPubkey)
+    .map(p => ({ p, fl: parseFollowlistPost(p.content) }))
+    .filter(x => x.fl && (x.fl.list_name || DEFAULT_FOLLOW_LIST) === listName)
+    .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
+  if (latest) {
+    const listId = getOrCreateFollowList('Imported from ' + (latest.p.sender_username || senderPubkey.slice(0, 8)));
+    importFollowlistPubkeys(latest.fl.pubkeys, listId, true);
+  }
+  toast('Subscribed — follow list will auto-update when they re-broadcast', 'success');
+  renderFeed();
+}
+
+function unsubscribeFromFollowlist(senderPubkey, listName = DEFAULT_FOLLOW_LIST) {
+  subscribedToFollowlists.delete(subKey(senderPubkey, listName));
+  saveFollowlistSubs();
+  toast('Unsubscribed from follow list', 'info');
+  renderFeed();
+}
+
 function updateBlockedIndicator() {
   const n = allBlockedPubkeys().size;
   const btn = document.getElementById('blocked-indicator');
@@ -2570,6 +2649,22 @@ async function refreshPosts() {
         importBlocklistPubkeys(latest.bl.pubkeys, importId, true);
       }
     }
+    // Auto-import latest follow list from any peers we're subscribed to
+    for (const key of subscribedToFollowlists) {
+      const sepIdx = key.indexOf('::');
+      if (sepIdx < 0) continue;
+      const pubkey = key.slice(0, sepIdx);
+      const listName = key.slice(sepIdx + 2);
+      const latest = posts
+        .filter(p => p.sender_pubkey === pubkey)
+        .map(p => ({ p, fl: parseFollowlistPost(p.content) }))
+        .filter(x => x.fl && (x.fl.list_name || DEFAULT_FOLLOW_LIST) === listName)
+        .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
+      if (latest) {
+        const listId = getOrCreateFollowList('Imported from ' + (latest.p.sender_username || pubkey.slice(0, 8)));
+        importFollowlistPubkeys(latest.fl.pubkeys, listId, true);
+      }
+    }
   } catch (e) {
     console.error('[feed] refreshPosts crashed:', e);
     if (list) list.innerHTML = '<div class="feed-empty">Failed to load feed:<br/>' + escHtml(String(e?.message || e)) + '</div>';
@@ -2628,7 +2723,7 @@ function handleDaemonEvent(ev) {
         renderFeed();
         renderFollowingFeed();
         if (!post.is_own) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
-        // Auto-import if we're subscribed to this peer's blocklist
+        // Auto-import if we're subscribed to this peer's blocklist or follow list
         if (!post.is_own) {
           const bl = parseBlocklistPost(post.content);
           if (bl) {
@@ -2637,6 +2732,15 @@ function handleDaemonEvent(ev) {
               const importId = getOrCreateOwnedList('Imported from ' + (post.sender_username || post.sender_pubkey.slice(0, 8)));
               const added = importBlocklistPubkeys(bl.pubkeys, importId, true);
               if (added > 0) toast(`Auto-imported ${added} new blocked user(s) from subscribed blocklist`, 'success');
+            }
+          }
+          const fl = parseFollowlistPost(post.content);
+          if (fl) {
+            const key = subKey(post.sender_pubkey, fl.list_name || DEFAULT_FOLLOW_LIST);
+            if (subscribedToFollowlists.has(key)) {
+              const listId = getOrCreateFollowList('Imported from ' + (post.sender_username || post.sender_pubkey.slice(0, 8)));
+              const added = importFollowlistPubkeys(fl.pubkeys, listId, true);
+              if (added > 0) toast(`Auto-imported ${added} new followed user(s) from subscribed follow list`, 'success');
             }
           }
         }
@@ -2913,6 +3017,42 @@ function renderFeed() {
             <div class="blocklist-card-title">🚫 Shared Blocklist · <em style="font-style:normal;color:var(--text)">${escHtml(blListName)}</em> · ${bl.pubkeys.length} user(s)</div>
             ${previewNames}${moreHtml}
             <div class="blocklist-btn-row">${importBtn}${subscribeBtn}</div>
+          </div>
+          <div class="post-footer"><span class="post-id-tag">${escHtml(shortId)}</span></div>
+        </div>`;
+      }
+
+      // ── Detect shared follow list posts ────────────────────────────────────
+      const fl = parseFollowlistPost(content);
+      if (fl && Array.isArray(fl.pubkeys)) {
+        const flListName = fl.list_name || DEFAULT_FOLLOW_LIST;
+        const previewNames = fl.pubkeys.slice(0, 5).map(pk => {
+          const n = (fl.names && fl.names[pk]) ? fl.names[pk] : pk.slice(0, 20) + '…';
+          return `<div class="followlist-entry">👤 <span class="followlist-entry-name">${escHtml(n)}</span></div>`;
+        }).join('');
+        const moreCount = fl.pubkeys.length > 5 ? fl.pubkeys.length - 5 : 0;
+        const moreHtml = moreCount > 0 ? `<div class="followlist-entry-more">…and ${moreCount} more</div>` : '';
+        const alreadyAll = fl.pubkeys.every(pk => isFollowing(pk) || pk === myIdentity?.pubkey);
+        const isSubscribed = subscribedToFollowlists.has(subKey(p.sender_pubkey, flListName));
+        const safeListName = escHtml(flListName);
+        const importBtn = isOwn ? '' : `<button class="btn-import-followlist" onclick="importFollowlist(this.dataset.pubkeys,'${safeListName}')" data-pubkeys="${escHtml(JSON.stringify(fl.pubkeys))}">${alreadyAll ? 'Already imported' : `Import All (${fl.pubkeys.length})`}</button>`;
+        const subscribeBtn = isOwn ? '' : isSubscribed
+          ? `<button class="btn-subscribe-followlist subscribed" onclick="unsubscribeFromFollowlist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Click to unsubscribe">✓ Subscribed</button>`
+          : `<button class="btn-subscribe-followlist" onclick="subscribeToFollowlist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Auto-import whenever they update their follow list">Subscribe</button>`;
+        const flProfileClick = p.sender_pubkey ? `onclick="openProfile('${escHtml(p.sender_pubkey)}')"` : '';
+        return `<div class="post-card${isOwn ? ' own-post' : ''}" id="post-${escHtml(postId)}">
+          <div class="post-header">
+            <div class="post-avatar${isOwn ? ' own' : ''}"${postAvatarClick}>${avatarContent(p.sender_pubkey, name)}</div>
+            <div class="post-author">
+              <div class="post-author-name profile-link" ${flProfileClick} title="View profile">${escHtml(name)}${isOwn ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
+              <div class="post-author-fp">${escHtml(fingerprint)}</div>
+            </div>
+            <div class="post-time">${escHtml(timeStr)}</div>
+          </div>
+          <div class="followlist-card-body">
+            <div class="followlist-card-title">👥 Shared Follow List · <em style="font-style:normal;color:var(--text)">${escHtml(flListName)}</em> · ${fl.pubkeys.length} user(s)</div>
+            ${previewNames}${moreHtml}
+            <div class="followlist-btn-row">${importBtn}${subscribeBtn}</div>
           </div>
           <div class="post-footer"><span class="post-id-tag">${escHtml(shortId)}</span></div>
         </div>`;
