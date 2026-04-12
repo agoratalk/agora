@@ -82,6 +82,7 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 #nav-tabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);flex-shrink:0}
 .nav-tab{padding:7px 0;font-family:var(--mono);font-size:10px;text-align:center;cursor:pointer;color:var(--text-muted);border:none;border-right:1px solid var(--line);border-bottom:2px solid transparent;background:none;transition:color .15s,border-bottom .15s;letter-spacing:.06em}
 .nav-tab:nth-child(2n){border-right:none}
+.nav-tab:nth-child(n+3){border-top:1px solid var(--line)}
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 .nav-tab:hover:not(.active){color:var(--text-dim)}
 /* channel strip */
@@ -383,6 +384,11 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 #following-indicator{display:none;font-family:var(--mono);font-size:9px;color:var(--text-muted);text-align:left;cursor:pointer;background:none;border:none;padding:2px 0;transition:color .15s;width:100%}
 #following-indicator:hover{color:var(--accent)}
 #following-indicator.has-following{display:block}
+/* ── Followers feature ── */
+#followers-indicator-wrap{padding-top:2px}
+#followers-indicator{display:none;font-family:var(--mono);font-size:9px;color:var(--text-muted);text-align:left;cursor:pointer;background:none;border:none;padding:2px 0;transition:color .15s;width:100%}
+#followers-indicator:hover{color:var(--accent2)}
+#followers-indicator.has-followers{display:block}
 #following-header{min-height:48px;border-bottom:1px solid var(--line);padding:0 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
 #following-header h2{font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--text);font-weight:600}
 #following-header .feed-hint{font-size:10px;color:var(--text-muted);font-family:var(--mono)}
@@ -645,6 +651,9 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       <div id="following-indicator-wrap">
         <button id="following-indicator" onclick="openFollowModal()">👥 <span id="following-count">0</span> following</button>
       </div>
+      <div id="followers-indicator-wrap">
+        <button id="followers-indicator" onclick="openFollowersModal()">🫂 <span id="followers-count">0</span> followers</button>
+      </div>
       <div id="new-group-wrap" style="display:none">
         <button id="new-group-btn" onclick="openCreateGroupModal()" style="width:100%;font-family:var(--mono);font-size:10px;padding:5px 8px;background:var(--bg3);border:1px solid var(--line);border-radius:4px;color:var(--text-dim);cursor:pointer;transition:all .15s;text-align:left">+ New Group</button>
       </div>
@@ -870,6 +879,17 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
   </div>
 </div>
 
+<!-- Followers modal -->
+<div class="modal-backdrop" id="followers-modal">
+  <div class="modal modal-wide">
+    <h3>My Followers</h3>
+    <div id="followers-container" style="max-height:360px;overflow-y:auto"><div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">No followers yet.</div></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn-cancel" onclick="closeModal('followers-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Follow picker modal -->
 <div class="modal-backdrop" id="follow-picker-modal">
   <div class="modal">
@@ -1069,6 +1089,7 @@ let blocklists = {}; // { [id]: { name, pubkeys: Set<string>, owned: boolean } }
 let blockedByPubkeys = new Set(); // pubkeys of users who have blocked us
 let subscribedToBlocklists = new Set(); // "pubkey::listname" keys
 let subscribedToFollowlists = new Set(); // "pubkey::listname" keys
+let knownFollowers = new Set();           // pubkeys we know follow us (persisted)
 let activePeer = null;
 let messages = [];
 let notifications = [];
@@ -1102,6 +1123,8 @@ async function init() {
   loadGroups();
   loadSubscriptions();
   loadFollowlistSubs();
+  loadKnownFollowers();
+  updateFollowersIndicator();
   if (!window.agora) {
     setConnected(false);
     loadDemoData();
@@ -1214,7 +1237,8 @@ function saveBlocklists() {
   updateBlockedIndicator();
 }
 
-const BLOCK_SIGNAL = 'agora:blocked:v1:';
+const BLOCK_SIGNAL  = 'agora:blocked:v1:';
+const FOLLOW_SIGNAL = 'agora:followed:v1:';
 
 function loadBlockedByList() {
   try {
@@ -1408,6 +1432,42 @@ function updateFollowingIndicator() {
   if (cnt) cnt.textContent = n;
 }
 
+function updateFollowersIndicator() {
+  const n = knownFollowers.size;
+  const btn = document.getElementById('followers-indicator');
+  const cnt = document.getElementById('followers-count');
+  if (btn) btn.classList.toggle('has-followers', n > 0);
+  if (cnt) cnt.textContent = n;
+}
+
+function renderFollowersModal() {
+  const container = document.getElementById('followers-container');
+  if (!container) return;
+  if (knownFollowers.size === 0) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:8px 0">No followers yet. Someone needs to publish a follow list that includes you.</div>';
+    return;
+  }
+  const entries = [...knownFollowers].map(pk => {
+    const peer = peers.find(p => p.pubkey === pk);
+    const post = posts.find(p => p.sender_pubkey === pk);
+    const name = peer?.username || post?.sender_username || '(unknown)';
+    const fp   = peer?.fingerprint || post?.sender_fingerprint || pk.slice(0, 24) + '…';
+    const profileClick = `onclick="openProfile('${escHtml(pk)}');closeModal('followers-modal')"`;
+    return `<div class="bl-user-row">
+      <div class="bl-user-info">
+        <div class="bl-user-name profile-link" ${profileClick} style="cursor:pointer">${escHtml(name)}</div>
+        <div class="bl-user-fp">${escHtml(fp)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  container.innerHTML = `<div class="bl-section"><div class="bl-section-body">${entries}</div></div>`;
+}
+
+function openFollowersModal() {
+  renderFollowersModal();
+  document.getElementById('followers-modal').classList.add('open');
+}
+
 function followPeer(pubkey, listId) {
   if (!listId) listId = getDefaultFollowListId();
   followlists[listId].pubkeys.add(pubkey);
@@ -1416,6 +1476,10 @@ function followPeer(pubkey, listId) {
   renderFollowingFeed();
   updateProfileFollowBtn(pubkey);
   toast('User followed', 'success');
+  // Notify the followed peer (silent DM signal, same pattern as BLOCK_SIGNAL)
+  if (window.agora?.request) {
+    window.agora.request('send_dm', { recipient: pubkey, content: FOLLOW_SIGNAL }).catch(() => {});
+  }
 }
 
 function unfollowPeer(pubkey, listId) {
@@ -1695,6 +1759,42 @@ function loadFollowlistSubs() {
 
 function saveFollowlistSubs() {
   try { localStorage.setItem('agora_followlist_subs', JSON.stringify([...subscribedToFollowlists])); } catch {}
+}
+
+function loadKnownFollowers() {
+  try {
+    const saved = localStorage.getItem('agora_known_followers');
+    if (saved) knownFollowers = new Set(JSON.parse(saved));
+  } catch {}
+}
+
+function saveKnownFollowers() {
+  try { localStorage.setItem('agora_known_followers', JSON.stringify([...knownFollowers])); } catch {}
+}
+
+// Scan a list of posts for follow lists that contain our pubkey.
+// Notifies once per new follower discovered; safe to call repeatedly.
+function checkFollowNotifications(postList) {
+  if (!myIdentity?.pubkey) return;
+  let newCount = 0;
+  let lastName = '';
+  for (const p of postList) {
+    if (!p?.content || p.sender_pubkey === myIdentity.pubkey) continue;
+    const fl = parseFollowlistPost(p.content);
+    if (!fl || !Array.isArray(fl.pubkeys)) continue;
+    if (fl.pubkeys.includes(myIdentity.pubkey) && !knownFollowers.has(p.sender_pubkey)) {
+      knownFollowers.add(p.sender_pubkey);
+      newCount++;
+      lastName = p.sender_username || p.sender_fingerprint || p.sender_pubkey.slice(0, 8);
+    }
+  }
+  if (newCount > 0) {
+    saveKnownFollowers();
+    updateFollowersIndicator();
+    const msg = newCount === 1 ? `${lastName} followed you` : `${newCount} new users followed you`;
+    pushNotification({ type: 'follow', text: `<span class="notif-name">${escHtml(msg)}</span>`, time: new Date().toISOString() });
+    toast(msg, 'success');
+  }
 }
 
 // ── Group chats ────────────────────────────────────────────────────────────────
@@ -2633,6 +2733,7 @@ async function refreshPosts() {
     posts = Array.isArray(resp?.result) ? resp.result : [];
     renderFeed();
     renderFollowingFeed();
+    checkFollowNotifications(posts);
     // Auto-import latest blocklist from any peers we're subscribed to
     for (const key of subscribedToBlocklists) {
       const sepIdx = key.indexOf('::');
@@ -2701,6 +2802,22 @@ function handleDaemonEvent(ev) {
         if (activePeer === d.sender_pubkey) updateInputBarBlockedBy();
         break; // do not show this system message in the chat
       }
+      // Detect follow signal — someone just followed us
+      if (d.kind !== 'broadcast' && d.content === FOLLOW_SIGNAL) {
+        if (!knownFollowers.has(d.sender_pubkey)) {
+          knownFollowers.add(d.sender_pubkey);
+          saveKnownFollowers();
+          updateFollowersIndicator();
+          const name = d.sender_username || d.sender_fingerprint || d.sender_pubkey.slice(0, 8);
+          pushNotification({
+            type: 'follow',
+            text: `<span class="notif-name">${escHtml(name)}</span> followed you`,
+            time: new Date().toISOString(),
+          });
+          toast(`${name} followed you`, 'success');
+        }
+        break; // do not show this system message in the chat
+      }
       // Cache sender avatar if provided
       if (d.sender_pubkey && d.sender_avatar) peerAvatars[d.sender_pubkey] = d.sender_avatar;
       if (d.kind === 'broadcast') {
@@ -2722,7 +2839,11 @@ function handleDaemonEvent(ev) {
         else posts.unshift(post);
         renderFeed();
         renderFollowingFeed();
-        if (!post.is_own) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
+        if (!post.is_own) {
+          checkFollowNotifications([post]);
+          const isFollowListPost = parseFollowlistPost(post.content) !== null;
+          if (!isFollowListPost) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
+        }
         // Auto-import if we're subscribed to this peer's blocklist or follow list
         if (!post.is_own) {
           const bl = parseBlocklistPost(post.content);

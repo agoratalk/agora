@@ -16,3 +16,11 @@
 - Auto-import on `refreshPosts`: iterates `subscribedToFollowlists` and silently imports the latest matching post from each subscribed peer.
 - Auto-import on incoming broadcast: when a live follow list post arrives from a subscribed peer, new entries are imported automatically with a toast notification.
 - CSS classes for follow list cards: `.followlist-card-body`, `.followlist-card-title`, `.followlist-entry`, `.followlist-entry-name`, `.followlist-entry-more`, `.followlist-btn-row`, `.btn-import-followlist`, `.btn-subscribe-followlist` (green-accented, mirrors blocklist card styles).
+
+### Follow notifications
+
+When a user follows you they send a silent `FOLLOW_SIGNAL` DM (`agora:followed:v1:`), intercepted in the DM event handler identically to how `BLOCK_SIGNAL` works. On receipt, a `pushNotification` entry is created (shows in the bell panel) and a toast fires — same path as `like_notification`. Followers are tracked in `localStorage.agora_known_followers` so each follower only notifies once. The previous approach tried to detect follows by scanning broadcast feed posts client-side, which was unreliable; the DM signal is guaranteed delivery via the same low-level path the daemon uses for block signals.
+
+### Followers panel
+
+Added a read-only followers panel accessible from a 🫂 button in the bottom-left sidebar, consistent with the existing following and blocking indicators. The button only appears when at least one follower is known. The panel lists all pubkeys who have published a follow list containing you, with their display name and fingerprint, and clicking a name opens their profile. No publish button, no multiple lists — purely a view into `knownFollowers`.
