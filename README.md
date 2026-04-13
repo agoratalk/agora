@@ -110,8 +110,14 @@ npm install
 npm start
 ```
 
-The daemon stores its identity and data under your OS's standard application
-data directory. Back that folder up if you want to keep your identity.
+The daemon stores its identity and data under:
+
+- **Linux/macOS**: `~/.config/agora/` (or `$XDG_CONFIG_HOME/agora/` if that variable is set)
+- **Windows**: `%APPDATA%\agora\`
+
+Individual identities are stored as JSON files inside the `identities/`
+subdirectory (e.g. `~/.config/agora/identities/default.json`). Back up that
+directory if you want to keep your identity.
 
 ### First steps once it's running
 
@@ -165,15 +171,15 @@ decide things in the open. That's the idea. Come build it.
 
 ---
 
-## Current features
+## Features currently being worked on
 
 Everything in this list is actively being worked on right now.
 
-- **Secure connections that hide your IP** — route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings. BE CAREFULL, IT DOES NOT WORK YET AS OF WRITING!!!
-- **Fixing all the bugs** — the ever-present one. I need colaborators please help I'm tired.
+- **Secure connections that hide your IP** — route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings. Note: this does not work yet as of writing.
+- **Fixing all the bugs** — the ever-present one.
 - **Following and blocking, and shareable lists** — follow users and organise them into named follow lists you can publish for others to subscribe to. Block individual users and share blocklists curated by you or imported from peers you trust. Moderation that lives with the user, not a central authority. This feature is almost done.
 - **Channels for different topics** — topic-scoped channels inside the public feed, so conversations can be organised without central moderators. Posts in a channel only appear in that channel; the public feed stays uncluttered.
-- **Multilanguage support** — full UI localisation covering a range of languages so Agora is accessible to a wider global audience without needing to read English. If a translation feels off or you are fluent in a language not yet translated, please I need your help.
+- **Multilanguage support** — full UI localisation covering a range of languages so Agora is accessible to a wider global audience without needing to read English. If a translation feels off or you are fluent in a language not yet covered, contributions are very welcome.
 - **Group chats** — encrypted group messaging built on top of the existing DM layer, with admin roles, invite/kick controls, and forward secrecy inherited from the per-message key exchange.
 - **Profile pictures and richer profile metadata** — upload an avatar and write a short bio that other peers can see when they open your profile.
 - **Embedding content from other platforms** — paste a link into a post and have it rendered as a preview (video player, image, or link card) inline in the feed.
