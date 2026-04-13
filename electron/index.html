@@ -95,6 +95,17 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .ch-pill.ch-add{border-style:dashed}
 .ch-block-btn{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid var(--line);background:none;color:var(--text-muted);cursor:pointer;transition:all .15s;margin-left:auto;flex-shrink:0}
 .ch-block-btn:hover,.ch-block-btn.is-blocked{border-color:#e55;color:#e55}
+/* channel hamburger menu */
+.ch-menu-btn{font-size:14px;padding:1px 7px;border-radius:4px;border:1px solid var(--line);background:none;color:var(--text-muted);cursor:pointer;transition:all .15s;margin-left:auto;flex-shrink:0;line-height:1.2}
+.ch-menu-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+#feed-header{position:relative}
+.ch-dropdown{position:absolute;right:0;top:calc(100% + 2px);background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:4px;z-index:50;min-width:170px;box-shadow:0 4px 16px rgba(0,0,0,.4);display:none}
+.ch-dropdown.open{display:block}
+.ch-dropdown-item{font-family:var(--mono);font-size:11px;padding:7px 12px;border-radius:5px;cursor:pointer;color:var(--text);background:none;border:none;width:100%;text-align:left;transition:background .12s}
+.ch-dropdown-item:hover{background:var(--bg3)}
+.ch-dropdown-item.danger{color:#e55}
+.ch-dropdown-item.danger:hover{background:rgba(238,85,85,.12)}
+.ch-dropdown-item.is-active{color:var(--accent)}
 /* blocked-channels section in blocklists modal */
 .bl-channels-section{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
 .bl-ch-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-family:var(--mono);font-size:11px;color:var(--text-dim)}
@@ -543,6 +554,8 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .block-picker-btn:hover{background:var(--accent);border-color:var(--accent);color:var(--bg0)}
 .block-picker-new{border-style:dashed;color:var(--text-muted)}
 .block-picker-new:hover{background:var(--bg2);color:var(--accent);border-color:var(--accent)}
+.pub-ch-global-btn{border-color:var(--accent2);color:var(--accent2)}
+.pub-ch-global-btn:hover{background:var(--accent2);border-color:var(--accent2);color:var(--bg0)}
 </style>
 </head>
 <body>
@@ -662,7 +675,7 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
         <button id="blocked-indicator" onclick="openBlockedModal()">🚫 <span id="blocked-count">0</span> <span id="blocked-label">blocked user(s)</span></button>
       </div>
       <div id="following-indicator-wrap">
-        <button id="following-indicator" onclick="openFollowModal()">👥 <span id="following-count">0</span> following</button>
+        <button id="following-indicator" onclick="openFollowModal()">👥 <span id="following-count">0</span> <span id="following-label">following</span></button>
       </div>
       <div id="followers-indicator-wrap">
         <button id="followers-indicator" onclick="openFollowersModal()">🫂 <span id="followers-count">0</span> followers</button>
@@ -716,7 +729,11 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       <div id="feed-header">
         <h2 id="feed-title">📢 Public Feed</h2>
         <span class="feed-hint" id="feed-hint">Posts propagate for 24h</span>
-        <button id="ch-block-btn" class="ch-block-btn" onclick="toggleBlockActiveChannel()" style="display:none">Block Channel</button>
+        <button id="ch-menu-btn" class="ch-menu-btn" onclick="toggleChannelMenu(event)" style="display:none" title="Channel options">☰</button>
+        <div id="ch-dropdown" class="ch-dropdown">
+          <button class="ch-dropdown-item" id="ch-follow-item" onclick="toggleFollowActiveChannel()">Follow Channel</button>
+          <button class="ch-dropdown-item danger" id="ch-block-item" onclick="toggleBlockActiveChannel()">Block Channel</button>
+        </div>
       </div>
       <div id="channel-strip"></div>
       <div id="post-compose">
@@ -769,7 +786,7 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
     <div class="view" id="view-following">
       <div id="following-header">
         <h2>👥 Following</h2>
-        <span class="feed-hint">Posts from people you follow</span>
+        <span class="feed-hint">Posts from people and channels you follow</span>
         <button class="ch-block-btn" onclick="openFollowModal()" style="margin-left:auto">Manage Lists</button>
       </div>
       <div id="following-feed-list"><div class="feed-empty">You are not following anyone yet.<br>Follow users from the Peers tab or their profile.</div></div>
@@ -915,6 +932,18 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
     <h3>Follow User</h3>
     <p id="follow-picker-name" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-bottom:12px"></p>
     <div class="block-picker-list" id="follow-picker-lists"></div>
+  </div>
+</div>
+
+<!-- Publish channel picker modal -->
+<div class="modal-backdrop" id="publish-channel-picker-modal">
+  <div class="modal">
+    <h3>Publish To</h3>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-bottom:12px">Choose where to publish this list.</p>
+    <div class="block-picker-list" id="pub-ch-picker-list"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn-cancel" onclick="closeModal('publish-channel-picker-modal')">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -1173,7 +1202,7 @@ async function init() {
   // Re-broadcast all owned blocklists every 30 minutes so subscribers receive fresh updates
   setInterval(() => {
     for (const [id, list] of Object.entries(blocklists)) {
-      if (list.owned && list.pubkeys.size > 0) publishBlocklist(id, true);
+      if (list.owned && (list.pubkeys.size > 0 || (list.channels && list.channels.size > 0))) publishBlocklist(id, true);
     }
   }, 30 * 60 * 1000);
 }
@@ -1210,7 +1239,7 @@ function getOrCreateOwnedList(name) {
     if (list.owned && list.name === name) return id;
   }
   const id = newListId();
-  blocklists[id] = { name, pubkeys: new Set(), owned: true };
+  blocklists[id] = { name, pubkeys: new Set(), channels: new Set(), owned: true };
   return id;
 }
 
@@ -1229,7 +1258,7 @@ function loadBlocklists() {
       const parsed = JSON.parse(newData);
       blocklists = {};
       for (const [id, list] of Object.entries(parsed)) {
-        blocklists[id] = { name: list.name, pubkeys: new Set(list.pubkeys || []), owned: !!list.owned };
+        blocklists[id] = { name: list.name, pubkeys: new Set(list.pubkeys || []), channels: new Set(list.channels || []), owned: !!list.owned };
       }
     } else {
       // Migrate from old single-list format
@@ -1251,7 +1280,7 @@ function saveBlocklists() {
   try {
     const serializable = {};
     for (const [id, list] of Object.entries(blocklists)) {
-      serializable[id] = { name: list.name, pubkeys: [...list.pubkeys], owned: list.owned };
+      serializable[id] = { name: list.name, pubkeys: [...list.pubkeys], channels: [...(list.channels || [])], owned: list.owned };
     }
     localStorage.setItem('agora_blocklists', JSON.stringify(serializable));
   } catch {}
@@ -1302,7 +1331,7 @@ function saveBlockedChannels() {
   try { localStorage.setItem('agora_blocked_channels', JSON.stringify([...blockedChannels])); } catch {}
 }
 
-function isChannelBlocked(name) { return blockedChannels.has(name); }
+function isChannelBlocked(name) { return blockedChannels.has(name) || isChannelBlockedByList(name); }
 
 function blockChannel(name) {
   blockedChannels.add(name);
@@ -1322,18 +1351,43 @@ function unblockChannel(name) {
 }
 
 function toggleBlockActiveChannel() {
+  closeChannelMenu();
   if (!activeChannel) return;
   if (isChannelBlocked(activeChannel)) unblockChannel(activeChannel);
   else blockChannel(activeChannel);
-  updateChannelBlockBtn();
+  updateChannelMenuBtn();
 }
 
-function updateChannelBlockBtn() {
-  const btn = document.getElementById('ch-block-btn');
-  if (!btn) return;
-  const blocked = activeChannel && isChannelBlocked(activeChannel);
-  btn.textContent = blocked ? 'Unblock Channel' : 'Block Channel';
-  btn.classList.toggle('is-blocked', !!blocked);
+function updateChannelMenuBtn() {
+  const menuBtn   = document.getElementById('ch-menu-btn');
+  const followItem = document.getElementById('ch-follow-item');
+  const blockItem  = document.getElementById('ch-block-item');
+  if (!menuBtn) return;
+  const blocked   = activeChannel && isChannelBlocked(activeChannel);
+  const following = activeChannel && isFollowingChannel(activeChannel);
+  if (followItem) {
+    followItem.textContent = following ? '✓ Following Channel' : 'Follow Channel';
+    followItem.classList.toggle('is-active', !!following);
+  }
+  if (blockItem) {
+    blockItem.textContent = blocked ? 'Unblock Channel' : 'Block Channel';
+  }
+}
+
+// keep old name as alias so nothing else breaks
+function updateChannelBlockBtn() { updateChannelMenuBtn(); }
+
+function toggleChannelMenu(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('ch-dropdown');
+  if (!dd) return;
+  updateChannelMenuBtn();
+  dd.classList.toggle('open');
+}
+
+function closeChannelMenu() {
+  const dd = document.getElementById('ch-dropdown');
+  if (dd) dd.classList.remove('open');
 }
 
 // Returns sorted unique channel names found in posts (excluding blocked)
@@ -1348,13 +1402,14 @@ function discoverChannels() {
 
 function setActiveChannel(name) {
   activeChannel = name || null;
-  const title = document.getElementById('feed-title');
-  const hint  = document.getElementById('feed-hint');
-  const btn   = document.getElementById('ch-block-btn');
-  if (title) title.textContent = name ? `# ${name}` : '📢 Public Feed';
-  if (hint)  hint.textContent  = name ? `Channel · posts propagate for 24h` : 'Posts propagate for 24h';
-  if (btn)   btn.style.display = name ? '' : 'none';
-  updateChannelBlockBtn();
+  closeChannelMenu();
+  const title   = document.getElementById('feed-title');
+  const hint    = document.getElementById('feed-hint');
+  const menuBtn = document.getElementById('ch-menu-btn');
+  if (title)   title.textContent = name ? `# ${name}` : '📢 Public Feed';
+  if (hint)    hint.textContent  = name ? `Channel · posts propagate for 24h` : 'Posts propagate for 24h';
+  if (menuBtn) menuBtn.style.display = name ? '' : 'none';
+  updateChannelMenuBtn();
   renderFeedChannelStrip();
   renderFeed();
 }
@@ -1392,12 +1447,59 @@ function isFollowing(pk) {
   return false;
 }
 
+function isFollowingChannel(name) {
+  if (!name) return false;
+  for (const list of Object.values(followlists)) {
+    if (list.owned && list.channels && list.channels.has(name)) return true;
+  }
+  return false;
+}
+
+function followChannel(name) {
+  const listId = getOrCreateFollowList(DEFAULT_FOLLOW_LIST);
+  addChannelToFollowlist(listId, name);
+  updateChannelMenuBtn();
+  updateFollowingIndicator();
+}
+
+function unfollowChannel(name) {
+  for (const [id, list] of Object.entries(followlists)) {
+    if (list.owned && list.channels && list.channels.has(name)) {
+      removeChannelFromFollowlist(id, name);
+    }
+  }
+  updateChannelMenuBtn();
+  updateFollowingIndicator();
+}
+
+function toggleFollowActiveChannel() {
+  closeChannelMenu();
+  if (!activeChannel) return;
+  if (isFollowingChannel(activeChannel)) unfollowChannel(activeChannel);
+  else followChannel(activeChannel);
+}
+
 function allFollowedPubkeys() {
   const all = new Set();
   for (const list of Object.values(followlists)) {
     if (list.owned) for (const pk of list.pubkeys) all.add(pk);
   }
   return all;
+}
+
+function allFollowedChannels() {
+  const all = new Set();
+  for (const list of Object.values(followlists)) {
+    if (list.owned) for (const ch of (list.channels || [])) all.add(ch);
+  }
+  return all;
+}
+
+function isChannelBlockedByList(name) {
+  for (const list of Object.values(blocklists)) {
+    if (list.owned && list.channels && list.channels.has(name)) return true;
+  }
+  return false;
 }
 
 function newFollowListId() {
@@ -1409,7 +1511,7 @@ function getOrCreateFollowList(name) {
     if (list.owned && list.name === name) return id;
   }
   const id = newFollowListId();
-  followlists[id] = { name, pubkeys: new Set(), owned: true };
+  followlists[id] = { name, pubkeys: new Set(), channels: new Set(), owned: true };
   return id;
 }
 
@@ -1427,7 +1529,7 @@ function loadFollowlists() {
       const parsed = JSON.parse(saved);
       followlists = {};
       for (const [id, list] of Object.entries(parsed)) {
-        followlists[id] = { name: list.name, pubkeys: new Set(list.pubkeys || []), owned: !!list.owned };
+        followlists[id] = { name: list.name, pubkeys: new Set(list.pubkeys || []), channels: new Set(list.channels || []), owned: !!list.owned };
       }
     }
   } catch {}
@@ -1438,7 +1540,7 @@ function saveFollowlists() {
   try {
     const serializable = {};
     for (const [id, list] of Object.entries(followlists)) {
-      serializable[id] = { name: list.name, pubkeys: [...list.pubkeys], owned: list.owned };
+      serializable[id] = { name: list.name, pubkeys: [...list.pubkeys], channels: [...(list.channels || [])], owned: list.owned };
     }
     localStorage.setItem('agora_followlists', JSON.stringify(serializable));
   } catch {}
@@ -1446,11 +1548,19 @@ function saveFollowlists() {
 }
 
 function updateFollowingIndicator() {
-  const n = allFollowedPubkeys().size;
+  const users = allFollowedPubkeys().size;
+  const channels = allFollowedChannels().size;
+  const total = users + channels;
   const btn = document.getElementById('following-indicator');
   const cnt = document.getElementById('following-count');
-  if (btn) btn.classList.toggle('has-following', n > 0);
-  if (cnt) cnt.textContent = n;
+  const lbl = document.getElementById('following-label');
+  if (btn) btn.classList.toggle('has-following', total > 0);
+  if (cnt) cnt.textContent = total;
+  if (lbl) {
+    if (users > 0 && channels > 0) lbl.textContent = `following (${users} user${users !== 1 ? 's' : ''}, ${channels} ch)`;
+    else if (channels > 0) lbl.textContent = `channel${channels !== 1 ? 's' : ''} following`;
+    else lbl.textContent = 'following';
+  }
 }
 
 function updateFollowersIndicator() {
@@ -1604,7 +1714,8 @@ function renderFollowModal() {
     return;
   }
   container.innerHTML = ownedLists.map(([id, list]) => {
-    const entries = [...list.pubkeys].map(pk => {
+    const channels = list.channels || new Set();
+    const userEntries = [...list.pubkeys].map(pk => {
       const peer = peers.find(p => p.pubkey === pk);
       const post = posts.find(p => p.sender_pubkey === pk);
       const name = peer?.username || post?.sender_username || '(unknown)';
@@ -1617,17 +1728,29 @@ function renderFollowModal() {
         <button class="btn-sm" onclick="unfollowPeer('${escHtml(pk)}','${escHtml(id)}')" title="Unfollow">Unfollow</button>
       </div>`;
     }).join('');
+    const channelEntries = [...channels].map(ch =>
+      `<div class="bl-user-row">
+        <div class="bl-user-info">
+          <div class="bl-user-name">#${escHtml(ch)}</div>
+          <div class="bl-user-fp">channel</div>
+        </div>
+        <button class="btn-sm" onclick="removeChannelFromFollowlist('${escHtml(id)}','${escHtml(ch)}')" title="Unfollow channel">Unfollow</button>
+      </div>`
+    ).join('');
+    const totalCount = list.pubkeys.size + channels.size;
+    const countLabel = `${list.pubkeys.size} user${list.pubkeys.size !== 1 ? 's' : ''}${channels.size > 0 ? `, ${channels.size} channel${channels.size !== 1 ? 's' : ''}` : ''}`;
     return `<div class="bl-section">
       <div class="bl-section-header">
         <span class="bl-section-name">${escHtml(list.name)}</span>
-        <span class="bl-section-count">${list.pubkeys.size} user${list.pubkeys.size !== 1 ? 's' : ''}</span>
+        <span class="bl-section-count">${countLabel}</span>
         <div class="bl-section-actions">
-          <button class="btn-sm" onclick="publishFollowlist('${escHtml(id)}')" title="Publish this list">📢 Publish</button>
+          <button class="btn-sm" onclick="promptAddChannelToFollowlist('${escHtml(id)}')" title="Follow a channel">+ Channel</button>
+          <button class="btn-sm" onclick="openPublishFollowlistPicker('${escHtml(id)}')" title="Publish this list">📢 Publish</button>
           <button class="btn-danger" onclick="deleteFollowlist('${escHtml(id)}')" title="Delete list">✕</button>
         </div>
       </div>
       <div class="bl-section-body">
-        ${entries || '<div class="bl-empty">No users in this list</div>'}
+        ${userEntries}${channelEntries}${totalCount === 0 ? '<div class="bl-empty">No users or channels in this list</div>' : ''}
       </div>
     </div>`;
   }).join('');
@@ -1637,10 +1760,85 @@ function createNewFollowlist() {
   const name = prompt('New follow list name:');
   if (!name?.trim()) return;
   const id = newFollowListId();
-  followlists[id] = { name: name.trim(), pubkeys: new Set(), owned: true };
+  followlists[id] = { name: name.trim(), pubkeys: new Set(), channels: new Set(), owned: true };
   saveFollowlists();
   renderFollowModal();
   toast(`Created list "${name.trim()}"`, 'success');
+}
+
+function addChannelToFollowlist(listId, channelName) {
+  const list = followlists[listId];
+  if (!list || !list.owned) return;
+  if (!list.channels) list.channels = new Set();
+  list.channels.add(channelName);
+  saveFollowlists();
+  renderFollowModal();
+  renderFollowingFeed();
+  toast(`#${channelName} added to follow list`, 'success');
+}
+
+function removeChannelFromFollowlist(listId, channelName) {
+  const list = followlists[listId];
+  if (!list || !list.owned) return;
+  list.channels && list.channels.delete(channelName);
+  saveFollowlists();
+  renderFollowModal();
+  renderFollowingFeed();
+}
+
+function promptAddChannelToFollowlist(listId) {
+  const known = discoverChannels();
+  const list = followlists[listId];
+  if (!list) return;
+  const available = known.filter(ch => !(list.channels && list.channels.has(ch)));
+  let channelName;
+  if (available.length > 0) {
+    channelName = prompt('Channel to follow (known: ' + available.join(', ') + '):');
+  } else {
+    channelName = prompt('Channel name to follow:');
+  }
+  if (!channelName?.trim()) return;
+  const name = channelName.trim().replace(/^#/, '');
+  if (!CHANNEL_NAME_RE.test(name)) { toast('Invalid channel name', 'error'); return; }
+  addChannelToFollowlist(listId, name);
+}
+
+function addChannelToBlocklist(listId, channelName) {
+  const list = blocklists[listId];
+  if (!list || !list.owned) return;
+  if (!list.channels) list.channels = new Set();
+  list.channels.add(channelName);
+  saveBlocklists();
+  renderBlockedModal();
+  if (activeChannel === channelName) setActiveChannel(null);
+  else renderFeed();
+  toast(`#${channelName} added to blocklist`, 'success');
+}
+
+function removeChannelFromBlocklist(listId, channelName) {
+  const list = blocklists[listId];
+  if (!list || !list.owned) return;
+  list.channels && list.channels.delete(channelName);
+  saveBlocklists();
+  renderBlockedModal();
+  renderFeedChannelStrip();
+}
+
+function promptAddChannelToBlocklist(listId) {
+  const known = discoverChannels();
+  const list = blocklists[listId];
+  if (!list) return;
+  const available = known.filter(ch => !(list.channels && list.channels.has(ch)));
+  let channelName;
+  if (available.length > 0) {
+    channelName = prompt('Channel to block (known: ' + available.join(', ') + '):');
+  } else {
+    channelName = prompt('Channel name to block:');
+  }
+  if (!channelName?.trim()) return;
+  const name = channelName.trim().replace(/^#/, '');
+  if (!CHANNEL_NAME_RE.test(name)) { toast('Invalid channel name', 'error'); return; }
+  addChannelToBlocklist(listId, name);
 }
 
 function deleteFollowlist(id) {
@@ -1655,25 +1853,69 @@ function deleteFollowlist(id) {
   toast('Follow list deleted', 'info');
 }
 
-async function publishFollowlist(listId, silent = false) {
+async function publishFollowlist(listId, silent = false, targetChannel = null) {
   const list = followlists[listId];
   if (!list || !list.owned) { if (!silent) toast('List not found', 'error'); return; }
-  if (list.pubkeys.size === 0) { if (!silent) toast('No followed users to publish', 'error'); return; }
+  if (list.pubkeys.size === 0 && (!list.channels || list.channels.size === 0)) { if (!silent) toast('No followed users or channels to publish', 'error'); return; }
   const names = {};
   for (const pk of list.pubkeys) {
     const peer = peers.find(p => p.pubkey === pk);
     const post = posts.find(p => p.sender_pubkey === pk);
     names[pk] = peer?.username || post?.sender_username || peer?.fingerprint || post?.sender_fingerprint || '';
   }
-  const payload = JSON.stringify({ list_name: list.name, pubkeys: [...list.pubkeys], names });
-  const content = FOLLOWLIST_MAGIC + payload;
+  const payload = JSON.stringify({ list_name: list.name, pubkeys: [...list.pubkeys], names, channels: [...(list.channels || [])] });
+  let content = FOLLOWLIST_MAGIC + payload;
+  if (targetChannel) content = encodeChannelPost(targetChannel, content);
   const resp = await window.agora?.request('broadcast', { content });
   if (resp?.error) { if (!silent) toast('Failed to publish: ' + resp.error, 'error'); return; }
   if (!silent) {
     closeModal('follow-modal');
-    toast(`Follow list "${list.name}" published`, 'success');
+    const dest = targetChannel ? `to #${targetChannel}` : 'to the network';
+    toast(`Follow list "${list.name}" published ${dest}`, 'success');
     await refreshPosts();
   }
+}
+
+function openPublishFollowlistPicker(listId) {
+  _pendingPublishListId = listId;
+  _pendingPublishListType = 'follow';
+  openPublishChannelPicker();
+}
+
+function openPublishBlocklistPicker(listId) {
+  _pendingPublishListId = listId;
+  _pendingPublishListType = 'block';
+  openPublishChannelPicker();
+}
+
+let _pendingPublishListId = null;
+let _pendingPublishListType = null; // 'follow' | 'block'
+
+function openPublishChannelPicker() {
+  const modal = document.getElementById('publish-channel-picker-modal');
+  if (!modal) return;
+  const list = document.getElementById('pub-ch-picker-list');
+  const channels = discoverChannels();
+  let html = `<button class="block-picker-btn pub-ch-global-btn" onclick="confirmPublishList(null)">📢 Global (no channel)</button>`;
+  for (const ch of channels) {
+    html += `<button class="block-picker-btn" onclick="confirmPublishList('${escHtml(ch)}')">#${escHtml(ch)}</button>`;
+  }
+  if (channels.length === 0) {
+    html += `<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted);padding:4px 0">No channels found. Posts will be published globally.</div>`;
+  }
+  list.innerHTML = html;
+  modal.classList.add('open');
+}
+
+async function confirmPublishList(channelName) {
+  closeModal('publish-channel-picker-modal');
+  if (_pendingPublishListType === 'follow') {
+    await publishFollowlist(_pendingPublishListId, false, channelName);
+  } else if (_pendingPublishListType === 'block') {
+    await publishBlocklist(_pendingPublishListId, false, channelName);
+  }
+  _pendingPublishListId = null;
+  _pendingPublishListType = null;
 }
 
 function parseFollowlistPost(content) {
@@ -1685,19 +1927,22 @@ function renderFollowingFeed() {
   const list = document.getElementById('following-feed-list');
   if (!list) return;
   const followed = allFollowedPubkeys();
-  if (followed.size === 0) {
+  const followedChannels = allFollowedChannels();
+  if (followed.size === 0 && followedChannels.size === 0) {
     list.innerHTML = '<div class="feed-empty">You are not following anyone yet.<br>Follow users from the Peers tab or their profile.</div>';
     return;
   }
   try {
-    const arr = Array.isArray(posts) ? posts.filter(p =>
-      !isBlocked(p.sender_pubkey) &&
-      !blockedByPubkeys.has(p.sender_pubkey) &&
-      followed.has(p.sender_pubkey) &&
-      !parseFollowlistPost(p.content) // skip follow list broadcast posts
-    ) : [];
+    const arr = Array.isArray(posts) ? posts.filter(p => {
+      if (isBlocked(p.sender_pubkey) || blockedByPubkeys.has(p.sender_pubkey)) return false;
+      const _ic = (() => { const _c = parseChannelPost(p.content); return _c ? _c.text : p.content; })();
+      if (parseFollowlistPost(_ic) || parseBlocklistPost(_ic)) return false; // skip list broadcast posts
+      const ch = parseChannelPost(p.content);
+      if (ch && followedChannels.has(ch.channel)) return true; // post in followed channel
+      return followed.has(p.sender_pubkey); // post from followed user
+    }) : [];
     if (arr.length === 0) {
-      list.innerHTML = '<div class="feed-empty">No posts from people you follow yet.</div>';
+      list.innerHTML = '<div class="feed-empty">No posts from people or channels you follow yet.</div>';
       return;
     }
     const sorted = [...arr].sort((a, b) =>
@@ -2297,10 +2542,11 @@ async function addSelectedPeersToGroup() {
 }
 
 // Core import logic shared by manual import, subscribe, and auto-update.
-// Adds pubkeys to a specific owned list; returns count added.
-function importBlocklistPubkeys(pubkeys, listId, silent = false) {
+// Adds pubkeys (and optionally channels) to a specific owned list; returns count added.
+function importBlocklistPubkeys(pubkeys, listId, silent = false, channels = []) {
   if (!blocklists[listId] || !blocklists[listId].owned) listId = getDefaultOwnedListId();
   const list = blocklists[listId];
+  if (!list.channels) list.channels = new Set();
   let added = 0;
   for (const pk of pubkeys) {
     if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !list.pubkeys.has(pk)) {
@@ -2311,13 +2557,25 @@ function importBlocklistPubkeys(pubkeys, listId, silent = false) {
       added++;
     }
   }
-  if (added > 0) {
+  let addedCh = 0;
+  for (const ch of channels) {
+    if (typeof ch === 'string' && ch && !list.channels.has(ch)) {
+      list.channels.add(ch);
+      addedCh++;
+    }
+  }
+  if (added > 0 || addedCh > 0) {
     saveBlocklists();
     renderPeerList();
     renderFeed();
-    if (!silent) toast(`Imported ${added} blocked user(s)`, 'success');
+    if (!silent) {
+      const parts = [];
+      if (added > 0) parts.push(`${added} blocked user(s)`);
+      if (addedCh > 0) parts.push(`${addedCh} blocked channel(s)`);
+      toast(`Imported ${parts.join(' and ')}`, 'success');
+    }
   }
-  return added;
+  return added + addedCh;
 }
 
 function subscribeToBlocklist(senderPubkey, listName = DEFAULT_LIST_NAME) {
@@ -2332,7 +2590,7 @@ function subscribeToBlocklist(senderPubkey, listName = DEFAULT_LIST_NAME) {
     .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
   if (latest) {
     const importId = getOrCreateOwnedList('Imported from ' + (latest.p.sender_username || senderPubkey.slice(0, 8)));
-    importBlocklistPubkeys(latest.bl.pubkeys, importId, true);
+    importBlocklistPubkeys(latest.bl.pubkeys, importId, true, latest.bl.channels || []);
   }
   toast('Subscribed — blocklist will auto-update when they re-broadcast', 'success');
   renderFeed();
@@ -2346,9 +2604,10 @@ function unsubscribeFromBlocklist(senderPubkey, listName = DEFAULT_LIST_NAME) {
 }
 
 // ── Follow list import / subscribe ────────────────────────────────────────────
-function importFollowlistPubkeys(pubkeys, listId, silent = false) {
+function importFollowlistPubkeys(pubkeys, listId, silent = false, channels = []) {
   if (!followlists[listId] || !followlists[listId].owned) listId = getDefaultFollowListId();
   const list = followlists[listId];
+  if (!list.channels) list.channels = new Set();
   let added = 0;
   for (const pk of pubkeys) {
     if (typeof pk === 'string' && pk && pk !== myIdentity?.pubkey && !list.pubkeys.has(pk)) {
@@ -2356,21 +2615,35 @@ function importFollowlistPubkeys(pubkeys, listId, silent = false) {
       added++;
     }
   }
-  if (added > 0) {
+  let addedCh = 0;
+  for (const ch of channels) {
+    if (typeof ch === 'string' && ch && !list.channels.has(ch)) {
+      list.channels.add(ch);
+      addedCh++;
+    }
+  }
+  if (added > 0 || addedCh > 0) {
     saveFollowlists();
     renderPeerList();
     renderFeed();
-    if (!silent) toast(`Imported ${added} followed user(s)`, 'success');
+    if (!silent) {
+      const parts = [];
+      if (added > 0) parts.push(`${added} followed user(s)`);
+      if (addedCh > 0) parts.push(`${addedCh} followed channel(s)`);
+      toast(`Imported ${parts.join(' and ')}`, 'success');
+    }
   }
-  return added;
+  return added + addedCh;
 }
 
-function importFollowlist(pubkeysJson, listName) {
+function importFollowlist(pubkeysJson, listName, channelsJson = null) {
   let pubkeys;
   try { pubkeys = JSON.parse(pubkeysJson); } catch { toast('Invalid follow list data', 'error'); return; }
   if (!Array.isArray(pubkeys)) { toast('Invalid follow list data', 'error'); return; }
+  let channels = [];
+  if (channelsJson) { try { channels = JSON.parse(channelsJson); } catch {} }
   const listId = getOrCreateFollowList(listName || DEFAULT_FOLLOW_LIST);
-  const added = importFollowlistPubkeys(pubkeys, listId);
+  const added = importFollowlistPubkeys(pubkeys, listId, false, channels);
   if (added === 0) toast('Nothing new to import — all already followed', 'info');
 }
 
@@ -2385,7 +2658,7 @@ function subscribeToFollowlist(senderPubkey, listName = DEFAULT_FOLLOW_LIST) {
     .sort((a, b) => new Date(b.p.timestamp) - new Date(a.p.timestamp))[0];
   if (latest) {
     const listId = getOrCreateFollowList('Imported from ' + (latest.p.sender_username || senderPubkey.slice(0, 8)));
-    importFollowlistPubkeys(latest.fl.pubkeys, listId, true);
+    importFollowlistPubkeys(latest.fl.pubkeys, listId, true, latest.fl.channels || []);
   }
   toast('Subscribed — follow list will auto-update when they re-broadcast', 'success');
   renderFeed();
@@ -2572,7 +2845,8 @@ function renderBlockedModal() {
     return;
   }
   container.innerHTML = ownedLists.map(([id, list]) => {
-    const entries = [...list.pubkeys].map(pk => {
+    const channels = list.channels || new Set();
+    const userEntries = [...list.pubkeys].map(pk => {
       const peer = peers.find(p => p.pubkey === pk);
       const post = posts.find(p => p.sender_pubkey === pk);
       const name = peer?.username || post?.sender_username || '(unknown)';
@@ -2585,17 +2859,29 @@ function renderBlockedModal() {
         <button class="btn-sm" onclick="unblockPeer('${escHtml(pk)}','${escHtml(id)}')" title="Remove from list">Remove</button>
       </div>`;
     }).join('');
+    const channelEntries = [...channels].map(ch =>
+      `<div class="bl-user-row">
+        <div class="bl-user-info">
+          <div class="bl-user-name">#${escHtml(ch)}</div>
+          <div class="bl-user-fp">channel</div>
+        </div>
+        <button class="btn-sm" onclick="removeChannelFromBlocklist('${escHtml(id)}','${escHtml(ch)}')" title="Unblock channel">Remove</button>
+      </div>`
+    ).join('');
+    const totalCount = list.pubkeys.size + channels.size;
+    const countLabel = `${list.pubkeys.size} user${list.pubkeys.size !== 1 ? 's' : ''}${channels.size > 0 ? `, ${channels.size} channel${channels.size !== 1 ? 's' : ''}` : ''}`;
     return `<div class="bl-section">
       <div class="bl-section-header">
         <span class="bl-section-name">${escHtml(list.name)}</span>
-        <span class="bl-section-count">${list.pubkeys.size} user${list.pubkeys.size !== 1 ? 's' : ''}</span>
+        <span class="bl-section-count">${countLabel}</span>
         <div class="bl-section-actions">
-          <button class="btn-sm" onclick="publishBlocklist('${escHtml(id)}')" title="Publish this list">📢 Publish</button>
+          <button class="btn-sm" onclick="promptAddChannelToBlocklist('${escHtml(id)}')" title="Block a channel">+ Channel</button>
+          <button class="btn-sm" onclick="openPublishBlocklistPicker('${escHtml(id)}')" title="Publish this list">📢 Publish</button>
           <button class="btn-danger" onclick="deleteBlocklist('${escHtml(id)}')" title="Delete list">✕</button>
         </div>
       </div>
       <div class="bl-section-body">
-        ${entries || '<div class="bl-empty">No users in this list</div>'}
+        ${userEntries}${channelEntries}${totalCount === 0 ? '<div class="bl-empty">No users or channels in this list</div>' : ''}
       </div>
     </div>`;
   }).join('');
@@ -2604,23 +2890,25 @@ function renderBlockedModal() {
 // ── Blocklist sharing ──────────────────────────────────────────────────────────
 const BLOCKLIST_MAGIC = 'agora:blocklist:v1:';
 
-async function publishBlocklist(listId, silent = false) {
+async function publishBlocklist(listId, silent = false, targetChannel = null) {
   const list = blocklists[listId];
   if (!list || !list.owned) { if (!silent) toast('List not found', 'error'); return; }
-  if (list.pubkeys.size === 0) { if (!silent) toast('No blocked users to publish', 'error'); return; }
+  if (list.pubkeys.size === 0 && (!list.channels || list.channels.size === 0)) { if (!silent) toast('No blocked users or channels to publish', 'error'); return; }
   const names = {};
   for (const pk of list.pubkeys) {
     const peer = peers.find(p => p.pubkey === pk);
     const post = posts.find(p => p.sender_pubkey === pk);
     names[pk] = peer?.username || post?.sender_username || peer?.fingerprint || post?.sender_fingerprint || '';
   }
-  const payload = JSON.stringify({ list_name: list.name, pubkeys: [...list.pubkeys], names });
-  const content = BLOCKLIST_MAGIC + payload;
+  const payload = JSON.stringify({ list_name: list.name, pubkeys: [...list.pubkeys], names, channels: [...(list.channels || [])] });
+  let content = BLOCKLIST_MAGIC + payload;
+  if (targetChannel) content = encodeChannelPost(targetChannel, content);
   const resp = await window.agora?.request('broadcast', { content });
   if (resp?.error) { if (!silent) toast('Failed to publish: ' + resp.error, 'error'); return; }
   if (!silent) {
     closeModal('blocked-modal');
-    toast(`Blocklist "${list.name}" published to the network`, 'success');
+    const dest = targetChannel ? `to #${targetChannel}` : 'to the network';
+    toast(`Blocklist "${list.name}" published ${dest}`, 'success');
     await refreshPosts();
   }
 }
@@ -2634,12 +2922,14 @@ function parseBlocklistPost(content) {
   } catch { return null; }
 }
 
-function importBlocklist(pubkeysJson, listName) {
+function importBlocklist(pubkeysJson, listName, channelsJson = null) {
   let pubkeys;
   try { pubkeys = JSON.parse(pubkeysJson); } catch { toast('Invalid blocklist data', 'error'); return; }
   if (!Array.isArray(pubkeys)) { toast('Invalid blocklist data', 'error'); return; }
+  let channels = [];
+  if (channelsJson) { try { channels = JSON.parse(channelsJson); } catch {} }
   const listId = getOrCreateOwnedList(listName || DEFAULT_LIST_NAME);
-  const added = importBlocklistPubkeys(pubkeys, listId);
+  const added = importBlocklistPubkeys(pubkeys, listId, false, channels);
   if (added === 0) toast('Nothing new to import — all already blocked', 'info');
 }
 
@@ -2879,27 +3169,32 @@ function handleDaemonEvent(ev) {
         renderFollowingFeed();
         if (!post.is_own) {
           checkFollowNotifications([post]);
-          const isFollowListPost = parseFollowlistPost(post.content) !== null;
+          const _chW = parseChannelPost(post.content);
+          const _innerC = _chW ? _chW.text : post.content;
+          const isFollowListPost = parseFollowlistPost(_innerC) !== null || parseBlocklistPost(_innerC) !== null;
           if (!isFollowListPost) toast(`📢 ${displayName(d)}: ${d.content.slice(0, 60)}`, 'info');
         }
         // Auto-import if we're subscribed to this peer's blocklist or follow list
         if (!post.is_own) {
-          const bl = parseBlocklistPost(post.content);
+          // Unwrap channel prefix if the list was published to a channel
+          const chWrapped = parseChannelPost(post.content);
+          const postInnerContent = chWrapped ? chWrapped.text : post.content;
+          const bl = parseBlocklistPost(postInnerContent);
           if (bl) {
             const key = subKey(post.sender_pubkey, bl.list_name);
             if (subscribedToBlocklists.has(key)) {
               const importId = getOrCreateOwnedList('Imported from ' + (post.sender_username || post.sender_pubkey.slice(0, 8)));
-              const added = importBlocklistPubkeys(bl.pubkeys, importId, true);
-              if (added > 0) toast(`Auto-imported ${added} new blocked user(s) from subscribed blocklist`, 'success');
+              const added = importBlocklistPubkeys(bl.pubkeys, importId, true, bl.channels || []);
+              if (added > 0) toast(`Auto-imported ${added} new item(s) from subscribed blocklist`, 'success');
             }
           }
-          const fl = parseFollowlistPost(post.content);
+          const fl = parseFollowlistPost(postInnerContent);
           if (fl) {
             const key = subKey(post.sender_pubkey, fl.list_name || DEFAULT_FOLLOW_LIST);
             if (subscribedToFollowlists.has(key)) {
               const listId = getOrCreateFollowList('Imported from ' + (post.sender_username || post.sender_pubkey.slice(0, 8)));
-              const added = importFollowlistPubkeys(fl.pubkeys, listId, true);
-              if (added > 0) toast(`Auto-imported ${added} new followed user(s) from subscribed follow list`, 'success');
+              const added = importFollowlistPubkeys(fl.pubkeys, listId, true, fl.channels || []);
+              if (added > 0) toast(`Auto-imported ${added} new item(s) from subscribed follow list`, 'success');
             }
           }
         }
@@ -3193,16 +3488,22 @@ function renderFeed() {
       const bl = parseBlocklistPost(content);
       if (bl && Array.isArray(bl.pubkeys)) {
         const blListName = bl.list_name || DEFAULT_LIST_NAME;
+        const blChannels = Array.isArray(bl.channels) ? bl.channels : [];
         const previewNames = bl.pubkeys.slice(0, 5).map(pk => {
           const n = (bl.names && bl.names[pk]) ? bl.names[pk] : pk.slice(0, 20) + '…';
           return `<div class="blocklist-entry">🚫 <span class="blocklist-entry-name">${escHtml(n)}</span></div>`;
         }).join('');
+        const previewChannels = blChannels.slice(0, 3).map(ch =>
+          `<div class="blocklist-entry">🚫 <span class="blocklist-entry-name">#${escHtml(ch)}</span></div>`
+        ).join('');
         const moreCount = bl.pubkeys.length > 5 ? bl.pubkeys.length - 5 : 0;
         const moreHtml = moreCount > 0 ? `<div class="blocklist-entry-more">…and ${moreCount} more</div>` : '';
         const alreadyAll = bl.pubkeys.every(pk => isBlocked(pk) || pk === myIdentity?.pubkey);
         const isSubscribed = subscribedToBlocklists.has(subKey(p.sender_pubkey, blListName));
         const safeListName = escHtml(blListName);
-        const importBtn = isOwn ? '' : `<button class="btn-import-blocklist" onclick="importBlocklist(this.dataset.pubkeys,'${safeListName}')" data-pubkeys="${escHtml(JSON.stringify(bl.pubkeys))}">${alreadyAll ? 'Already imported' : `Import All (${bl.pubkeys.length})`}</button>`;
+        const totalItems = bl.pubkeys.length + blChannels.length;
+        const countLabel = `${bl.pubkeys.length} user(s)${blChannels.length > 0 ? `, ${blChannels.length} channel(s)` : ''}`;
+        const importBtn = isOwn ? '' : `<button class="btn-import-blocklist" onclick="importBlocklist(this.dataset.pubkeys,'${safeListName}',this.dataset.channels)" data-pubkeys="${escHtml(JSON.stringify(bl.pubkeys))}" data-channels="${escHtml(JSON.stringify(blChannels))}">${alreadyAll ? 'Already imported' : `Import All (${totalItems})`}</button>`;
         const subscribeBtn = isOwn ? '' : isSubscribed
           ? `<button class="btn-subscribe-blocklist subscribed" onclick="unsubscribeFromBlocklist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Click to unsubscribe">✓ Subscribed</button>`
           : `<button class="btn-subscribe-blocklist" onclick="subscribeToBlocklist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Auto-import whenever they update their blocklist">Subscribe</button>`;
@@ -3217,8 +3518,8 @@ function renderFeed() {
             <div class="post-time">${escHtml(timeStr)}</div>
           </div>
           <div class="blocklist-card-body">
-            <div class="blocklist-card-title">🚫 Shared Blocklist · <em style="font-style:normal;color:var(--text)">${escHtml(blListName)}</em> · ${bl.pubkeys.length} user(s)</div>
-            ${previewNames}${moreHtml}
+            <div class="blocklist-card-title">🚫 Shared Blocklist · <em style="font-style:normal;color:var(--text)">${escHtml(blListName)}</em> · ${countLabel}</div>
+            ${previewNames}${previewChannels}${moreHtml}
             <div class="blocklist-btn-row">${importBtn}${subscribeBtn}</div>
           </div>
           <div class="post-footer"><span class="post-id-tag">${escHtml(shortId)}</span></div>
@@ -3229,16 +3530,22 @@ function renderFeed() {
       const fl = parseFollowlistPost(content);
       if (fl && Array.isArray(fl.pubkeys)) {
         const flListName = fl.list_name || DEFAULT_FOLLOW_LIST;
+        const flChannels = Array.isArray(fl.channels) ? fl.channels : [];
         const previewNames = fl.pubkeys.slice(0, 5).map(pk => {
           const n = (fl.names && fl.names[pk]) ? fl.names[pk] : pk.slice(0, 20) + '…';
           return `<div class="followlist-entry">👤 <span class="followlist-entry-name">${escHtml(n)}</span></div>`;
         }).join('');
+        const previewChannels = flChannels.slice(0, 3).map(ch =>
+          `<div class="followlist-entry">📢 <span class="followlist-entry-name">#${escHtml(ch)}</span></div>`
+        ).join('');
         const moreCount = fl.pubkeys.length > 5 ? fl.pubkeys.length - 5 : 0;
         const moreHtml = moreCount > 0 ? `<div class="followlist-entry-more">…and ${moreCount} more</div>` : '';
         const alreadyAll = fl.pubkeys.every(pk => isFollowing(pk) || pk === myIdentity?.pubkey);
         const isSubscribed = subscribedToFollowlists.has(subKey(p.sender_pubkey, flListName));
         const safeListName = escHtml(flListName);
-        const importBtn = isOwn ? '' : `<button class="btn-import-followlist" onclick="importFollowlist(this.dataset.pubkeys,'${safeListName}')" data-pubkeys="${escHtml(JSON.stringify(fl.pubkeys))}">${alreadyAll ? 'Already imported' : `Import All (${fl.pubkeys.length})`}</button>`;
+        const totalItems = fl.pubkeys.length + flChannels.length;
+        const countLabel = `${fl.pubkeys.length} user(s)${flChannels.length > 0 ? `, ${flChannels.length} channel(s)` : ''}`;
+        const importBtn = isOwn ? '' : `<button class="btn-import-followlist" onclick="importFollowlist(this.dataset.pubkeys,'${safeListName}',this.dataset.channels)" data-pubkeys="${escHtml(JSON.stringify(fl.pubkeys))}" data-channels="${escHtml(JSON.stringify(flChannels))}">${alreadyAll ? 'Already imported' : `Import All (${totalItems})`}</button>`;
         const subscribeBtn = isOwn ? '' : isSubscribed
           ? `<button class="btn-subscribe-followlist subscribed" onclick="unsubscribeFromFollowlist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Click to unsubscribe">✓ Subscribed</button>`
           : `<button class="btn-subscribe-followlist" onclick="subscribeToFollowlist('${escHtml(p.sender_pubkey)}','${safeListName}')" title="Auto-import whenever they update their follow list">Subscribe</button>`;
@@ -3253,8 +3560,8 @@ function renderFeed() {
             <div class="post-time">${escHtml(timeStr)}</div>
           </div>
           <div class="followlist-card-body">
-            <div class="followlist-card-title">👥 Shared Follow List · <em style="font-style:normal;color:var(--text)">${escHtml(flListName)}</em> · ${fl.pubkeys.length} user(s)</div>
-            ${previewNames}${moreHtml}
+            <div class="followlist-card-title">👥 Shared Follow List · <em style="font-style:normal;color:var(--text)">${escHtml(flListName)}</em> · ${countLabel}</div>
+            ${previewNames}${previewChannels}${moreHtml}
             <div class="followlist-btn-row">${importBtn}${subscribeBtn}</div>
           </div>
           <div class="post-footer"><span class="post-id-tag">${escHtml(shortId)}</span></div>
@@ -4690,6 +4997,12 @@ document.addEventListener('click', e => {
       !document.getElementById('settings-panel').contains(e.target) &&
       e.target.id !== 'settings-btn') {
     closeSettingsPanel();
+  }
+  // Close channel menu when clicking outside
+  const chDd = document.getElementById('ch-dropdown');
+  const chMb = document.getElementById('ch-menu-btn');
+  if (chDd && chDd.classList.contains('open') && !chDd.contains(e.target) && e.target !== chMb) {
+    chDd.classList.remove('open');
   }
 });
 

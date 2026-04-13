@@ -46,3 +46,32 @@ A search input above the peer list filters peers in real time by username, finge
 ### Followers panel
 
 Added a read-only followers panel accessible from a 🫂 button in the bottom-left sidebar, consistent with the existing following and blocking indicators. The button only appears when at least one follower is known. The panel lists all pubkeys who have published a follow list containing you, with their display name and fingerprint, and clicking a name opens their profile. No publish button, no multiple lists — purely a view into `knownFollowers`.
+
+### Channels in follow/block lists + publish-to-channel
+
+**Channels as list entries**
+
+Both `blocklists` and `followlists` now carry a `channels: Set<string>` field alongside the existing `pubkeys` set. The field is serialised to and deserialised from `localStorage` (`agora_blocklists` / `agora_followlists`).
+
+- **My Blocklists modal** — each list section gains a `+ Channel` button. Clicking it prompts for a channel name (known channels are suggested). Added channels appear inline with blocked users (with a "channel" subtitle) and can be removed individually. The count label reads e.g. `3 users, 2 channels`.
+- **My Follow Lists modal** — identical treatment: `+ Channel` per list, followed channels shown alongside followed users with an Unfollow button.
+- `isChannelBlocked(name)` now also returns `true` if any owned blocklist contains that channel, so the feed and channel strip automatically respect list-based channel blocks without needing a separate `blockedChannels` entry.
+- `allFollowedChannels()` aggregates channels from all owned follow lists. The **Following feed** now includes posts from those channels (any author), in addition to posts from followed users.
+
+**Publish lists to a specific channel**
+
+Clicking `📢 Publish` on any list opens a new **"Publish To"** picker modal instead of broadcasting immediately. The modal offers:
+- **Global (no channel)** — original behaviour, publishes to the public feed.
+- One button per discovered channel — wraps the list payload inside `agora:channel:v1:{name}\n` so the post appears in that channel's feed.
+
+Toast messages confirm the destination (e.g. `Blocklist "Spam" published to #tech`).
+
+**Channels in shared list payloads**
+
+- `publishBlocklist` and `publishFollowlist` include `channels: [...]` in the JSON payload.
+- `parseBlocklistPost` / `parseFollowlistPost` expose the `channels` array to callers.
+- Feed cards for shared lists show a preview of up to 3 channels (`📢 #name` / `🚫 #name`) and the count label reflects both users and channels (e.g. `5 user(s), 2 channel(s)`).
+- The **Import All** button on feed cards now passes `data-channels` through to `importBlocklist` / `importFollowlist`, which forward them to the core import functions.
+- `importBlocklistPubkeys` and `importFollowlistPubkeys` accept an optional `channels` array and merge those channels into the target list.
+- Subscribe-on-arrival auto-import and the explicit `subscribeToBlocklist` / `subscribeToFollowlist` paths both import channels from the incoming payload.
+- Channel-wrapped list posts (published to a channel) are correctly unwrapped before auto-import detection in the live message handler.
