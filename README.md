@@ -186,7 +186,7 @@ Everything in this list is actively being worked on right now.
 These are on the roadmap but not currently being worked on.
 
 - **Social media accounts to promote the project and Monero donation wallet** — public accounts on major platforms to grow awareness of Agora, and a Monero wallet address for anyone who wants to support development with a private donation. If you want to help even just getting the word out would be appreciated.
-- **Windows desktop app** — a native `.exe` installer so Windows users can run Agora without a terminal or manual setup.
+- **Windows desktop app** — a native `.exe` installer so Windows users can run Agora without a terminal or manual setup. A non electron app for performance would be good too but I would need contributors with desktop dev experience to build something good.
 - **Linux packages** — packaged releases for major distros (`.deb`, `.rpm`, and others) so Agora can be installed through standard system package managers.
 - **Android app** — a native mobile client distributed as an APK so people can use Agora without needing a desktop.
 - **A local feed algorithm** — ranking and filtering that runs entirely on your own machine, with no remote black box deciding what you see.
