@@ -573,11 +573,7 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
       <div class="conn-menu" id="conn-menu" style="display:none">
         <div class="conn-ip-info">
           <div class="conn-ip-row">
-            <span class="conn-ip-label">private</span>
-            <span class="conn-ip-val" id="conn-ip-private">…</span>
-          </div>
-          <div class="conn-ip-row">
-            <span class="conn-ip-label">public</span>
+            <span class="conn-ip-label" id="conn-ip-label">public ip</span>
             <span class="conn-ip-val" id="conn-ip-public">…</span>
           </div>
         </div>
@@ -3266,6 +3262,30 @@ function handleDaemonEvent(ev) {
       refreshPosts();
       toast(`Switched to "${ev.data.account_name}"`, 'success');
       break;
+
+    case 'tor_status': {
+      const s = ev.data.status;
+      if (s === 'bootstrapping') {
+        // Update the connection label to show Tor is starting up
+        const lbl = document.getElementById('conn-label');
+        if (lbl && !lbl.textContent.includes('disconnected')) {
+          lbl.textContent = 'TOR — bootstrapping…';
+        }
+        toast('Tor: building circuits… (may take up to a minute)', 'info');
+      } else if (s === 'ready') {
+        const lbl = document.getElementById('conn-label');
+        if (lbl) lbl.textContent = 'connected - TOR';
+        toast('Tor ready — all traffic is now anonymised', 'success');
+        // Refresh the exit IP if the connection menu is open
+        const menu = document.getElementById('conn-menu');
+        if (menu && menu.style.display !== 'none') fetchAndShowIps();
+      } else if (s === 'failed') {
+        toast(`Tor bootstrap failed: ${ev.data.error || 'unknown error'}`, 'error');
+        const lbl = document.getElementById('conn-label');
+        if (lbl) lbl.textContent = 'TOR — bootstrap failed';
+      }
+      break;
+    }
   }
 }
 
@@ -4725,24 +4745,27 @@ function toggleConnMenu(e) {
 }
 
 async function fetchAndShowIps() {
-  const privEl = document.getElementById('conn-ip-private');
   const pubEl  = document.getElementById('conn-ip-public');
-  privEl.textContent = '…';
-  pubEl.textContent  = '…';
+  const lbl    = document.getElementById('conn-ip-label');
+  pubEl.textContent = '…';
 
-  // Private IP from daemon
+  // Determine current connection type so we can label the IP correctly.
+  let connType = 'raw';
   try {
-    const res = await window.agora?.request('get_local_ip', {});
-    privEl.textContent = res?.ip ?? 'unknown';
-  } catch {
-    privEl.textContent = 'unknown';
+    const ct = await window.agora?.request('get_conn_type', {});
+    connType = ct?.type ?? 'raw';
+  } catch {}
+
+  if (lbl) {
+    lbl.textContent = connType === 'TOR' ? 'exit node' : 'public ip';
   }
 
-  // Public IP from ipify (on-demand, only when the menu is opened)
+  // Ask the daemon to fetch the public IP through its own connection stack.
+  // When Tor is active the daemon makes the request through the Tor circuit,
+  // so the returned address is the exit-node IP, not the real IP.
   try {
-    const res  = await fetch('https://api.ipify.org?format=json');
-    const data = await res.json();
-    pubEl.textContent = data.ip ?? 'unknown';
+    const res = await window.agora?.request('get_public_ip', {});
+    pubEl.textContent = res?.ip ?? 'unknown';
   } catch {
     pubEl.textContent = 'unknown';
   }
@@ -5223,7 +5246,7 @@ function obShowStep(n) {
     const span = document.querySelector('#ob-conn-status span');
     if (span) {
       if (connType === 'TOR') {
-        span.textContent = 'Routing through Tor… (Tor must be running on port 9050)';
+        span.textContent = 'Bootstrapping Tor… (embedded — no system Tor required)';
       } else if (connType === 'i2p') {
         span.textContent = 'Routing through I2P… (I2P router must be running with SOCKS5 on port 4447)';
       } else {

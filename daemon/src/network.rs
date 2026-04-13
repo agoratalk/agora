@@ -136,10 +136,21 @@ impl Network {
     /// Bootstrap the embedded Tor client.  This downloads the Tor consensus,
     /// builds circuits, and stores the ready client for use by open_stream().
     ///
-    /// Should be called once in the background when Tor mode is requested.
     /// Safe to call multiple times — if a client is already ready it is
-    /// replaced with a fresh one.
+    /// reused and this function returns immediately without creating a second
+    /// Arti instance (which would fight over the state-file lock).
     pub async fn bootstrap_tor(&self) -> Result<()> {
+        // Reuse an existing ready client to avoid lock contention on Arti's
+        // state files.  A second TorClient::create_bootstrapped() call while
+        // the first is still alive triggers "Another process has the lock"
+        // warnings and a brief read-only mode on the new instance.
+        {
+            let guard = self.tor_client.lock().await;
+            if guard.is_some() {
+                tracing::info!("network: reusing existing Tor client");
+                return Ok(());
+            }
+        }
         tracing::info!("network: starting Tor bootstrap (this may take up to a minute)…");
         let config = TorClientConfig::default();
         let client = TorClient::create_bootstrapped(config)
@@ -151,6 +162,11 @@ impl Network {
         *self.tor_client.lock().await = Some(client);
         tracing::info!("network: Tor client ready");
         Ok(())
+    }
+
+    /// True if a Tor client has been bootstrapped and is ready for use.
+    pub async fn tor_is_ready(&self) -> bool {
+        self.tor_client.lock().await.is_some()
     }
 
     /// Open an outbound stream according to the current ConnMode.
@@ -206,6 +222,97 @@ impl Network {
                     format!("SOCKS5/I2P error: {e}"),
                 )))?;
                 Ok(Box::new(socks.into_inner()))
+            }
+        }
+    }
+
+    /// Fetch the current public (exit-node) IP entirely at the application level —
+    /// no system Tor daemon, no SOCKS proxy.
+    ///
+    /// * Raw / VPN modes: plain TCP via the OS stack.  VPN routing is transparent
+    ///   so the returned IP already reflects the VPN exit.
+    /// * Tor: uses the **embedded** Arti Tor client to open a circuit and make the
+    ///   HTTP request through it.  The returned address is the Tor exit-node IP,
+    ///   not the user's real IP.  Returns "bootstrapping…" if the client is not
+    ///   ready yet.
+    ///
+    /// Uses `checkip.amazonaws.com:80` — plain HTTP, returns the IP as plain text
+    /// with no HTTPS redirect, so no TLS stack is required.
+    pub async fn get_public_ip(&self) -> String {
+        const HOST: &str = "checkip.amazonaws.com";
+        const REQUEST: &str =
+            "GET / HTTP/1.1\r\nHost: checkip.amazonaws.com\r\nConnection: close\r\n\r\n";
+
+        // Extract the IP from a raw HTTP response.  The body is plain text: "1.2.3.4\n".
+        fn parse_ip(buf: &[u8]) -> Option<String> {
+            let text = std::str::from_utf8(buf).ok()?;
+            let body = if let Some(idx) = text.find("\r\n\r\n") {
+                &text[idx + 4..]
+            } else {
+                text
+            };
+            let ip = body.trim().to_owned();
+            if ip.is_empty() { None } else { Some(ip) }
+        }
+
+        match *self.conn_mode.read().await {
+            ConnMode::Tor => {
+                // All traffic goes through the embedded Arti client — no system Tor needed.
+                let guard = self.tor_client.lock().await;
+                let Some(tor) = guard.as_ref() else {
+                    return "bootstrapping…".to_string();
+                };
+                match time::timeout(
+                    Duration::from_secs(60),
+                    tor.connect((HOST, 80u16)),
+                )
+                .await
+                {
+                    Ok(Ok(mut stream)) => {
+                        if stream.write_all(REQUEST.as_bytes()).await.is_err() {
+                            return "circuit error".to_string();
+                        }
+                        let mut buf = Vec::new();
+                        if stream.read_to_end(&mut buf).await.is_err() {
+                            return "circuit error".to_string();
+                        }
+                        parse_ip(&buf).unwrap_or_else(|| "unknown".to_string())
+                    }
+                    Ok(Err(e)) => {
+                        tracing::warn!("get_public_ip Tor connect error: {e}");
+                        "circuit error".to_string()
+                    }
+                    Err(_) => "timed out".to_string(),
+                }
+            }
+            _ => {
+                // Raw / I2P / VPN: OS handles the routing.
+                let addrs = match tokio::net::lookup_host(format!("{HOST}:80")).await {
+                    Ok(a) => a,
+                    Err(_) => return "unknown".to_string(),
+                };
+                for addr in addrs {
+                    let stream_res = time::timeout(
+                        Duration::from_secs(10),
+                        TcpStream::connect(addr),
+                    )
+                    .await;
+                    let mut stream = match stream_res {
+                        Ok(Ok(s)) => s,
+                        _ => continue,
+                    };
+                    if stream.write_all(REQUEST.as_bytes()).await.is_err() {
+                        continue;
+                    }
+                    let mut buf = Vec::new();
+                    if stream.read_to_end(&mut buf).await.is_err() {
+                        continue;
+                    }
+                    if let Some(ip) = parse_ip(&buf) {
+                        return ip;
+                    }
+                }
+                "unknown".to_string()
             }
         }
     }

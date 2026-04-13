@@ -398,14 +398,44 @@ impl IpcServer {
                 };
                 if mode == ConnMode::Tor {
                     // Bootstrap runs in the background so we don't block the
-                    // IPC caller.  Connections will return an error until the
-                    // client is ready.
+                    // IPC caller.  The embedded Arti client is used — no system
+                    // Tor daemon or SOCKS proxy required.
+                    //
+                    // If a client is already ready, bootstrap_tor() returns
+                    // immediately (no lock contention, no duplicate instance).
                     let net = self.network.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = net.bootstrap_tor().await {
-                            tracing::error!("Tor bootstrap failed: {e}");
-                        }
-                    });
+                    let bc  = self.broadcaster.clone();
+                    let already_ready = net.tor_is_ready().await;
+                    if already_ready {
+                        // Client already bootstrapped — just confirm mode.
+                        bc.send(IpcEvent {
+                            event: "tor_status".into(),
+                            data:  json!({ "status": "ready" }),
+                        });
+                    } else {
+                        bc.send(IpcEvent {
+                            event: "tor_status".into(),
+                            data:  json!({ "status": "bootstrapping" }),
+                        });
+                        tokio::spawn(async move {
+                            match net.bootstrap_tor().await {
+                                Ok(()) => {
+                                    tracing::info!("Tor bootstrap complete");
+                                    bc.send(IpcEvent {
+                                        event: "tor_status".into(),
+                                        data:  json!({ "status": "ready" }),
+                                    });
+                                }
+                                Err(e) => {
+                                    tracing::error!("Tor bootstrap failed: {e}");
+                                    bc.send(IpcEvent {
+                                        event: "tor_status".into(),
+                                        data:  json!({ "status": "failed", "error": e.to_string() }),
+                                    });
+                                }
+                            }
+                        });
+                    }
                 }
                 self.network.set_conn_mode(mode).await;
                 IpcResponse { id, result: Some(json!({ "ok": true, "type": type_str })), error: None }
@@ -423,6 +453,14 @@ impl IpcServer {
                     .and_then(|s| { s.connect("8.8.8.8:80")?; s.local_addr() })
                     .map(|a| a.ip().to_string())
                     .unwrap_or_else(|_| "unknown".to_string());
+                IpcResponse { id, result: Some(json!({ "ip": ip })), error: None }
+            }
+
+            "get_public_ip" => {
+                // Fetch the current exit IP via whichever connection mode is active.
+                // In Tor mode this goes through the Tor circuit, so the returned
+                // address is the exit-node IP, not the user's real IP.
+                let ip = self.network.get_public_ip().await;
                 IpcResponse { id, result: Some(json!({ "ip": ip })), error: None }
             }
 

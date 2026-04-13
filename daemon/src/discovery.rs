@@ -17,7 +17,7 @@ use std::{
     time::Duration,
 };
 
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo};
+use mdns_sd::{IfKind, ServiceDaemon, ServiceEvent, ServiceInfo};
 use tokio::{sync::mpsc, time};
 
 use crate::{
@@ -241,6 +241,13 @@ fn scan_mdns_blocking(
             return 0;
         }
     };
+    // Disable IPv6 mDNS — virtual/Docker bridge interfaces (e.g. br-xxxx)
+    // often have link-local or ULA IPv6 addresses with no actual internet
+    // routing, which causes a flood of "Network is unreachable" errors every
+    // scan cycle.  The app uses IPv4 exclusively, so this is safe.
+    if let Err(e) = daemon.disable_interface(IfKind::IPv6) {
+        tracing::debug!("mDNS: could not disable IPv6 interfaces: {}", e);
+    }
 
     // ── Advertise our own service ──
     let hostname = gethostname();
