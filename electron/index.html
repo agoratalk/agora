@@ -274,6 +274,30 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 .like-btn .heart{font-size:13px;transition:transform .15s}
 .like-btn:hover .heart,.like-btn.liked .heart{transform:scale(1.2)}
 .post-id-tag{font-family:var(--mono);font-size:8px;color:var(--text-muted);letter-spacing:.06em}
+.comment-btn{display:flex;align-items:center;gap:5px;background:none;border:1px solid var(--line);border-radius:6px;padding:4px 10px;color:var(--text-muted);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .2s}
+.comment-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* ── Comment view modal ── */
+.comment-view-modal{width:520px;max-width:96vw;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden}
+.comment-view-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0}
+.comment-view-header h3{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0}
+.comment-view-post{padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0;overflow-y:auto;max-height:200px}
+.comment-input-zone{padding:10px 18px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--bg2)}
+.comment-input-zone textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 10px;outline:none;resize:none;transition:border-color .15s;box-sizing:border-box;display:block}
+.comment-input-zone textarea:focus{border-color:var(--accent)}
+.comment-input-actions{display:flex;align-items:center;gap:8px;margin-top:6px}
+.comment-list{flex:1;overflow-y:auto;padding:0;min-height:60px}
+.comment-list::-webkit-scrollbar{width:4px}
+.comment-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+.comment-empty{padding:24px 18px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--text-muted)}
+.comment-card{border-bottom:1px solid var(--line);padding:10px 18px;transition:background .12s}
+.comment-card:hover{background:var(--bg1)}
+.comment-card.own-comment{border-left:2px solid var(--warn)}
+.comment-card .post-header{margin-bottom:6px}
+.comment-footer{display:flex;align-items:center;gap:12px;margin-top:6px}
+.comment-image{margin-top:6px}
+.comment-image img{max-width:100%;max-height:280px;border-radius:6px;border:1px solid var(--line);display:block;cursor:pointer}
+.comment-image img:hover{border-color:var(--accent2)}
 
 /* ── Embedded content ── */
 .embed-container{margin-top:10px;margin-bottom:4px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
@@ -931,6 +955,30 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
   </div>
 </div>
 
+<!-- Comment view modal -->
+<div class="modal-backdrop" id="comment-modal">
+  <div class="modal comment-view-modal">
+    <div class="comment-view-header">
+      <h3>Comments</h3>
+      <button class="btn-cancel" onclick="closeModal('comment-modal')" style="padding:4px 8px">✕</button>
+    </div>
+    <div class="comment-view-post" id="comment-view-post"></div>
+    <div class="comment-input-zone">
+      <textarea id="comment-input" placeholder="Write a comment…" rows="2"></textarea>
+      <div class="comment-input-actions">
+        <div id="comment-attach-preview" class="attach-preview" style="display:none">
+          <img id="comment-attach-thumb" src="" alt=""/>
+          <button class="attach-remove" onclick="clearCommentImage()" title="Remove image">✕</button>
+        </div>
+        <button class="attach-btn" id="comment-attach-btn" onclick="document.getElementById('comment-image-file').click()" title="Attach image">🖼</button>
+        <input type="file" id="comment-image-file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
+        <button class="post-btn" onclick="submitComment()">Comment</button>
+      </div>
+    </div>
+    <div class="comment-list" id="comment-list"></div>
+  </div>
+</div>
+
 <!-- Publish channel picker modal -->
 <div class="modal-backdrop" id="publish-channel-picker-modal">
   <div class="modal">
@@ -1158,6 +1206,11 @@ let pendingDmImage = null;
 let pendingEmbedUrl = null;
 // True when the user has explicitly dismissed the embed preview for the current draft
 let embedUserCleared = false;
+// Comment feature state
+let commentsByPost = {};       // post_id → array of comment objects
+let likedCommentIds = new Set(); // comment_ids we have liked
+let activeCommentPostId = null;  // post whose comment modal is open
+let pendingCommentImage = null;  // image attached to pending comment
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
@@ -1979,6 +2032,9 @@ function renderFollowingFeed() {
         <div class="post-footer">
           <button class="like-btn${liked ? ' liked' : ''}" onclick="likePost('${escHtml(postId)}')" title="Like">
             <span class="heart">❤</span> <span class="like-count">${likeCount}</span>
+          </button>
+          <button class="comment-btn" onclick="openPostComments('${escHtml(postId)}')" title="Comments">
+            💬 <span>${Number.isFinite(p.comment_count) ? p.comment_count : 0}</span>
           </button>
           <span class="post-id-tag">${escHtml(shortId)}</span>
         </div>
@@ -3245,6 +3301,57 @@ function handleDaemonEvent(ev) {
       break;
     }
 
+    case 'comment_update': {
+      const d = ev.data;
+      if (isBlocked(d.sender_pubkey)) break;
+      // Update post comment count in feed
+      const post = posts.find(p => p.post_id === d.post_id);
+      if (post) { post.comment_count = d.post_comment_count; renderFeed(); renderFollowingFeed(); }
+      // Store in local comment cache
+      if (!commentsByPost[d.post_id]) commentsByPost[d.post_id] = [];
+      const ci = commentsByPost[d.post_id].findIndex(c => c.comment_id === d.comment_id);
+      const commentObj = { ...d, is_own: d.sender_pubkey === myIdentity?.pubkey };
+      if (ci < 0) commentsByPost[d.post_id].push(commentObj);
+      else commentsByPost[d.post_id][ci] = commentObj;
+      // Refresh modal if it's open for this post
+      if (activeCommentPostId === d.post_id) renderCommentList();
+      break;
+    }
+
+    case 'comment_like_update': {
+      const d = ev.data;
+      if (commentsByPost[d.post_id]) {
+        const c = commentsByPost[d.post_id].find(c => c.comment_id === d.comment_id);
+        if (c) { c.like_count = d.like_count; }
+      }
+      if (activeCommentPostId === d.post_id) renderCommentList();
+      break;
+    }
+
+    case 'comment_notification': {
+      const d = ev.data;
+      pushNotification({
+        type: 'comment',
+        text: `<span class="notif-name">${escHtml(d.commenter_name)}</span> commented on your post`,
+        subtext: escHtml(truncate(d.content_snippet || '', 60)),
+        time: new Date().toISOString(),
+      });
+      toast(`💬 ${d.commenter_name} commented on your post`, 'info');
+      break;
+    }
+
+    case 'comment_like_notification': {
+      const d = ev.data;
+      pushNotification({
+        type: 'like',
+        text: `<span class="notif-name">${escHtml(d.liker_name)}</span> liked your comment`,
+        subtext: `"${escHtml(truncate(d.content_snippet || '', 50))}"  ·  ❤ ${d.like_count}`,
+        time: new Date().toISOString(),
+      });
+      toast(`❤ ${d.liker_name} liked your comment (total: ${d.like_count})`, 'like');
+      break;
+    }
+
     case 'username_changed':
       refreshIdentity();
       break;
@@ -3607,6 +3714,9 @@ function renderFeed() {
           <button class="like-btn${liked ? ' liked' : ''}" onclick="likePost('${escHtml(postId)}')" title="Like">
             <span class="heart">❤</span> <span class="like-count">${likeCount}</span>
           </button>
+          <button class="comment-btn" onclick="openPostComments('${escHtml(postId)}')" title="Comments">
+            💬 <span class="comment-count">${Number.isFinite(p.comment_count) ? p.comment_count : 0}</span>
+          </button>
           <span class="post-id-tag">${escHtml(shortId)}</span>
         </div>
       </div>`;
@@ -3813,6 +3923,172 @@ async function submitPost() {
   await refreshPosts();
 }
 
+// ── Comments ───────────────────────────────────────────────────────────────────
+
+async function openPostComments(postId) {
+  activeCommentPostId = postId;
+  clearCommentImage();
+  document.getElementById('comment-input').value = '';
+
+  // Render the post preview at the top of the modal
+  const post = posts.find(p => p.post_id === postId);
+  const viewPost = document.getElementById('comment-view-post');
+  if (post) {
+    const name = post.sender_username || post.sender_fingerprint || 'unknown';
+    let timeStr = '';
+    try { timeStr = formatTime(post.timestamp); } catch {}
+    const content = (() => { const ch = parseChannelPost(post.content); return ch ? ch.text : post.content; })();
+    viewPost.innerHTML = `
+      <div class="post-header">
+        <div class="post-avatar${post.is_own ? ' own' : ''}">${avatarContent(post.sender_pubkey, name)}</div>
+        <div class="post-author">
+          <div class="post-author-name">${escHtml(name)}${post.is_own ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
+          <div class="post-author-fp">${escHtml(post.sender_fingerprint || '')}</div>
+        </div>
+        <div class="post-time">${escHtml(timeStr)}</div>
+      </div>
+      ${content ? `<div class="post-content">${escHtml(content)}</div>` : ''}
+      ${post.image ? `<div class="post-image" style="margin-top:8px"><img src="${escHtml(post.image)}" alt="attached image" onclick="openImageViewer(this.src)" style="max-height:160px;width:auto;border-radius:6px;border:1px solid var(--line);cursor:pointer"/></div>` : ''}`;
+  } else {
+    viewPost.innerHTML = '<div style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">Post not found</div>';
+  }
+
+  // Fetch fresh comments from daemon
+  document.getElementById('comment-modal').classList.add('open');
+  document.getElementById('comment-list').innerHTML = '<div class="comment-empty">Loading…</div>';
+
+  const resp = await window.agora?.request('get_comments', { post_id: postId });
+  if (resp?.result) {
+    // Merge with local cache (local cache may have newer data from real-time events)
+    const fetched = resp.result;
+    if (!commentsByPost[postId]) commentsByPost[postId] = [];
+    for (const fc of fetched) {
+      const ei = commentsByPost[postId].findIndex(c => c.comment_id === fc.comment_id);
+      if (ei < 0) commentsByPost[postId].push({ ...fc, is_own: fc.sender_pubkey === myIdentity?.pubkey });
+      else {
+        // Merge: keep higher like count
+        if (fc.like_count > (commentsByPost[postId][ei].like_count || 0)) {
+          commentsByPost[postId][ei].like_count = fc.like_count;
+        }
+      }
+    }
+  }
+  renderCommentList();
+  setTimeout(() => document.getElementById('comment-input')?.focus(), 100);
+}
+
+function renderCommentList() {
+  const list = document.getElementById('comment-list');
+  if (!list || activeCommentPostId === null) return;
+  const comments = (commentsByPost[activeCommentPostId] || [])
+    .filter(c => !isBlocked(c.sender_pubkey) && !blockedByPubkeys.has(c.sender_pubkey));
+  if (comments.length === 0) {
+    list.innerHTML = '<div class="comment-empty">No comments yet. Be the first!</div>';
+    return;
+  }
+  // Sort by like count descending, then by timestamp ascending as tiebreaker
+  const sorted = [...comments].sort((a, b) => {
+    const diff = (b.like_count || 0) - (a.like_count || 0);
+    if (diff !== 0) return diff;
+    return new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
+  });
+  list.innerHTML = sorted.map(c => {
+    const name = c.sender_username || c.sender_fingerprint || 'unknown';
+    const liked = likedCommentIds.has(c.comment_id);
+    const likeCount = Number.isFinite(c.like_count) ? c.like_count : 0;
+    let timeStr = '';
+    try { timeStr = formatTime(c.timestamp); } catch {}
+    const imageHtml = c.image ? `<div class="comment-image"><img src="${escHtml(c.image)}" alt="image" onclick="openImageViewer(this.src)"/></div>` : '';
+    return `<div class="comment-card${c.is_own ? ' own-comment' : ''}">
+      <div class="post-header">
+        <div class="post-avatar${c.is_own ? ' own' : ''}" style="width:28px;height:28px;font-size:11px">${avatarContent(c.sender_pubkey, name)}</div>
+        <div class="post-author">
+          <div class="post-author-name">${escHtml(name)}${c.is_own ? ' <span style="color:var(--text-muted);font-size:9px">(you)</span>' : ''}</div>
+          <div class="post-author-fp">${escHtml(c.sender_fingerprint || '')}</div>
+        </div>
+        <div class="post-time">${escHtml(timeStr)}</div>
+      </div>
+      ${c.content ? `<div class="post-content" style="font-size:13px">${escHtml(c.content)}</div>` : ''}
+      ${imageHtml}
+      <div class="comment-footer">
+        <button class="like-btn${liked ? ' liked' : ''}" onclick="likeComment('${escHtml(c.comment_id)}','${escHtml(c.post_id)}')" title="Like comment">
+          <span class="heart">❤</span> <span>${likeCount}</span>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function submitComment() {
+  if (!activeCommentPostId) return;
+  const input = document.getElementById('comment-input');
+  const content = input.value.trim();
+  const image = pendingCommentImage;
+  if (!content && !image) return;
+  input.value = '';
+  clearCommentImage();
+
+  const params = { post_id: activeCommentPostId, content };
+  if (image) params.image = image;
+  const resp = await window.agora?.request('comment_post', params);
+  if (resp?.error) {
+    toast('Comment failed: ' + resp.error, 'error');
+    return;
+  }
+  // Optimistically add our own comment to the local cache
+  const myComment = {
+    comment_id: 'pending-' + Date.now(),
+    post_id: activeCommentPostId,
+    sender_pubkey: myIdentity?.pubkey || '',
+    sender_fingerprint: myIdentity?.fingerprint || '',
+    sender_username: myIdentity?.username || null,
+    content,
+    image: image || null,
+    timestamp: new Date().toISOString(),
+    like_count: 0,
+    is_own: true,
+  };
+  if (!commentsByPost[activeCommentPostId]) commentsByPost[activeCommentPostId] = [];
+  commentsByPost[activeCommentPostId].push(myComment);
+  // Update post comment count
+  const post = posts.find(p => p.post_id === activeCommentPostId);
+  if (post) { post.comment_count = (post.comment_count || 0) + 1; renderFeed(); renderFollowingFeed(); }
+  renderCommentList();
+}
+
+async function likeComment(commentId, postId) {
+  if (likedCommentIds.has(commentId)) return;
+  likedCommentIds.add(commentId);
+  // Optimistic update
+  if (commentsByPost[postId]) {
+    const c = commentsByPost[postId].find(c => c.comment_id === commentId);
+    if (c) { c.like_count = (c.like_count || 0) + 1; renderCommentList(); }
+  }
+  const resp = await window.agora?.request('like_comment', { comment_id: commentId, post_id: postId });
+  if (resp?.error) {
+    likedCommentIds.delete(commentId);
+    if (commentsByPost[postId]) {
+      const c = commentsByPost[postId].find(c => c.comment_id === commentId);
+      if (c) { c.like_count = Math.max(0, (c.like_count || 1) - 1); renderCommentList(); }
+    }
+    toast('Like failed: ' + resp.error, 'error');
+    return;
+  }
+  if (resp?.result) {
+    if (commentsByPost[postId]) {
+      const c = commentsByPost[postId].find(c => c.comment_id === commentId);
+      if (c) { c.like_count = resp.result.like_count; renderCommentList(); }
+    }
+  }
+}
+
+function clearCommentImage() {
+  pendingCommentImage = null;
+  document.getElementById('comment-attach-preview').style.display = 'none';
+  document.getElementById('comment-attach-thumb').src = '';
+  document.getElementById('comment-attach-btn').classList.remove('has-image');
+}
+
 async function likePost(postId) {
   if (likedPostIds.has(postId)) return; // already liked
   likedPostIds.add(postId);
@@ -3985,7 +4261,10 @@ async function deleteIdentity(accountName) {
   else { toast(`Deleted "${accountName}"`, 'success'); renderIdentityManager(); }
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'comment-modal') { activeCommentPostId = null; clearCommentImage(); }
+}
 
 // ── View / tab switching ───────────────────────────────────────────────────────
 // Single source of truth. showView is the ONLY function that mutates the DOM
@@ -5547,6 +5826,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('post-input')?.addEventListener('keydown', e => {
     if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); submitPost(); }
   });
+  document.getElementById('comment-input')?.addEventListener('keydown', e => {
+    if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); submitComment(); }
+  });
   document.getElementById('username-input')?.addEventListener('keydown', e => {
     if (e.key==='Enter') saveUsername();
     if (e.key==='Escape') closeModal('username-modal');
@@ -5564,6 +5846,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('post-attach-thumb').src = pendingPostImage;
       document.getElementById('post-attach-preview').style.display = 'inline-flex';
       document.getElementById('post-attach-btn').classList.add('has-image');
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
+  // Comment image file picker
+  document.getElementById('comment-image-file')?.addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      pendingCommentImage = await processImageFile(file);
+      document.getElementById('comment-attach-thumb').src = pendingCommentImage;
+      document.getElementById('comment-attach-preview').style.display = 'inline-flex';
+      document.getElementById('comment-attach-btn').classList.add('has-image');
     } catch (err) { toast(err.message, 'error'); }
   });
 

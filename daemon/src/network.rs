@@ -464,12 +464,15 @@ impl Network {
         let sig: ed25519_dalek::Signature = identity.signing_key.sign(to_sign.as_bytes());
 
         // Include up to 50 recent posts for 24h propagation
-        let recent_posts = if let Some(ref ps) = self.post_store {
+        let (recent_posts, recent_comments) = if let Some(ref ps) = self.post_store {
             let mut posts = ps.recent_posts().await;
             posts.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
             posts.truncate(50);
-            posts
-        } else { vec![] };
+            let mut comments = ps.recent_comments().await;
+            comments.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            comments.truncate(200);
+            (posts, comments)
+        } else { (vec![], vec![]) };
 
         Ok(HelloPayload {
             sender_pubkey,
@@ -481,6 +484,7 @@ impl Network {
             avatar,
             bio,
             recent_posts,
+            recent_comments,
         })
     }
 
@@ -511,6 +515,10 @@ impl Network {
         // store picks them up (messenger.handle_broadcast deduplicates).
         for post in &hello.recent_posts {
             self.dispatch(WireMessage::Broadcast(post.clone()), peer_addr).await;
+        }
+        // Dispatch gossiped comments similarly.
+        for comment in &hello.recent_comments {
+            self.dispatch(WireMessage::Comment(comment.clone()), peer_addr).await;
         }
 
         // Notify IPC clients that peer list changed.

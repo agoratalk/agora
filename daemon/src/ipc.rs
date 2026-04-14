@@ -6,7 +6,10 @@
 //!   send_dm                → params: { recipient, content, image? }
 //!   broadcast              → params: { content, image? }
 //!   like_post              → params: { post_id }  → { like_count }
-//!   posts                  → [] of { post_id, sender_pubkey, sender_fingerprint, content, image?, timestamp, like_count, likes }
+//!   comment_post           → params: { post_id, content, image? }
+//!   like_comment           → params: { comment_id, post_id }  → { like_count }
+//!   get_comments           → params: { post_id }  → [] of { comment_id, post_id, sender_pubkey, sender_fingerprint, content, image?, timestamp, like_count, is_own }
+//!   posts                  → [] of { post_id, sender_pubkey, sender_fingerprint, content, image?, timestamp, like_count, comment_count, likes }
 //!   set_username           → params: { username }
 //!   connect                → params: { addr }
 //!   list_identities        → [IdentitySummary, ...]
@@ -231,6 +234,7 @@ impl IpcServer {
                         "embed_url": p.payload.embed_url,
                         "timestamp": p.payload.timestamp,
                         "like_count": p.like_count(),
+                        "comment_count": p.comment_count(),
                         "likes": p.likes,
                         "is_own": is_own,
                     }));
@@ -462,6 +466,87 @@ impl IpcServer {
                 // address is the exit-node IP, not the user's real IP.
                 let ip = self.network.get_public_ip().await;
                 IpcResponse { id, result: Some(json!({ "ip": ip })), error: None }
+            }
+
+            "comment_post" => {
+                let post_id = req.params.get("post_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let content = req.params.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let image = req.params.get("image").and_then(|v| v.as_str()).map(|s| s.to_string());
+                if post_id.is_empty() {
+                    return IpcResponse { id, result: None, error: Some("post_id required".into()) };
+                }
+                if content.is_empty() && image.is_none() {
+                    return IpcResponse { id, result: None, error: Some("content or image required".into()) };
+                }
+                if let Some(ref img) = image {
+                    let allowed = ["data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,"];
+                    if !allowed.iter().any(|prefix| img.starts_with(prefix)) {
+                        return IpcResponse { id, result: None, error: Some("image must be a JPEG, PNG, or WebP data URL".into()) };
+                    }
+                }
+                match self.messenger.comment_post(&post_id, &content, image.as_deref()).await {
+                    Ok(()) => IpcResponse { id, result: Some(json!({"ok": true})), error: None },
+                    Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
+                }
+            }
+            "like_comment" => {
+                let comment_id = req.params.get("comment_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let post_id = req.params.get("post_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if comment_id.is_empty() || post_id.is_empty() {
+                    return IpcResponse { id, result: None, error: Some("comment_id and post_id required".into()) };
+                }
+                match self.messenger.like_comment(&comment_id, &post_id).await {
+                    Ok(count) => IpcResponse { id, result: Some(json!({"ok": true, "like_count": count})), error: None },
+                    Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
+                }
+            }
+            "get_comments" => {
+                let post_id = req.params.get("post_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if post_id.is_empty() {
+                    return IpcResponse { id, result: None, error: Some("post_id required".into()) };
+                }
+                match self.messenger.post_store().get_post(&post_id).await {
+                    None => IpcResponse { id, result: Some(json!([])), error: None },
+                    Some(p) => {
+                        let (own_pubkey, own_username, own_avatar) = {
+                            let id = self.identity.read().await;
+                            (id.pubkey_b64(), id.username.clone(), id.avatar.clone())
+                        };
+                        let mut comments_json: Vec<serde_json::Value> = Vec::new();
+                        for c in &p.comments {
+                            let fp = crate::identity::pubkey_fingerprint(
+                                &base64::engine::general_purpose::STANDARD.decode(&c.payload.sender_pubkey).unwrap_or_default()
+                            );
+                            let is_own = c.payload.sender_pubkey == own_pubkey;
+                            let (sender_username, sender_avatar) = if is_own {
+                                (own_username.clone(), own_avatar.clone())
+                            } else {
+                                let peer = self.dht.get(&c.payload.sender_pubkey).await;
+                                (peer.as_ref().and_then(|p| p.username.clone()), peer.and_then(|p| p.avatar))
+                            };
+                            comments_json.push(json!({
+                                "comment_id": c.payload.comment_id,
+                                "post_id": c.payload.post_id,
+                                "sender_pubkey": c.payload.sender_pubkey,
+                                "sender_fingerprint": fp,
+                                "sender_username": sender_username,
+                                "sender_avatar": sender_avatar,
+                                "content": c.payload.content,
+                                "image": c.payload.image,
+                                "timestamp": c.payload.timestamp,
+                                "like_count": c.like_count(),
+                                "is_own": is_own,
+                            }));
+                        }
+                        // Sort by like count descending
+                        comments_json.sort_by(|a, b| {
+                            let ca = a["like_count"].as_u64().unwrap_or(0);
+                            let cb = b["like_count"].as_u64().unwrap_or(0);
+                            cb.cmp(&ca)
+                        });
+                        IpcResponse { id, result: Some(json!(comments_json)), error: None }
+                    }
+                }
             }
 
             other => IpcResponse { id, result: None, error: Some(format!("unknown method: {other}")) },

@@ -16,7 +16,7 @@ use crate::{
     ipc::IpcBroadcaster,
     network::Network,
     posts::PostStore,
-    types::{BroadcastPayload, DirectMessagePayload, LikePayload, P2pError, Result, WireMessage},
+    types::{BroadcastPayload, CommentLikePayload, CommentPayload, DirectMessagePayload, LikePayload, P2pError, Result, WireMessage},
 };
 
 const MAX_MSG_AGE: Duration = Duration::from_secs(30);
@@ -165,11 +165,69 @@ impl Messenger {
         Ok(self.post_store.get_post(post_id).await.map(|p| p.like_count()).unwrap_or(0))
     }
 
+    pub async fn comment_post(&self, post_id: &str, content: &str, image: Option<&str>) -> Result<()> {
+        let comment_id = Uuid::new_v4().to_string();
+        let mut to_sign = format!("{}{}{}", comment_id, post_id, content);
+        if let Some(img) = image { to_sign.push_str(img); }
+        let sig: Signature = { self.identity.read().await.signing_key.sign(to_sign.as_bytes()) };
+        let payload = CommentPayload {
+            comment_id,
+            post_id: post_id.to_string(),
+            sender_pubkey: self.identity.read().await.pubkey_b64(),
+            content: content.to_string(),
+            signature: B64.encode(sig.to_bytes()),
+            timestamp: Utc::now(),
+            image: image.map(|s| s.to_string()),
+        };
+        self.post_store.insert_comment(payload.clone()).await;
+        self.network.broadcast(WireMessage::Comment(payload)).await;
+        Ok(())
+    }
+
+    pub async fn like_comment(&self, comment_id: &str, post_id: &str) -> Result<usize> {
+        let (liker_pubkey, liker_username) = {
+            let id = self.identity.read().await;
+            (id.pubkey_b64(), id.username.clone())
+        };
+        let to_sign = format!("{}{}", comment_id, liker_pubkey);
+        let sig: Signature = { self.identity.read().await.signing_key.sign(to_sign.as_bytes()) };
+
+        let like = CommentLikePayload {
+            comment_id: comment_id.to_string(),
+            post_id: post_id.to_string(),
+            liker_pubkey: liker_pubkey.clone(),
+            liker_username,
+            signature: B64.encode(sig.to_bytes()),
+            timestamp: Utc::now(),
+        };
+
+        let (is_new, _, like_count) = self.post_store.add_comment_like(like.clone()).await;
+        if !is_new { return Ok(like_count); }
+
+        self.network.broadcast(WireMessage::CommentLike(like.clone())).await;
+
+        if let Some(ref ipc) = self.ipc {
+            ipc.send(crate::types::IpcEvent {
+                event: "comment_like_update".into(),
+                data: json!({
+                    "comment_id": like.comment_id,
+                    "post_id": like.post_id,
+                    "liker_pubkey": liker_pubkey,
+                    "like_count": like_count,
+                }),
+            });
+        }
+
+        Ok(like_count)
+    }
+
     async fn handle_inbound(&self, msg: WireMessage) {
         match msg {
             WireMessage::DirectMessage(dm) => self.handle_direct(dm).await,
             WireMessage::Broadcast(bc) => self.handle_broadcast(bc).await,
             WireMessage::Like(lk) => self.handle_like(lk).await,
+            WireMessage::Comment(c) => self.handle_comment(c).await,
+            WireMessage::CommentLike(cl) => self.handle_comment_like(cl).await,
             _ => {}
         }
     }
@@ -284,6 +342,111 @@ impl Messenger {
 
     pub fn post_store(&self) -> &PostStore { &self.post_store }
 
+    async fn handle_comment(&self, c: CommentPayload) {
+        if let Err(e) = self.verify_comment(&c) {
+            tracing::warn!("messaging: invalid comment: {}", e);
+            return;
+        }
+        let (is_new, post_author) = self.post_store.insert_comment(c.clone()).await;
+        if !is_new { return; }
+
+        let post_comment_count = self.post_store.comment_count_for_post(&c.post_id).await;
+        let fingerprint = sender_fingerprint(&c.sender_pubkey);
+        let sender_peer = self.dht.get(&c.sender_pubkey).await;
+        let sender_username = sender_peer.as_ref().and_then(|p| p.username.clone());
+        let sender_avatar = sender_peer.and_then(|p| p.avatar);
+        let own_pubkey = self.identity.read().await.pubkey_b64();
+
+        if let Some(ref ipc) = self.ipc {
+            ipc.send(crate::types::IpcEvent {
+                event: "comment_update".into(),
+                data: json!({
+                    "comment_id": c.comment_id,
+                    "post_id": c.post_id,
+                    "sender_pubkey": c.sender_pubkey,
+                    "sender_fingerprint": fingerprint,
+                    "sender_username": sender_username,
+                    "sender_avatar": sender_avatar,
+                    "content": c.content,
+                    "image": c.image,
+                    "timestamp": c.timestamp,
+                    "like_count": 0,
+                    "post_comment_count": post_comment_count,
+                }),
+            });
+
+            // Notify if someone commented on our post (but not our own comment)
+            if post_author.as_deref() == Some(&own_pubkey) && c.sender_pubkey != own_pubkey {
+                let commenter_name = sender_username.clone()
+                    .or_else(|| self.dht.get_sync(&c.sender_pubkey).and_then(|p| p.username))
+                    .unwrap_or_else(|| sender_fingerprint(&c.sender_pubkey));
+                let snippet: String = c.content.chars().take(60).collect();
+                ipc.send(crate::types::IpcEvent {
+                    event: "comment_notification".into(),
+                    data: json!({
+                        "comment_id": c.comment_id,
+                        "post_id": c.post_id,
+                        "commenter_name": commenter_name,
+                        "commenter_pubkey": c.sender_pubkey,
+                        "content_snippet": snippet,
+                    }),
+                });
+            }
+        }
+
+        // Re-broadcast to all peers for propagation
+        self.network.broadcast(WireMessage::Comment(c)).await;
+    }
+
+    async fn handle_comment_like(&self, cl: CommentLikePayload) {
+        if let Err(e) = self.verify_comment_like(&cl) {
+            tracing::warn!("messaging: invalid comment like: {}", e);
+            return;
+        }
+
+        let (is_new, comment_author, like_count) = self.post_store.add_comment_like(cl.clone()).await;
+        if !is_new { return; }
+
+        let own_pubkey = self.identity.read().await.pubkey_b64();
+
+        if let Some(ref ipc) = self.ipc {
+            ipc.send(crate::types::IpcEvent {
+                event: "comment_like_update".into(),
+                data: json!({
+                    "comment_id": cl.comment_id,
+                    "post_id": cl.post_id,
+                    "liker_pubkey": cl.liker_pubkey,
+                    "liker_username": cl.liker_username,
+                    "like_count": like_count,
+                }),
+            });
+
+            // Notify if our comment was liked
+            if comment_author.as_deref() == Some(&own_pubkey) {
+                let liker_name = cl.liker_username.clone()
+                    .or_else(|| self.dht.get_sync(&cl.liker_pubkey).and_then(|p| p.username))
+                    .unwrap_or_else(|| sender_fingerprint(&cl.liker_pubkey));
+                let snippet: String = self.post_store.get_comment(&cl.comment_id).await
+                    .map(|c| c.payload.content.chars().take(50).collect())
+                    .unwrap_or_default();
+                ipc.send(crate::types::IpcEvent {
+                    event: "comment_like_notification".into(),
+                    data: json!({
+                        "comment_id": cl.comment_id,
+                        "post_id": cl.post_id,
+                        "liker_name": liker_name,
+                        "liker_pubkey": cl.liker_pubkey,
+                        "like_count": like_count,
+                        "content_snippet": snippet,
+                    }),
+                });
+            }
+        }
+
+        // Re-broadcast to all peers
+        self.network.broadcast(WireMessage::CommentLike(cl)).await;
+    }
+
     async fn verify_and_decrypt_dm(&self, dm: &DirectMessagePayload) -> Result<(String, Option<String>)> {
         let age = Utc::now().signed_duration_since(dm.timestamp).to_std()
             .unwrap_or(MAX_MSG_AGE + Duration::from_secs(1));
@@ -341,6 +504,26 @@ impl Messenger {
         let sig_bytes = B64.decode(&lk.signature).map_err(|_| P2pError::InvalidSignature)?;
         let sig_arr: [u8; 64] = sig_bytes.try_into().map_err(|_| P2pError::InvalidSignature)?;
         vk.verify(format!("{}{}", lk.post_id, lk.liker_pubkey).as_bytes(),
+            &Signature::from_bytes(&sig_arr)).map_err(|_| P2pError::InvalidSignature)
+    }
+
+    fn verify_comment(&self, c: &CommentPayload) -> Result<()> {
+        let age = Utc::now().signed_duration_since(c.timestamp).to_std()
+            .unwrap_or(MAX_POST_AGE + Duration::from_secs(1));
+        if age > MAX_POST_AGE { return Err(P2pError::MessageExpired); }
+        let vk = verifying_key_from_b64(&c.sender_pubkey)?;
+        let sig_bytes = B64.decode(&c.signature).map_err(|_| P2pError::InvalidSignature)?;
+        let sig_arr: [u8; 64] = sig_bytes.try_into().map_err(|_| P2pError::InvalidSignature)?;
+        let mut signed = format!("{}{}{}", c.comment_id, c.post_id, c.content);
+        if let Some(ref img) = c.image { signed.push_str(img); }
+        vk.verify(signed.as_bytes(), &Signature::from_bytes(&sig_arr)).map_err(|_| P2pError::InvalidSignature)
+    }
+
+    fn verify_comment_like(&self, cl: &CommentLikePayload) -> Result<()> {
+        let vk = verifying_key_from_b64(&cl.liker_pubkey)?;
+        let sig_bytes = B64.decode(&cl.signature).map_err(|_| P2pError::InvalidSignature)?;
+        let sig_arr: [u8; 64] = sig_bytes.try_into().map_err(|_| P2pError::InvalidSignature)?;
+        vk.verify(format!("{}{}", cl.comment_id, cl.liker_pubkey).as_bytes(),
             &Signature::from_bytes(&sig_arr)).map_err(|_| P2pError::InvalidSignature)
     }
 

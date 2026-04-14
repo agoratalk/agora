@@ -48,6 +48,8 @@ pub enum WireMessage {
     DirectMessage(DirectMessagePayload),
     Broadcast(BroadcastPayload),
     Like(LikePayload),
+    Comment(CommentPayload),
+    CommentLike(CommentLikePayload),
     Ack { message_id: String },
 }
 
@@ -71,6 +73,9 @@ pub struct HelloPayload {
     /// Short bio/description propagated to peers.
     #[serde(default)]
     pub bio: Option<String>,
+    /// Recent comments this node is propagating (up to 24h old)
+    #[serde(default)]
+    pub recent_comments: Vec<CommentPayload>,
 }
 
 // ── Direct message ────────────────────────────────────────────────────────────
@@ -115,6 +120,41 @@ pub struct LikePayload {
     #[serde(default)]
     pub liker_username: Option<String>,
     /// Ed25519 signature over "{post_id}{liker_pubkey}"
+    pub signature: String,
+    pub timestamp: DateTime<Utc>,
+}
+
+// ── Comment ───────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentPayload {
+    pub comment_id: String,
+    /// UUID of the parent BroadcastPayload
+    pub post_id: String,
+    pub sender_pubkey: PubKeyB64,
+    pub content: String,
+    /// Ed25519 signature over "{comment_id}{post_id}{content}{image?}"
+    pub signature: String,
+    pub timestamp: DateTime<Utc>,
+    /// Optional attached image as a base64 data URL (JPEG, PNG, or WebP only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+}
+
+// ── Comment like ──────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentLikePayload {
+    /// UUID of the liked CommentPayload
+    pub comment_id: String,
+    /// UUID of the parent post (for routing)
+    pub post_id: String,
+    /// pubkey of the liker
+    pub liker_pubkey: PubKeyB64,
+    /// display name of liker at time of liking
+    #[serde(default)]
+    pub liker_username: Option<String>,
+    /// Ed25519 signature over "{comment_id}{liker_pubkey}"
     pub signature: String,
     pub timestamp: DateTime<Utc>,
 }
