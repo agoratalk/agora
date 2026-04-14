@@ -15,9 +15,10 @@ web/package-lock.json
 .DS_Store
 Thumbs.db
 
-# Local daemon data / secrets 
+# Local daemon data / secrets
 *.log
 *.sqlite
 *.db
 /data/
 /identity/
+agora-data/
