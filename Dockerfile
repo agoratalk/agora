@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=daemon-build /build/target/release/agora /usr/local/bin/agora
 COPY web/ /app/web/
 COPY electron/index.html /app/electron/index.html
+COPY electron/style.css /app/electron/style.css
+COPY electron/js/ /app/electron/js/
 WORKDIR /app/web
 RUN npm install ws --omit=dev
 
