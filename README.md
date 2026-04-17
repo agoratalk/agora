@@ -223,7 +223,7 @@ issue, or bit of testing moves things forward faster than I can alone.
 
 ## Legal Notice for Agora
 
-By using Agora, you acknowledge and agree that this software may only be used in countries where its use does not violate any local laws. Specifically, Agora is should not be used in any jurisdiction with laws that require age verification, digital identification, restrictions on free speech, or any other law that directly conflicts with the functionality or purpose of this software.
+By using Agora, you acknowledge and agree that this software may only be used in countries where its use does not violate any local laws. Specifically, Agora should not be used in any jurisdiction with laws that require age verification, digital identification, restrictions on free speech, or any other law that directly conflicts with the functionality or purpose of this software.
 
 Users from such regions are not permitted to use Agora. The developers of Agora will not actively monitor or enforce compliance with these restrictions.
 
