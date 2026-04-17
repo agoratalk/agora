@@ -246,6 +246,34 @@ impl PostStore {
         }
     }
 
+    /// All likes on recent posts (for gossip propagation via Hello).
+    pub async fn recent_likes(&self) -> Vec<LikePayload> {
+        let cutoff = Utc::now() - chrono::Duration::from_std(POST_TTL).unwrap();
+        let inner = self.inner.read().await;
+        let mut likes = Vec::new();
+        for post in inner.posts.values() {
+            if post.payload.timestamp > cutoff {
+                likes.extend(post.likes.iter().cloned());
+            }
+        }
+        likes
+    }
+
+    /// All comment likes on recent posts (for gossip propagation via Hello).
+    pub async fn recent_comment_likes(&self) -> Vec<CommentLikePayload> {
+        let cutoff = Utc::now() - chrono::Duration::from_std(POST_TTL).unwrap();
+        let inner = self.inner.read().await;
+        let mut likes = Vec::new();
+        for post in inner.posts.values() {
+            if post.payload.timestamp > cutoff {
+                for comment in &post.comments {
+                    likes.extend(comment.likes.iter().cloned());
+                }
+            }
+        }
+        likes
+    }
+
     /// Get all posts younger than 24h for gossip propagation via Hello.
     pub async fn recent_posts(&self) -> Vec<BroadcastPayload> {
         let cutoff = Utc::now() - chrono::Duration::from_std(POST_TTL).unwrap();

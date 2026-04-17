@@ -150,6 +150,12 @@ pub struct HelloPayload {
     /// Recent comments this node is propagating (up to 24h old, max 200).
     #[serde(default)]
     pub recent_comments: Vec<CommentPayload>,
+    /// Likes on recent posts (up to 24h old, max 500).
+    #[serde(default)]
+    pub recent_likes: Vec<LikePayload>,
+    /// Likes on recent comments (up to 24h old, max 500).
+    #[serde(default)]
+    pub recent_comment_likes: Vec<CommentLikePayload>,
 }
 
 // ── Direct message ────────────────────────────────────────────────────────────

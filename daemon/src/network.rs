@@ -556,16 +556,22 @@ impl Network {
         let to_sign = format!("{}{}{}", sender_pubkey, sender_x25519_pubkey, timestamp.to_rfc3339());
         let sig: ed25519_dalek::Signature = identity.signing_key.sign(to_sign.as_bytes());
 
-        // Include up to 50 recent posts for 24h propagation
-        let (recent_posts, recent_comments) = if let Some(ref ps) = self.post_store {
+        // Include recent posts, comments, and all associated likes for 24h propagation
+        let (recent_posts, recent_comments, recent_likes, recent_comment_likes) = if let Some(ref ps) = self.post_store {
             let mut posts = ps.recent_posts().await;
             posts.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
             posts.truncate(50);
             let mut comments = ps.recent_comments().await;
             comments.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
             comments.truncate(200);
-            (posts, comments)
-        } else { (vec![], vec![]) };
+            let mut likes = ps.recent_likes().await;
+            likes.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            likes.truncate(500);
+            let mut comment_likes = ps.recent_comment_likes().await;
+            comment_likes.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            comment_likes.truncate(500);
+            (posts, comments, likes, comment_likes)
+        } else { (vec![], vec![], vec![], vec![]) };
 
         Ok(HelloPayload {
             sender_pubkey,
@@ -578,6 +584,8 @@ impl Network {
             bio,
             recent_posts,
             recent_comments,
+            recent_likes,
+            recent_comment_likes,
         })
     }
 
@@ -626,6 +634,13 @@ impl Network {
         // Dispatch gossiped comments similarly.
         for comment in &hello.recent_comments {
             self.dispatch(WireMessage::Comment(comment.clone()), peer_addr).await;
+        }
+        // Dispatch gossiped likes and comment likes so the store records them.
+        for like in &hello.recent_likes {
+            self.dispatch(WireMessage::Like(like.clone()), peer_addr).await;
+        }
+        for cl in &hello.recent_comment_likes {
+            self.dispatch(WireMessage::CommentLike(cl.clone()), peer_addr).await;
         }
 
         // Notify IPC clients that peer list changed so the front-end updates.
