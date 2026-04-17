@@ -28,18 +28,26 @@ use crate::{
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /// mDNS service type advertised and queried.
+/// Must end with `.local.` (the mDNS local domain) for mdns-sd to accept it.
 const SERVICE_TYPE: &str = "_agora._tcp.local.";
 
 /// How long we listen for mDNS responses before declaring "no peers found".
+/// 4 seconds is enough for most LAN environments where mDNS replies arrive
+/// within a few hundred milliseconds.
 const MDNS_WINDOW: Duration = Duration::from_secs(4);
 
 /// Timeout for each TCP connect probe in the subnet scan.
+/// 300 ms keeps the sweep fast while still catching hosts that are slow to
+/// respond (e.g. behind a firewall that sends RST after a short delay).
 const SCAN_CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
 
 /// How many hosts to probe concurrently during subnet scan.
+/// 64 is a balance between speed and not exhausting the OS file descriptor
+/// limit (a /24 has 253 hosts, so 4 rounds of 64).
 const SCAN_CONCURRENCY: usize = 64;
 
 /// How often the discovery cycle repeats while the daemon is running.
+/// Bootstrap nodes are re-dialled every cycle so we reconnect if they restart.
 pub const SCAN_INTERVAL: Duration = Duration::from_secs(60);
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -54,10 +62,15 @@ pub struct DiscoveredAddr {
 
 /// Owns the mDNS daemon handle and drives the discovery cycle.
 pub struct Discoverer {
+    /// TCP port this node listens on (same port we probe on neighbours).
     port: u16,
+    /// Our own Ed25519 public key in base64.  Used to filter our own mDNS
+    /// advertisement out of the results.
     own_pubkey: String,
     /// Sends newly found addresses to the network layer for handshaking.
     tx: mpsc::Sender<DiscoveredAddr>,
+    /// Reference to the shared peer table, used to skip already-known peers
+    /// during the subnet scan.
     dht: Dht,
     /// Bootstrap node addresses supplied via CLI or config.
     bootstrap_addrs: Vec<SocketAddr>,
@@ -128,13 +141,15 @@ impl Discoverer {
             return mdns_found;
         }
 
+        // mDNS found nothing (no other agora nodes on this LAN, or mDNS is
+        // blocked by the network).  Fall back to a raw TCP connect sweep of
+        // the /24 subnet.
         tracing::info!("discovery: mDNS found nothing — falling back to subnet scan");
         let subnet_found = self.scan_subnet().await;
         tracing::info!("discovery: subnet scan found {} candidate(s)", subnet_found);
         subnet_found
     }
 
-    /// Spawn a background task that re-runs discovery every `SCAN_INTERVAL`.
     /// Spawn a background task that re-runs discovery every `SCAN_INTERVAL`.
     /// Bootstrap nodes are re-dialled each cycle so we reconnect if they restart.
     pub fn spawn_periodic(self: Arc<Self>) {
@@ -145,7 +160,7 @@ impl Discoverer {
             self.run_once().await;
 
             let mut ticker = time::interval(SCAN_INTERVAL);
-            ticker.tick().await; // consume the first immediate tick
+            ticker.tick().await; // consume the first immediate tick so we don't scan twice
             loop {
                 ticker.tick().await;
                 tracing::info!("discovery: periodic re-scan");
@@ -157,14 +172,16 @@ impl Discoverer {
 
     // ── mDNS ──────────────────────────────────────────────────────────────────
 
+    /// Run the mDNS scan on a blocking thread.
+    /// mdns-sd uses its own internal threads for I/O, so we must call it from
+    /// a context that can block.  `spawn_blocking` moves it off the async
+    /// executor thread pool.
     async fn scan_mdns(&self) -> usize {
         let port = self.port;
         let own_pubkey = self.own_pubkey.clone();
         let tx = self.tx.clone();
         let dht = self.dht.clone();
 
-        // mDNS is synchronous (mdns-sd uses its own threads), so we run it
-        // in a blocking task to avoid stalling the async executor.
         tokio::task::spawn_blocking(move || {
             scan_mdns_blocking(port, &own_pubkey, tx, dht)
         })
@@ -177,6 +194,14 @@ impl Discoverer {
 
     // ── Subnet scan ───────────────────────────────────────────────────────────
 
+    /// TCP-connect-probe every host on the local /24 subnet.
+    ///
+    /// We determine our own IP by opening a UDP socket toward a public address
+    /// (no packet is actually sent — see `local_ipv4()`), then build a list of
+    /// all 253 candidate addresses in the same /24, excluding ourselves.
+    ///
+    /// Probes run in parallel batches of `SCAN_CONCURRENCY` to keep the total
+    /// sweep time acceptable.
     async fn scan_subnet(&self) -> usize {
         let Some(local_ip) = local_ipv4() else {
             tracing::warn!("discovery: could not determine local IP, skipping subnet scan");
@@ -186,7 +211,7 @@ impl Discoverer {
         // Build the list of hosts to probe (all /24 neighbours except self).
         let octets = local_ip.octets();
         let candidates: Vec<SocketAddr> = (1u8..=254)
-            .filter(|&last| last != octets[3])
+            .filter(|&last| last != octets[3])  // skip our own IP
             .map(|last| {
                 let ip = Ipv4Addr::new(octets[0], octets[1], octets[2], last);
                 SocketAddr::new(IpAddr::V4(ip), self.port)
@@ -200,7 +225,7 @@ impl Discoverer {
             candidates.len()
         );
 
-        // Probe in parallel batches.
+        // Probe in parallel batches to stay within OS file descriptor limits.
         let tx = self.tx.clone();
         let dht = self.dht.clone();
         let own_addr = SocketAddr::new(IpAddr::V4(local_ip), self.port);
@@ -209,7 +234,9 @@ impl Discoverer {
 
         let mut count = 0usize;
         for addr in results {
-            // Skip peers already in the DHT (still refresh them via touch later).
+            // Skip peers already in the DHT — they are handled by the existing
+            // connection; sending a duplicate discovery event would cause a
+            // redundant handshake attempt.
             if dht.peers().await.iter().any(|p| p.addr == addr) {
                 continue;
             }
@@ -218,7 +245,7 @@ impl Discoverer {
                 .await
                 .is_err()
             {
-                break; // receiver dropped — shutting down
+                break; // receiver dropped — daemon is shutting down
             }
             count += 1;
         }
@@ -228,6 +255,16 @@ impl Discoverer {
 
 // ── mDNS blocking implementation ──────────────────────────────────────────────
 
+/// Synchronous mDNS implementation.  Run this on a blocking thread.
+///
+/// Steps:
+///  1. Create the mdns-sd daemon (owns its own I/O threads).
+///  2. Disable IPv6 interfaces — agora uses IPv4 exclusively, and IPv6
+///     virtual/Docker bridge addresses cause spurious "unreachable" errors.
+///  3. Register our own service so other nodes can discover us.
+///  4. Browse for the same service type and collect results for `MDNS_WINDOW`
+///     seconds.
+///  5. Return the count of distinct IP:port addresses found.
 fn scan_mdns_blocking(
     port: u16,
     own_pubkey: &str,
@@ -250,15 +287,19 @@ fn scan_mdns_blocking(
     }
 
     // ── Advertise our own service ──
+    // Use the first 8 characters of our pubkey as the instance name so each
+    // node has a unique, stable name on the local network.
     let hostname = gethostname();
     let instance = format!("agora-{}", &own_pubkey[..8]); // first 8 chars of pubkey
+    // Embed our full public key in the TXT record so peers can verify identity
+    // without having to establish a TCP connection first.
     let properties = [("pubkey", own_pubkey)];
 
     match ServiceInfo::new(
         SERVICE_TYPE,
         &instance,
         &hostname,
-        "",   // let mdns-sd fill in the local address
+        "",   // let mdns-sd fill in the local address automatically
         port,
         &properties[..],
     ) {
@@ -271,6 +312,8 @@ fn scan_mdns_blocking(
     }
 
     // ── Browse for other instances ──
+    // The daemon will send us `ServiceEvent::ServiceResolved` for every
+    // matching service it finds on the LAN.
     let receiver = match daemon.browse(SERVICE_TYPE) {
         Ok(r) => r,
         Err(e) => {
@@ -279,13 +322,14 @@ fn scan_mdns_blocking(
         }
     };
 
+    // Keep receiving events until `MDNS_WINDOW` elapses.
     let deadline = std::time::Instant::now() + MDNS_WINDOW;
     let mut found = 0usize;
 
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
         if remaining.is_zero() {
-            break;
+            break; // time window elapsed
         }
 
         match receiver.recv_timeout(remaining) {
@@ -296,14 +340,20 @@ fn scan_mdns_blocking(
                     .unwrap_or("")
                     .to_string();
 
+                // Skip peers with no pubkey in their TXT record, and skip our
+                // own advertisement (we would try to dial ourselves).
                 if peer_pubkey.is_empty() || peer_pubkey == own_pubkey {
                     continue;
                 }
 
+                // A service may advertise multiple addresses (IPv4 + IPv6);
+                // send each one as a separate discovery candidate.
                 for addr in info.get_addresses() {
                     let sock_addr = SocketAddr::new(*addr, info.get_port());
                     tracing::info!("mDNS: found {} @ {}", &peer_pubkey[..8], sock_addr);
 
+                    // blocking_send is safe here because we are already on a
+                    // blocking thread (spawned via spawn_blocking).
                     // Fire-and-forget: if the channel is full we just skip.
                     let _ = tx.blocking_send(DiscoveredAddr {
                         addr: sock_addr,
@@ -312,13 +362,13 @@ fn scan_mdns_blocking(
                     found += 1;
                 }
             }
-            Ok(ServiceEvent::SearchStopped(_)) => break,
-            Ok(_) => {}
-            Err(_) => break, // timeout or channel closed
+            Ok(ServiceEvent::SearchStopped(_)) => break, // daemon signalled stop
+            Ok(_) => {}  // other events (Searching, ServiceRemoved, etc.) — ignore
+            Err(_) => break, // timeout elapsed or channel closed
         }
     }
 
-    // Graceful shutdown — ignore errors on exit.
+    // Graceful shutdown — ignore errors on exit since we may already be torn down.
     let _ = daemon.stop_browse(SERVICE_TYPE);
 
     found
@@ -328,6 +378,11 @@ fn scan_mdns_blocking(
 
 /// Probe a batch of socket addresses concurrently.
 /// Returns those that accepted a TCP connection.
+///
+/// Uses a sliding window approach: start `concurrency` probes, then for each
+/// one that completes (success or failure) immediately launch the next candidate
+/// from the iterator.  This keeps the concurrency level stable without
+/// spawning all 253 tasks at once.
 async fn probe_batch(
     candidates: Vec<SocketAddr>,
     concurrency: usize,
@@ -345,8 +400,9 @@ async fn probe_batch(
     }
 
     while let Some(res) = set.join_next().await {
-        // Drain one result, then add the next candidate.
+        // Drain one result, then add the next candidate to maintain concurrency.
         if let Ok(Some(addr)) = res {
+            // Exclude our own IP to avoid the daemon trying to connect to itself.
             if addr.ip() != own_addr.ip() {
                 results.push(addr);
             }
@@ -359,7 +415,8 @@ async fn probe_batch(
     results
 }
 
-/// Try a TCP connect to `addr`. Returns `Some(addr)` if it succeeds.
+/// Try a TCP connect to `addr` with a short timeout.
+/// Returns `Some(addr)` if the port is open, `None` if it timed out or refused.
 fn probe_one(addr: SocketAddr) -> Option<SocketAddr> {
     match TcpStream::connect_timeout(&addr, SCAN_CONNECT_TIMEOUT) {
         Ok(_) => {
@@ -372,8 +429,12 @@ fn probe_one(addr: SocketAddr) -> Option<SocketAddr> {
 
 // ── Network helpers ───────────────────────────────────────────────────────────
 
-/// Detect the machine's primary non-loopback IPv4 address by opening a UDP
-/// socket toward a public IP (no packet is actually sent).
+/// Detect the machine's primary non-loopback IPv4 address.
+///
+/// Trick: open a UDP socket and "connect" it to a public IP.  No packet is
+/// actually sent — UDP "connect" just sets the default remote address, which
+/// causes the OS to select the right routing interface and fills in the socket's
+/// local address.  We then read that local address back.
 fn local_ipv4() -> Option<Ipv4Addr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("8.8.8.8:80").ok()?;
@@ -384,6 +445,7 @@ fn local_ipv4() -> Option<Ipv4Addr> {
 }
 
 /// Best-effort hostname for mDNS advertisement.
+/// Reads `/etc/hostname`; falls back to a hardcoded string if unavailable.
 fn gethostname() -> String {
     std::fs::read_to_string("/etc/hostname")
         .map(|s| s.trim().to_string())
@@ -409,6 +471,7 @@ mod tests {
     #[tokio::test]
     async fn probe_batch_unreachable() {
         // Probing addresses in TEST-NET-1 (192.0.2.x) should return nothing.
+        // This is a reserved block guaranteed to be unreachable.
         let candidates: Vec<SocketAddr> = (1u8..=10)
             .map(|i| format!("192.0.2.{}:7777", i).parse().unwrap())
             .collect();

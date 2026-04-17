@@ -1172,25 +1172,74 @@ html{zoom:1.25;height:100%;overflow:hidden}body{height:80vh;overflow:hidden;back
 <div id="toast"></div>
 
 <script>
+/**
+ * index.html — Agora frontend single-page application.
+ *
+ * This file is the entire UI: HTML structure, CSS styles, and all JavaScript
+ * in one self-contained file.  It communicates with the Rust daemon exclusively
+ * through `window.agora`, which is either:
+ *   • The Electron contextBridge API (preload.js) when running inside Electron.
+ *   • The WebSocket shim (agora-shim.js) when previewed in a plain browser.
+ *
+ * ## Architecture
+ *   State variables (global JS objects/arrays)
+ *     └─ mutated by event handlers and IPC responses
+ *   Rendering functions (renderFeed, renderPeerList, …)
+ *     └─ re-render DOM from current state; called after state changes
+ *   IPC layer (window.agora.request / onEvent)
+ *     └─ JSON-RPC over TCP to the daemon
+ *
+ * ## Wire protocol for social features
+ *   All social data (blocklists, follow lists, group messages) is transported
+ *   through normal broadcast/DM posts using magic prefix strings so the daemon
+ *   treats them as ordinary content.  The frontend parses the prefix and routes
+ *   them to the appropriate handler.
+ *
+ *   Magic prefixes:
+ *     'agora:channel:v1:'      → channel post (prepended before content)
+ *     'agora:blocklist:v1:'    → shared blocklist (published as broadcast)
+ *     'agora:followlist:v1:'   → shared follow list (published as broadcast)
+ *     'agora:group:msg:v1:'    → group chat message (sent as DM fan-out)
+ *     'agora:group:sys:v1:'    → group system event (sent as DM fan-out)
+ *     'agora:blocked:v1:'      → silent block signal (sent as DM to blocked peer)
+ *     'agora:followed:v1:'     → silent follow signal (sent as DM to followed peer)
+ */
+
 // ── State ──────────────────────────────────────────────────────────────────────
+// Identity of the currently active account (from daemon's `whoami` response).
 let myIdentity = null;
+// Live peer list (from daemon's `peers` response or `peers_updated` event).
 let peers = [];
+// Broadcast posts in memory: { post_id, sender_pubkey, sender_fingerprint, content, timestamp, like_count, is_own }
+// Updated by refreshPosts() and by real-time 'message' events.
 let posts = [];         // { post_id, sender_pubkey, sender_fingerprint, content, timestamp, like_count, is_own }
-let likedPostIds = new Set(); // post_ids we've liked this session
+let likedPostIds = new Set(); // post_ids we've liked this session — prevents double-liking
+// Named blocklists: { [id]: { name, pubkeys: Set<string>, channels: Set<string>, owned: boolean } }
+// `owned: true` means we created it; `owned: false` means it was imported from another peer.
 let blocklists = {}; // { [id]: { name, pubkeys: Set<string>, owned: boolean } }
+// Pubkeys of peers who have sent us the BLOCK_SIGNAL — we hide their messages
+// and disable the reply input bar when chatting with them.
 let blockedByPubkeys = new Set(); // pubkeys of users who have blocked us
+// Subscription keys ("pubkey::listname") — when a subscribed peer re-broadcasts
+// their blocklist/followlist, we auto-import the latest version.
 let subscribedToBlocklists = new Set(); // "pubkey::listname" keys
 let subscribedToFollowlists = new Set(); // "pubkey::listname" keys
 let knownFollowers = new Set();           // pubkeys we know follow us (persisted)
 let unreadDms = new Set();                // pubkeys with unread DMs
+// Currently open DM conversation (pubkey string, or null for none selected).
 let activePeer = null;
+// In-memory DM history for the current session (loaded from daemon on peer select).
 let messages = [];
+// Notification bell items (up to 30, most-recent first).
 let notifications = [];
 let notifPanelOpen = false;
+// Active view and tab names used to sync DOM visibility without recursion.
 let activeView = 'chat'; // 'chat' | 'feed' | 'groups' | 'following' | 'identities'
 let activeTab = 'peers'; // 'peers' | 'feed' | 'groups' | 'following'
+// Active channel: null = public feed (no channel tag), string = show only that channel.
 let activeChannel = null; // null = public feed, string = channel name
 let blockedChannels = new Set(); // channel names the user has blocked
+// Named follow lists: { [id]: { name, pubkeys: Set<string>, channels: Set<string>, owned: boolean } }
 let followlists = {}; // { [id]: { name, pubkeys: Set<string>, owned: boolean } }
 let _profilePubkey = null; // pubkey currently shown in profile modal
 // Map of pubkey → avatar data URL (populated from peers list + own identity)
@@ -1213,6 +1262,23 @@ let activeCommentPostId = null;  // post whose comment modal is open
 let pendingCommentImage = null;  // image attached to pending comment
 
 // ── Init ───────────────────────────────────────────────────────────────────────
+/**
+ * Application entry point — called once from DOMContentLoaded.
+ *
+ * Sequence:
+ *   1. Restore persisted client-side state from localStorage (blocklists,
+ *      follow lists, groups, subscriptions, known followers, unread DMs).
+ *   2. If no `window.agora` bridge is available (running in a plain browser
+ *      without the daemon), fall back to demo data and exit early.
+ *   3. Register the daemon event listener so real-time pushes are handled.
+ *   4. Load live identity, peers, and posts from the daemon.
+ *   5. Tell the daemon which connection type (Tor, WireGuard, …) to use.
+ *   6. Auto-reconnect any VPN tunnel whose config was saved from a previous
+ *      session.
+ *   7. Apply the persisted UI language.
+ *   8. Schedule a 30-minute interval to re-broadcast owned blocklists so
+ *      subscribers who just joined receive up-to-date copies.
+ */
 async function init() {
   loadBlocklists();
   loadBlockedByList();
@@ -1257,8 +1323,21 @@ async function init() {
 }
 
 // ── Blocklist helpers ──────────────────────────────────────────────────────────
+/**
+ * Blocklists are named collections of pubkeys (and optionally channel names) that
+ * filter content in the feed and peer list.  Multiple named lists are supported so
+ * the user can separate personal blocks from subscribed community lists.
+ *
+ * Only `owned` lists actively filter content — imported lists that the user hasn't
+ * taken ownership of are stored but not applied.  This lets the user preview a
+ * community blocklist before opting in.
+ *
+ * Subscription keys have the form "pubkey::listname".  When a subscribed peer
+ * re-publishes their blocklist, it is auto-imported silently.
+ */
 const DEFAULT_LIST_NAME = 'Default';
 
+// Returns true if the pubkey appears in any of the user's owned blocklists.
 function isBlocked(pk) {
   if (!pk) return false;
   for (const list of Object.values(blocklists)) {
@@ -1267,6 +1346,7 @@ function isBlocked(pk) {
   return false;
 }
 
+// Returns the union of all pubkeys across owned blocklists.
 function allBlockedPubkeys() {
   const all = new Set();
   for (const list of Object.values(blocklists)) {
@@ -1275,14 +1355,19 @@ function allBlockedPubkeys() {
   return all;
 }
 
+// Generate a collision-resistant list ID from current timestamp + random bits.
 function newListId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+// Canonical subscription key: "pubkey::listname".  Stored in localStorage so
+// subscriptions survive page reloads.
 function subKey(pubkey, listName) {
   return pubkey + '::' + (listName || DEFAULT_LIST_NAME);
 }
 
+// Find an existing owned list with the given name, or create one if absent.
+// Used when importing from a subscription or from the onboarding screen.
 function getOrCreateOwnedList(name) {
   for (const [id, list] of Object.entries(blocklists)) {
     if (list.owned && list.name === name) return id;
@@ -1300,6 +1385,15 @@ function getDefaultOwnedListId() {
 }
 
 // ── Block list persistence ─────────────────────────────────────────────────────
+/**
+ * Blocklists are serialised to localStorage as JSON.  Sets are stored as arrays
+ * since JSON.stringify can't handle Set objects directly, and are reconstructed
+ * on load.
+ *
+ * Migration path: the original version used a single flat 'agora_blocked' array.
+ * On first load with the new format absent, that array is migrated into a named
+ * list so users don't lose their blocklist on upgrade.
+ */
 function loadBlocklists() {
   try {
     const newData = localStorage.getItem('agora_blocklists');
@@ -1307,6 +1401,7 @@ function loadBlocklists() {
       const parsed = JSON.parse(newData);
       blocklists = {};
       for (const [id, list] of Object.entries(parsed)) {
+        // Reconstruct Sets from plain arrays (JSON serialisation flattens them)
         blocklists[id] = { name: list.name, pubkeys: new Set(list.pubkeys || []), channels: new Set(list.channels || []), owned: !!list.owned };
       }
     } else {
@@ -1336,6 +1431,11 @@ function saveBlocklists() {
   updateBlockedIndicator();
 }
 
+// Silent signal DMs — these are never shown in the chat UI.
+// BLOCK_SIGNAL: sent to a peer when we block them so their client knows to
+//   show "this user has blocked you" instead of silently dropping our future DMs.
+// FOLLOW_SIGNAL: sent to a peer when we follow them so we appear in their
+//   followers list without requiring them to be online to discover it.
 const BLOCK_SIGNAL  = 'agora:blocked:v1:';
 const FOLLOW_SIGNAL = 'agora:followed:v1:';
 
@@ -1351,14 +1451,31 @@ function saveBlockedByList() {
 }
 
 // ── Channels ───────────────────────────────────────────────────────────────────
+/**
+ * Channels are implemented as a simple content-addressing scheme layered on top
+ * of the existing broadcast mechanism.  A channel post is a normal broadcast
+ * whose content begins with CHANNEL_MAGIC followed by the channel name, a
+ * newline, then the actual post text.
+ *
+ * Wire format:  "agora:channel:v1:<name>\n<text>"
+ *
+ * Channel names are validated to letters, numbers, underscores, and dashes up
+ * to 32 characters.  The daemon treats these as opaque content — all channel
+ * routing and filtering is purely client-side.
+ *
+ * Channel blocking uses the same owned-list mechanism as peer blocking.
+ * A blocked channel's posts are excluded from renderFeed() and the channel
+ * strip does not show it.
+ */
 const CHANNEL_MAGIC = 'agora:channel:v1:';
 const CHANNEL_NAME_RE = /^[a-zA-Z0-9_-]{1,32}$/;
 
+// Encode a post for a specific channel by prepending the magic prefix.
 function encodeChannelPost(channelName, text) {
   return CHANNEL_MAGIC + channelName + '\n' + text;
 }
 
-// Returns { channel, text } or null if not a channel post
+// Parse a post body — returns { channel, text } if it's a channel post, null otherwise.
 function parseChannelPost(content) {
   if (typeof content !== 'string' || !content.startsWith(CHANNEL_MAGIC)) return null;
   const rest = content.slice(CHANNEL_MAGIC.length);
@@ -1439,7 +1556,9 @@ function closeChannelMenu() {
   if (dd) dd.classList.remove('open');
 }
 
-// Returns sorted unique channel names found in posts (excluding blocked)
+// Derive the list of channels visible in the channel strip by scanning post
+// content for the channel magic prefix.  Blocked channels are excluded so they
+// don't appear in the UI at all.
 function discoverChannels() {
   const seen = new Set();
   for (const p of posts) {
@@ -1485,6 +1604,23 @@ function promptCreateChannel() {
 }
 
 // ── Follow system ──────────────────────────────────────────────────────────────
+/**
+ * The follow system mirrors the blocklist architecture: named follow lists
+ * (multiple allowed), owned by the local user.  A followed peer's posts appear
+ * in the "Following" feed, and the peer list is sorted to show followed+unread
+ * peers first.
+ *
+ * Following a peer sends a FOLLOW_SIGNAL DM so the peer's client can add us to
+ * their known-followers list immediately without requiring them to receive our
+ * follow list broadcast.
+ *
+ * Follow lists can be published as broadcasts so others can subscribe and
+ * auto-import them.  Wire format (same broadcast-with-magic pattern as blocklists):
+ *   "agora:followlist:v1:" + JSON({ list_name, pubkeys, names, channels })
+ *
+ * Channel follows work the same way: a followed channel's posts appear in the
+ * Following feed regardless of who sent them.
+ */
 const DEFAULT_FOLLOW_LIST = 'Following';
 const FOLLOWLIST_MAGIC = 'agora:followlist:v1:';
 
@@ -1656,7 +1792,8 @@ function followPeer(pubkey, listId) {
   renderFollowingFeed();
   updateProfileFollowBtn(pubkey);
   toast('User followed', 'success');
-  // Notify the followed peer (silent DM signal, same pattern as BLOCK_SIGNAL)
+  // Notify the followed peer with a silent DM so their followers indicator
+  // updates immediately, even if they're not online when we publish our follow list.
   if (window.agora?.request) {
     window.agora.request('send_dm', { recipient: pubkey, content: FOLLOW_SIGNAL }).catch(() => {});
   }
@@ -1972,6 +2109,17 @@ function parseFollowlistPost(content) {
   try { return JSON.parse(content.slice(FOLLOWLIST_MAGIC.length)); } catch { return null; }
 }
 
+/**
+ * Render the "Following" tab feed — posts from followed users and channels.
+ *
+ * A post is included if:
+ *   - The sender is in any owned follow list, OR
+ *   - The post was sent to a channel that is in any owned follow list.
+ *
+ * Blocklist/follow list broadcast posts are excluded (they're not content).
+ * Blocked and blocking-us senders are also excluded.
+ * Posts are sorted newest-first.
+ */
 function renderFollowingFeed() {
   const list = document.getElementById('following-feed-list');
   if (!list) return;
@@ -2095,8 +2243,13 @@ function saveUnreadDms() {
   try { localStorage.setItem('agora_unread_dms', JSON.stringify([...unreadDms])); } catch {}
 }
 
-// Scan a list of posts for follow lists that contain our pubkey.
-// Notifies once per new follower discovered; safe to call repeatedly.
+/**
+ * Scan a list of posts for published follow lists that contain our pubkey.
+ * Called on every refreshPosts() and on every incoming broadcast event so we
+ * detect new followers in real time.  Deduplicates via `knownFollowers` — once
+ * a pubkey is in that set we never notify again (even across reloads, because
+ * knownFollowers is persisted to localStorage).
+ */
 function checkFollowNotifications(postList) {
   if (!myIdentity?.pubkey) return;
   let newCount = 0;
@@ -2121,6 +2274,34 @@ function checkFollowNotifications(postList) {
 }
 
 // ── Group chats ────────────────────────────────────────────────────────────────
+/**
+ * Group chats are implemented entirely client-side using DM fan-out.  There is
+ * no server or daemon support for groups — the Rust code only provides the
+ * encrypted DM transport.
+ *
+ * ## Protocol
+ * Two DM message types carry group traffic, distinguished by magic prefix:
+ *
+ *   GROUP_MSG_MAGIC — a chat message:
+ *     "agora:group:msg:v1:" + JSON({ gid, mid, image? }) + "\n" + text
+ *
+ *   GROUP_SYS_MAGIC — a system/control message:
+ *     "agora:group:sys:v1:" + JSON({ op, gid, … })
+ *
+ * System ops: 'create', 'invite', 'kick', 'leave', 'member_added',
+ *             'promote', 'demote'
+ *
+ * ## Fan-out
+ * Every message is sent individually as a DM to each group member except the
+ * sender.  This means group messages are as private as normal DMs — E2E
+ * encrypted to each recipient separately.  The trade-off is O(n) DMs per
+ * message for n members.
+ *
+ * ## Persistence
+ * Groups (including message history) are persisted to localStorage as JSON.
+ * Members and admins are stored as arrays (Sets serialise to [] in JSON) and
+ * reconstructed on load.
+ */
 const GROUP_MSG_MAGIC = 'agora:group:msg:v1:';
 const GROUP_SYS_MAGIC = 'agora:group:sys:v1:';
 
@@ -2165,7 +2346,9 @@ function amAdmin(gid) {
   return g.admins.has(myIdentity?.pubkey);
 }
 
-// Encode a chat message for fan-out DMs
+// Encode a group chat message: JSON metadata on the first line, text content after.
+// The mid (message ID) is used for client-side deduplication — if the same DM
+// arrives twice (e.g., due to a retry) the second copy is silently dropped.
 function encodeGroupMsg(gid, mid, content, image) {
   const meta = JSON.stringify({ gid, mid, image: image || undefined });
   return GROUP_MSG_MAGIC + meta + '\n' + content;
@@ -2181,14 +2364,22 @@ function parseGroupMsg(raw) {
   } catch { return null; }
 }
 
-// Encode a system control message
+// Encode a group system/control message (membership changes, admin operations).
 function encodeGroupSys(payload) { return GROUP_SYS_MAGIC + JSON.stringify(payload); }
 function parseGroupSys(raw) {
   if (!raw.startsWith(GROUP_SYS_MAGIC)) return null;
   try { return JSON.parse(raw.slice(GROUP_SYS_MAGIC.length)); } catch { return null; }
 }
 
-// Send a fan-out DM to every group member except ourselves (and optionally one more excluded key)
+/**
+ * Send an encoded group message (chat or system) to every member of the group
+ * except the current user (we already have our own copy) and any optionally
+ * excluded key (used when inviting a new member — we send them their invite
+ * directly, not through the general fanout).
+ *
+ * Each send is independent: a failure to reach one peer does not affect others.
+ * Errors are silently caught so a single unreachable peer does not block the UI.
+ */
 async function fanout(gid, encoded, excludePk) {
   const g = groups[gid];
   if (!g) return;
@@ -2304,6 +2495,11 @@ async function leaveOrDisbandGroup() {
 }
 
 // ── Incoming group DM routing ──────────────────────────────────────────────────
+/**
+ * Router called from handleDaemonEvent when a DM content starts with one of the
+ * group magic prefixes.  Delegates to handleGroupMsg or handleGroupSys based on
+ * which magic prefix was matched.
+ */
 function handleGroupDm(d) {
   const raw = d.content || '';
   const gmsg = parseGroupMsg(raw);
@@ -2315,9 +2511,9 @@ function handleGroupDm(d) {
 function handleGroupMsg(d, gmsg) {
   const { gid, mid, image, content } = gmsg;
   const g = groups[gid];
-  if (!g) return; // unknown group — ignore
-  if (!g.members.has(d.sender_pubkey)) return; // not a member — drop
-  // Dedup by mid
+  if (!g) return; // unknown group — ignore spurious messages
+  if (!g.members.has(d.sender_pubkey)) return; // reject messages from non-members
+  // Deduplicate by message ID to handle retry/duplicate delivery gracefully.
   if (g.messages.some(m => m.mid === mid)) return;
   const msg = { mid, own: false, sender_pubkey: d.sender_pubkey, content, image: image || null, timestamp: d.timestamp || new Date().toISOString() };
   g.messages.push(msg);
@@ -2326,12 +2522,22 @@ function handleGroupMsg(d, gmsg) {
   else toast(`💬 [${g.name}] ${peerName(d.sender_pubkey)}: ${content.slice(0, 50)}`, 'info');
 }
 
+/**
+ * Handle an incoming group system event.  The full set of ops:
+ *   create / invite — reconstruct the group from the embedded member/admin lists.
+ *   kick            — remove a member (or us if pubkey === myPk).
+ *   leave           — sender voluntarily left; remove them from member/admin lists.
+ *   member_added    — an admin added someone new; add to member list.
+ *   promote         — grant admin status.
+ *   demote          — revoke admin status.
+ */
 function handleGroupSys(d, gsys) {
   const { op, gid } = gsys;
   const myPk = myIdentity?.pubkey;
 
   if (op === 'create' || op === 'invite') {
-    // Reconstruct group from system message
+    // Reconstruct group from system message.  Both ops carry the full group
+    // state (name, members, admins) so any member can bootstrap from it.
     if (!groups[gid]) {
       groups[gid] = { name: gsys.name, members: new Set(gsys.members || []), admins: new Set(gsys.admins || []), messages: [], createdAt: new Date().toISOString() };
       saveGroups();
@@ -2593,8 +2799,17 @@ async function addSelectedPeersToGroup() {
   openGroupSettingsModal(); // re-render
 }
 
-// Core import logic shared by manual import, subscribe, and auto-update.
-// Adds pubkeys (and optionally channels) to a specific owned list; returns count added.
+/**
+ * Core import logic shared by manual import, subscribe, and auto-update paths.
+ * Adds pubkeys (and optionally channel names) to the specified owned blocklist,
+ * deduplicating against existing entries.
+ *
+ * For each newly blocked pubkey, a BLOCK_SIGNAL DM is sent so the peer's client
+ * knows to show the "blocked you" notice.
+ *
+ * `silent = true` suppresses the toast notification (used for background auto-import).
+ * Returns the total number of new items added (pubkeys + channels combined).
+ */
 function importBlocklistPubkeys(pubkeys, listId, silent = false, channels = []) {
   if (!blocklists[listId] || !blocklists[listId].owned) listId = getDefaultOwnedListId();
   const list = blocklists[listId];
@@ -2731,6 +2946,15 @@ function updateBlockedIndicator() {
   if (cnt) cnt.textContent = n;
 }
 
+/**
+ * Block a peer and add them to the specified owned blocklist.
+ *
+ * Side effects:
+ *   1. Sends a BLOCK_SIGNAL DM to the peer so their client shows "blocked you".
+ *   2. Adds to the blocklist and persists to localStorage.
+ *   3. If the chat view is currently open for this peer, closes it.
+ *   4. Re-renders the peer list and feed to hide the blocked user immediately.
+ */
 function blockPeer(pubkey, listId) {
   if (!listId) listId = getDefaultOwnedListId();
   // Send a silent signal to the blocked peer's client so their UI knows not to contact us
@@ -2940,6 +3164,22 @@ function renderBlockedModal() {
 }
 
 // ── Blocklist sharing ──────────────────────────────────────────────────────────
+/**
+ * Blocklist sharing: the user publishes their blocklist as a normal broadcast
+ * post so other users can discover and subscribe to it.
+ *
+ * Wire format: "agora:blocklist:v1:" + JSON({ list_name, pubkeys, names, channels })
+ *   - `pubkeys`: array of blocked pubkeys
+ *   - `names`:   pubkey → display name map (informational, not trusted for identity)
+ *   - `channels`: array of blocked channel names
+ *
+ * A published blocklist post renders as a special card in the feed with
+ * "Import All" and "Subscribe" buttons.  Subscribers auto-import on every
+ * re-broadcast (every 30 minutes by the publisher's client).
+ *
+ * The list can be published to a specific channel by wrapping it in the channel
+ * encoding format, so community-specific blocklists stay in their channel.
+ */
 const BLOCKLIST_MAGIC = 'agora:blocklist:v1:';
 
 async function publishBlocklist(listId, silent = false, targetChannel = null) {
@@ -2985,6 +3225,9 @@ function importBlocklist(pubkeysJson, listName, channelsJson = null) {
   if (added === 0) toast('Nothing new to import — all already blocked', 'info');
 }
 
+// Fetch the active identity from the daemon and update the sidebar identity card.
+// Also repopulates the peerAvatars/peerBios caches for our own pubkey so our
+// avatar shows correctly in outgoing messages.
 async function refreshIdentity() {
   const resp = await window.agora.request('whoami', {});
   if (resp?.result) {
@@ -3002,6 +3245,8 @@ async function refreshIdentity() {
   }
 }
 
+// Fetch the live peer list from the daemon, update the avatar/bio caches for
+// all known peers, and re-render the peer sidebar.
 async function refreshPeers() {
   const resp = await window.agora.request('peers', {});
   if (resp?.result) {
@@ -3018,6 +3263,15 @@ async function refreshPeers() {
 }
 
 // ── Profile modal ──────────────────────────────────────────────────────────────
+/**
+ * Open the profile modal for any pubkey — our own or a peer's.
+ *
+ * Own profile: shows editable bio textarea + save button.
+ * Peer profile: shows read-only bio, Follow/Unfollow and Block/Unblock buttons.
+ *
+ * The modal stores the viewed pubkey in `_profilePubkey` so that follow/block
+ * button callbacks can use it without threading the pubkey through every call.
+ */
 function openProfile(pubkey) {
   if (!pubkey) return;
   _profilePubkey = pubkey;
@@ -3096,6 +3350,19 @@ async function saveBio() {
   toast('Bio saved', 'success');
 }
 
+/**
+ * Fetch all broadcast posts from the daemon and refresh both feeds.
+ *
+ * After updating the posts array this function:
+ *   1. Re-renders the public feed and following feed.
+ *   2. Checks for new followers in published follow list posts.
+ *   3. Auto-imports the latest version of any blocklists we're subscribed to.
+ *   4. Auto-imports the latest version of any follow lists we're subscribed to.
+ *
+ * The subscription auto-import logic finds the most recent post from each
+ * subscribed source that matches the expected list name, then imports it
+ * silently without showing a toast.
+ */
 async function refreshPosts() {
   const list = document.getElementById('feed-list');
   try {
@@ -3153,6 +3420,29 @@ async function refreshPosts() {
 }
 
 // ── Event handling ─────────────────────────────────────────────────────────────
+/**
+ * Central dispatcher for all real-time events pushed from the daemon.
+ *
+ * Event types and data shapes:
+ *   connection_failed     — IPC connection lost
+ *   peers_updated         — { pubkey, username, fingerprint, avatar, bio, … }[]
+ *   message               — { kind:'dm'|'broadcast', sender_pubkey, content, … }
+ *   like_update           — { post_id, like_count }
+ *   like_notification     — { liker_name, post_id, like_count }
+ *   comment_update        — { post_id, comment_id, sender_pubkey, content, … }
+ *   comment_like_update   — { post_id, comment_id, like_count }
+ *   comment_notification  — { commenter_name, content_snippet }
+ *   comment_like_notification — { liker_name, content_snippet, like_count }
+ *   username_changed      — (no data; triggers refreshIdentity)
+ *   avatar_changed        — (no data; triggers refreshIdentity)
+ *   bio_changed           — (no data; triggers refreshIdentity)
+ *   identity_switched     — { account_name }
+ *   tor_status            — { status: 'bootstrapping'|'ready'|'failed', error? }
+ *
+ * The 'message' case handles both broadcast posts and DMs.  Within the DM
+ * branch, group protocol messages (magic prefix) are routed to handleGroupDm
+ * before any normal message processing.
+ */
 function handleDaemonEvent(ev) {
   switch (ev.event) {
     case 'connection_failed':
@@ -3397,6 +3687,16 @@ function handleDaemonEvent(ev) {
 }
 
 // ── Avatar helpers ─────────────────────────────────────────────────────────────
+/**
+ * Avatars are stored as base64-encoded data URLs in `peerAvatars[pubkey]`.
+ * They are transmitted by the daemon as part of peer metadata and broadcast/DM
+ * event payloads, then cached locally in this map.
+ *
+ * avatarContent() is used throughout the rendering code to generate the inner
+ * HTML for any avatar container element — either an <img> tag if we have a
+ * data URL, or a capital initial as a fallback.
+ */
+
 // Returns inner HTML for an avatar container: either an <img> or a text initial.
 function avatarContent(pubkey, name) {
   const src = pubkey && peerAvatars[pubkey];
@@ -3420,6 +3720,22 @@ function renderIdentityAvatar() {
 }
 
 // ── Rendering ──────────────────────────────────────────────────────────────────
+/**
+ * renderPeerList — rebuild the left sidebar peer list from the current state.
+ *
+ * Filtering pipeline:
+ *   1. Skip blocked peers and peers who blocked us.
+ *   2. If in the 'following' tab, keep only followed peers.
+ *   3. Apply the live search query (username, fingerprint, or pubkey prefix).
+ *
+ * Sort order (when no search query is active):
+ *   Rank 0: followed AND has unread DMs  (highest priority)
+ *   Rank 1: followed OR has unread DMs
+ *   Rank 2: neither
+ *
+ * If in the 'groups' tab this function delegates to renderGroupList() instead
+ * because the groups view reuses the same DOM element for its list.
+ */
 function renderPeerList() {
   if (activeTab === 'groups') { renderGroupList(); return; }
   const list = document.getElementById('peer-list');
@@ -3479,6 +3795,21 @@ function renderPeerList() {
 }
 
 // ── Embed helpers ─────────────────────────────────────────────────────────────
+/**
+ * Media embed support: when a post contains a YouTube, Vimeo, Spotify, Twitter/X,
+ * or SoundCloud URL, a rich embed widget is shown below the post text.
+ *
+ * detectEmbedUrl() scans post text as it's typed in the composer and updates the
+ * embed preview bar in real time.  The matched URL is stored as pendingEmbedUrl
+ * and sent to the daemon's `broadcast` RPC as the `embed_url` field.
+ *
+ * renderEmbedHtml() produces the iframe/link HTML for a given URL.  It runs on
+ * the receiving side (not just the sender) so all clients display embeds.
+ *
+ * The embedUserCleared flag is set when the user manually dismisses the embed
+ * preview.  Once set, detectEmbedUrl() stops re-detecting until the user clears
+ * the draft and starts a new post.
+ */
 
 /** Return the first embedable URL found in `text`, or null. */
 function detectEmbedUrl(text) {
@@ -3567,6 +3898,22 @@ function onPostInputChange() {
   }
 }
 
+/**
+ * renderFeed — rebuild the main broadcast post list from `posts`.
+ *
+ * Filtering:
+ *   - Skip blocked and blocking-us pubkeys.
+ *   - If activeChannel === null, show only non-channel posts (public feed).
+ *   - If activeChannel is set, show only posts for that channel.
+ *
+ * Special post types rendered as rich cards:
+ *   - Blocklist posts (BLOCKLIST_MAGIC prefix) → shows import/subscribe buttons.
+ *   - Follow list posts (FOLLOWLIST_MAGIC prefix) → shows import/subscribe buttons.
+ *   - Normal posts → text + optional image + optional embed widget.
+ *
+ * Posts are sorted newest-first by timestamp.
+ * All user-supplied strings are HTML-escaped via escHtml() before insertion.
+ */
 function renderFeed() {
   renderFeedChannelStrip();
   const list = document.getElementById('feed-list');
@@ -3611,7 +3958,9 @@ function renderFeed() {
       try { timeStr = formatTime(p.timestamp); } catch {}
       const postAvatarClick = !isOwn && peerAvatars[p.sender_pubkey] ? ` onclick="openPeerAvatarViewer('${escHtml(p.sender_pubkey)}')" style="cursor:pointer" title="View profile picture"` : '';
 
-      // ── Detect shared blocklist posts ──────────────────────────────────────
+      // ── Detect shared blocklist/follow list posts ──────────────────────────
+      // If the post content parses as a blocklist or follow list, render a
+      // special card UI with import/subscribe controls instead of raw text.
       const bl = parseBlocklistPost(content);
       if (bl && Array.isArray(bl.pubkeys)) {
         const blListName = bl.list_name || DEFAULT_LIST_NAME;
@@ -3728,6 +4077,14 @@ function renderFeed() {
   }
 }
 
+/**
+ * Render the identity manager panel.  Fetches the full list of accounts from the
+ * daemon (all identities, not just the active one) and displays each as a card.
+ *
+ * The active identity shows an "ACTIVE" badge and its avatar is click-to-edit.
+ * Inactive identities show Switch and Delete buttons.  Deleting the active
+ * identity is prevented by the daemon — the user must switch first.
+ */
 async function renderIdentityManager() {
   const resp = await window.agora?.request('list_identities', {});
   const list = resp?.result || [];
@@ -3760,6 +4117,9 @@ async function renderIdentityManager() {
   }).join('');
 }
 
+// Render all messages for the active peer conversation from the in-memory array.
+// Filters the flat `messages` array to only those sent to/received from activePeer.
+// After rendering, scrolls to the bottom so the most-recent message is visible.
 function renderMessages() {
   const container = document.getElementById('messages');
   if (!container) return;
@@ -3797,6 +4157,18 @@ function appendMessage(m, scroll = true) {
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────────
+/**
+ * selectPeer — open a DM conversation with the given peer.
+ *
+ * Steps:
+ *   1. Update `activePeer` and clear any pending DM image attachment.
+ *   2. Show the chat pane (hide the "no peer selected" placeholder).
+ *   3. Populate the chat header with the peer's name, avatar, and fingerprint.
+ *   4. Clear the unread badge and re-sort the peer list.
+ *   5. Render all in-memory messages for this peer.
+ *   6. Load the persisted DM history from the daemon (last 500 messages).
+ *   7. Focus the message input (unless this user has blocked us).
+ */
 function selectPeer(pubkey, event) {
   activePeer = pubkey;
   clearDmImage();
@@ -3841,6 +4213,20 @@ function selectPeer(pubkey, event) {
   if (!blockedByPubkeys.has(pubkey)) document.getElementById('msg-input').focus();
 }
 
+/**
+ * Load DM history for a peer from the daemon's persistent JSONL log.
+ *
+ * The daemon stores every sent/received DM to dms.jsonl.  This function fetches
+ * up to 500 records, filters out protocol-internal messages (block signals, group
+ * protocol DMs), then merges with any live session messages already in memory to
+ * avoid duplicates.
+ *
+ * Deduplication key: timestamp + content string.  Not collision-proof but
+ * sufficient for practical use (two identical messages sent at exactly the same
+ * millisecond to the same peer would be collapsed — this is acceptable).
+ *
+ * After merging, messages are sorted chronologically before re-rendering.
+ */
 async function loadDmHistory(pubkey) {
   if (!window.agora?.request) return;
   const resp = await window.agora.request('dm_history', { peer_pubkey: pubkey, limit: 500 });
@@ -3851,7 +4237,7 @@ async function loadDmHistory(pubkey) {
   const loadedIds = new Set(messages.filter(m => m.loaded).map(m => m._key));
   messages = messages.filter(m => !m.loaded || !loadedIds.has(m._key));
   for (const r of records) {
-    // Filter out block signal and group protocol messages from DM history
+    // Filter out block signal and group protocol messages from DM history display
     const rc = String(r.content || '');
     if (rc === BLOCK_SIGNAL) continue;
     if (rc.startsWith(GROUP_MSG_MAGIC) || rc.startsWith(GROUP_SYS_MAGIC)) continue;
@@ -3900,6 +4286,19 @@ async function sendMessage() {
   appendMessage(msg);
 }
 
+/**
+ * Publish a broadcast post.
+ *
+ * If a channel is active, the content is prefixed with the channel magic string
+ * before being sent to the daemon so receiving peers can route it to the correct
+ * channel without any daemon-level awareness of channels.
+ *
+ * Images and embed URLs are passed as separate fields in the RPC payload.
+ * The embed URL was auto-detected by detectEmbedUrl() as the user typed.
+ *
+ * After posting, the composer state (text, image, embed preview) is fully cleared
+ * and the feed is refreshed to show the new post.
+ */
 async function submitPost() {
   const input = document.getElementById('post-input');
   const content = input.value.trim();
@@ -3913,6 +4312,7 @@ async function submitPost() {
   embedUserCleared = false;
   updateEmbedPreview(null);
 
+  // Wrap in channel encoding if we're currently in a channel view.
   const encodedContent = activeChannel ? encodeChannelPost(activeChannel, content) : content;
   const params = { content: encodedContent };
   if (image) params.image = image;
@@ -3924,6 +4324,19 @@ async function submitPost() {
 }
 
 // ── Comments ───────────────────────────────────────────────────────────────────
+/**
+ * Comment system overview:
+ *   - Comments are stored on the daemon and propagated via gossip like posts.
+ *   - openPostComments() fetches fresh comments from the daemon via `get_comments`
+ *     and merges with any already-in-memory comments from real-time events.
+ *   - The merge is conservative: we keep the higher like count when both sources
+ *     have a record for the same comment_id.
+ *   - submitComment() adds an optimistic local entry immediately (marked
+ *     'pending-…') before the daemon responds, so the UI feels instant.
+ *   - likeComment() also applies an optimistic increment and rolls back on error.
+ *   - Comments are sorted by like count descending (most popular first), with
+ *     timestamp ascending as a stable tiebreaker for equal counts.
+ */
 
 async function openPostComments(postId) {
   activeCommentPostId = postId;
@@ -3977,6 +4390,13 @@ async function openPostComments(postId) {
   setTimeout(() => document.getElementById('comment-input')?.focus(), 100);
 }
 
+/**
+ * Re-render the comment list for the currently open comment modal.
+ *
+ * Applies the same blocked/blocking-us filter as the feed.
+ * Sort order: most-liked first (Reddit-style), with timestamp ascending as
+ * a stable tiebreaker so comments with equal likes appear in chronological order.
+ */
 function renderCommentList() {
   const list = document.getElementById('comment-list');
   if (!list || activeCommentPostId === null) return;
@@ -4089,10 +4509,19 @@ function clearCommentImage() {
   document.getElementById('comment-attach-btn').classList.remove('has-image');
 }
 
+/**
+ * Like a post.  Uses an optimistic UI update:
+ *   1. Add to likedPostIds immediately (prevents double-click before response).
+ *   2. Increment the local like_count and re-render.
+ *   3. Send the like RPC to the daemon.
+ *   4a. On error: revert both the Set entry and the local count.
+ *   4b. On success: authoritative count from daemon may differ (race with other
+ *       likers) — apply it.
+ */
 async function likePost(postId) {
   if (likedPostIds.has(postId)) return; // already liked
   likedPostIds.add(postId);
-  // Optimistic update
+  // Optimistic update — shows the like immediately without waiting for network round-trip
   const post = posts.find(p => p.post_id === postId);
   if (post) { post.like_count++; renderFeed(); }
 
@@ -4166,6 +4595,21 @@ async function saveAvatar() {
 }
 
 // ── Image attachment helpers ───────────────────────────────────────────────────
+/**
+ * Images attached to posts, DMs, and comments are sent as base64-encoded data
+ * URLs embedded directly in the JSON payload.  To keep payloads manageable:
+ *
+ *   processImageFile() — used for post/DM/comment attachments:
+ *     - Validates MIME type (JPEG, PNG, WebP only).
+ *     - Proportionally scales down to max 1200×1200 while preserving aspect ratio.
+ *     - Re-encodes as the original format at quality 0.82 (JPEG) or lossless (PNG/WebP).
+ *
+ *   Avatar processing (inline in the DOMContentLoaded handler):
+ *     - Crops to square from centre (cover-fit), then scales to 128×128.
+ *     - Ensures a uniform avatar size across the UI regardless of original dimensions.
+ *
+ * All image data is stored and transmitted as data URLs ("data:image/…;base64,…").
+ */
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 function processImageFile(file) {
@@ -4181,6 +4625,7 @@ function processImageFile(file) {
       img.onload = () => {
         const MAX = 1200;
         let w = img.width, h = img.height;
+        // Scale down proportionally if either dimension exceeds the max.
         if (w > MAX || h > MAX) {
           if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
           else { w = Math.round(w * MAX / h); h = MAX; }
@@ -4188,6 +4633,7 @@ function processImageFile(file) {
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        // Preserve the original format; JPEG quality 0.82 is a good size/quality trade-off.
         const outType = file.type === 'image/png' ? 'image/png'
                       : file.type === 'image/webp' ? 'image/webp'
                       : 'image/jpeg';
@@ -4213,6 +4659,8 @@ function clearDmImage() {
   document.getElementById('dm-attach-btn').classList.remove('has-image');
 }
 
+// Full-screen image viewer — click anywhere (or the backdrop) to dismiss.
+// Created dynamically so there's no persistent DOM element to hide/show.
 function openImageViewer(src) {
   const backdrop = document.createElement('div');
   backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
@@ -4267,10 +4715,21 @@ function closeModal(id) {
 }
 
 // ── View / tab switching ───────────────────────────────────────────────────────
-// Single source of truth. showView is the ONLY function that mutates the DOM
-// classes for views and tabs. switchTab is a thin alias that maps the sidebar
-// tab names ('peers', 'feed') to view names. Neither function calls the other,
-// so there is no possible recursion.
+/**
+ * View management.  There are five named views:
+ *   'chat'        — DM conversation pane (right side)
+ *   'feed'        — public broadcast feed
+ *   'groups'      — group chat list + pane
+ *   'following'   — follow-filtered feed
+ *   'identities'  — identity/account manager
+ *
+ * showView() is the ONLY function that mutates view/tab DOM classes.  It also
+ * triggers the appropriate data load for each view (refreshPosts, renderGroupList,
+ * etc.) so views are never stale when first opened.
+ *
+ * switchTab() is a thin wrapper that maps sidebar tab names to view names.
+ * Neither function calls the other, so there is no possible recursion.
+ */
 const VIEW_IDS = { chat: 'view-chat', feed: 'view-feed', groups: 'view-groups', following: 'view-following', identities: 'view-identities' };
 
 function showView(name) {
@@ -4324,9 +4783,16 @@ function switchTab(tab) {
 }
 
 // ── Notifications ──────────────────────────────────────────────────────────────
+/**
+ * In-memory notification bell.  Holds up to 30 notifications (most-recent first).
+ * Notification objects: { type: 'like'|'dm'|'follow'|'comment', text: string,
+ *                         subtext?: string, time: ISO string }
+ * `text` may contain safe HTML (author name in <span>) — caller is responsible
+ * for escaping user-supplied strings within it via escHtml().
+ */
 function pushNotification(n) {
   notifications.unshift(n);
-  if (notifications.length > 30) notifications.pop();
+  if (notifications.length > 30) notifications.pop(); // cap list to avoid unbounded memory
   renderNotifications();
   document.getElementById('notif-badge').classList.add('show');
 }
@@ -4351,6 +4817,23 @@ function toggleNotifPanel() {
 function clearNotifs() { notifications = []; renderNotifications(); }
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
+/**
+ * Minimal i18n system — no build step, no external files.
+ *
+ * TRANSLATIONS is a nested object: { [languageCode]: { [key]: translatedString } }
+ * All UI strings that need translation have a key entry here.  The `t(key)`
+ * helper looks up the current language (persisted to localStorage) and falls
+ * back to English if a translation is missing.
+ *
+ * applyTranslations() walks the live DOM and replaces text content/placeholder
+ * attributes with the translated strings.  It is called at startup (to apply
+ * the persisted language) and whenever the user changes language in settings or
+ * onboarding.
+ *
+ * RTL support: Arabic ('ar') sets document.documentElement.dir = 'rtl'; all
+ * other languages use 'ltr'.  The CSS uses logical properties where possible to
+ * accommodate this.
+ */
 const TRANSLATIONS = {
   en: {
     settings_title:'Settings', settings_conn_type:'Connection type', settings_language:'Language',
@@ -4859,15 +5342,29 @@ const TRANSLATIONS = {
   },
 };
 
+// Look up a translation key in the current language.  Falls back to English,
+// then to the raw key string if the key is missing from English too.
 function t(key) {
   const lang = localStorage.getItem('agora_lang') || 'en';
   return (TRANSLATIONS[lang]?.[key]) ?? (TRANSLATIONS.en[key] ?? key);
 }
 
+/**
+ * Apply translations for the given language code (or the persisted language if
+ * none is provided).  Walks through every translatable UI element by ID or
+ * CSS selector and sets textContent, innerHTML, or placeholder as appropriate.
+ *
+ * Helper shorthands:
+ *   tx(el, key) — set textContent
+ *   ih(el, key) — set innerHTML (only for strings with no user data)
+ *   ph(el, key) — set placeholder attribute
+ */
 function applyTranslations(lang) {
   if (lang) try { localStorage.setItem('agora_lang', lang); } catch {}
   const l = localStorage.getItem('agora_lang') || 'en';
+  // Set <html lang> attribute for accessibility and CSS :lang() rules.
   document.documentElement.lang = l;
+  // RTL layout for Arabic — all other supported languages are LTR.
   document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
 
   const $ = id => document.getElementById(id);
@@ -5007,6 +5504,21 @@ function applyTranslations(lang) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+/**
+ * Miscellaneous UI helpers.
+ *
+ * Connection types supported by the daemon:
+ *   raw      — plain TCP (default, no VPN/anonymiser)
+ *   WireGuard — kernel WireGuard tunnel (requires wg-quick + config file)
+ *   OpenVPN  — OpenVPN tunnel (requires openvpn + .ovpn config)
+ *   TOR      — embedded Tor via arti (no system Tor required)
+ *   i2p      — I2P SOCKS5 proxy (requires local I2P router on port 4447)
+ *   nym      — Nym mixnet (experimental)
+ *   QUIC     — QUIC transport (experimental)
+ *
+ * The active connection type is persisted to localStorage so the daemon is
+ * configured to use the correct transport on the next startup.
+ */
 const CONN_TYPES = ['raw', 'WireGuard', 'OpenVPN', 'TOR', 'i2p', 'nym', 'QUIC'];
 let connType = localStorage.getItem('agora_conn_type') || 'raw';
 
@@ -5023,6 +5535,18 @@ function toggleConnMenu(e) {
   if (opening) fetchAndShowIps();
 }
 
+/**
+ * Fetch and display the public/exit IP in the connection menu.
+ *
+ * The daemon's `get_public_ip` RPC makes an outgoing HTTP request through its
+ * own connection stack (the same stack used for peer connections).  This means:
+ *   - Raw/WireGuard/OpenVPN → returns the host's real or VPN exit IP.
+ *   - TOR → returns the Tor exit-node IP (anonymised), so the label says
+ *            "exit node" rather than "public ip" to avoid user confusion.
+ *   - I2P → returns the I2P outproxy IP.
+ *
+ * Called when the connection menu first opens and after a Tor 'ready' event.
+ */
 async function fetchAndShowIps() {
   const pubEl  = document.getElementById('conn-ip-public');
   const lbl    = document.getElementById('conn-ip-label');
@@ -5050,10 +5574,24 @@ async function fetchAndShowIps() {
   }
 }
 
-// Types that need a config file before they can be used
+// Types that need a config file before they can be used.
+// For these types, clicking them in the connection menu opens the VPN modal
+// rather than applying the type immediately.
 const VPN_TYPES = ['WireGuard', 'OpenVPN'];
 
 // ── VPN helpers ────────────────────────────────────────────────────────────────
+/**
+ * VPN config persistence.  Each VPN type (WireGuard, OpenVPN) has its config
+ * text stored in localStorage under 'agora_vpn_config_<type>' so the tunnel
+ * can be auto-reconnected on startup without the user re-uploading their config.
+ *
+ * validateVpnConfig() does a lightweight structural check (looks for required
+ * sections/directives) to catch obvious mistakes before sending to the daemon.
+ *
+ * applyConnType() is the single point that changes both the UI state (button
+ * highlights, connection label) and pushes the new type to the daemon.
+ * clickConnType() is the public entry point for UI-triggered type changes.
+ */
 function getStoredVpnConfig(type) {
   try { return localStorage.getItem(`agora_vpn_config_${type}`) || ''; } catch { return ''; }
 }
@@ -5075,8 +5613,16 @@ function validateVpnConfig(type, text) {
   return null; // valid
 }
 
-// Called when a VPN type is chosen but we want to set it without opening the modal
-// (e.g. after obSaveConnType has already handled the config)
+/**
+ * Apply a new connection type — update UI state and inform the daemon.
+ *
+ * If the user is switching away from a VPN type (WireGuard/OpenVPN) to any
+ * other type, the running tunnel is torn down via `vpnStop()`.  This prevents
+ * the VPN from staying active in the background when the user intended to stop it.
+ *
+ * `save = false` is used during onboarding where we want the type active for
+ * the session but may not want to persist it until the user explicitly confirms.
+ */
 function applyConnType(type, save = true) {
   const prev = connType;
   connType = type;
@@ -5176,7 +5722,14 @@ async function applyVpnModal() {
   setTimeout(closeVpnModal, 800);
 }
 
-// Wire up the VPN modal file picker and drag-and-drop
+/**
+ * Wire up the VPN config modal's file picker and drag-and-drop zones.
+ * Called once from DOMContentLoaded.  Handles both the file <input> change event
+ * and HTML5 drag-and-drop onto the drop zone area.
+ *
+ * In both cases the file's text content is read with FileReader and placed
+ * in the paste textarea so the user can review/edit it before clicking Connect.
+ */
 function initVpnModal() {
   const fileInput = document.getElementById('vpn-file-input');
   const drop      = document.getElementById('vpn-drop-zone');
@@ -5215,6 +5768,15 @@ function initVpnModal() {
 }
 
 // ── Settings panel ─────────────────────────────────────────────────────────────
+/**
+ * The settings panel is a fly-out overlay in the sidebar footer.  It contains:
+ *   - Connection type grid (same types as the titlebar dropdown)
+ *   - Language selector (same languages as onboarding step 0)
+ *
+ * The grid/select are built lazily on first open to avoid cluttering startup.
+ * The panel is mutually exclusive with the notification panel — opening one
+ * closes the other.
+ */
 let settingsPanelOpen = false;
 
 function buildSettingsPanel() {
@@ -5266,6 +5828,15 @@ function closeSettingsPanel() {
 }
 
 // ── Peer / chat action menus ────────────────────────────────────────────────────
+/**
+ * The peer list and chat header each have a "⋯" action menu (block, follow, …).
+ * _openPeerMenu tracks the currently open dropdown so that clicking a different
+ * peer's menu (or clicking anywhere outside) closes the previous one.
+ *
+ * The global document click listener (defined below) handles outside-click
+ * dismissal for peer menus, the conn menu, the settings panel, and the channel
+ * dropdown all in one place.
+ */
 let _openPeerMenu = null;
 
 function openPeerMenu(btn) {
@@ -5308,8 +5879,11 @@ document.addEventListener('click', e => {
   }
 });
 
+// Best-effort display name from an event data object — prefers username, then
+// fingerprint, then the first 8 chars of the pubkey.
 function displayName(d) { return d.sender_username || d.sender_fingerprint || d.sender_pubkey?.slice(0,8) || '?'; }
 
+// Human-readable timestamp: HH:MM for today, "Mon DD HH:MM" for older dates.
 function formatTime(ts) {
   try {
     const d = new Date(ts);
@@ -5319,13 +5893,22 @@ function formatTime(ts) {
   } catch { return ''; }
 }
 
+// Truncate string to n characters with an ellipsis if necessary.
 function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
 
+/**
+ * HTML-escape a value for safe insertion into innerHTML.
+ * Handles: & < > "
+ * Note: single-quotes are not escaped because we always use double-quoted
+ * HTML attributes.  null/undefined are converted to empty string.
+ */
 function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 let toastTimer;
+// Show a transient status toast for 3.5 seconds.
+// `type` maps to a CSS class: 'info' | 'success' | 'error' | 'like'
 function toast(msg, type = 'info') {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -5335,6 +5918,26 @@ function toast(msg, type = 'info') {
 }
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
+/**
+ * First-run onboarding wizard — a multi-step overlay shown only once.
+ *
+ * Steps (0-indexed, OB_TOTAL_STEPS = 9):
+ *   0  Language selection
+ *   1  Connection type + optional VPN config
+ *   2  "Connecting…" waiting screen (auto-advances when init() completes)
+ *   3  Bootstrap server (optional — lets user enter a known peer to connect to)
+ *   4  Username (optional)
+ *   5  Avatar (optional)
+ *   6  Channel discovery — channels found from peers, auto-skipped if none
+ *   7  Community lists — peer blocklists/followlists, auto-skipped if none
+ *   8  First post (optional)
+ *
+ * Completion is tracked via localStorage key 'agora_onboarded'.  Once set,
+ * obIsFirstRun() returns false and the wizard is never shown again.
+ *
+ * obBlocklistSelections / obFollowlistSelections are checkbox state maps used
+ * on step 7.  obChannelSelections is a Set of channel names to auto-follow.
+ */
 const OB_LANGUAGES = [
   { code: 'en', label: 'English' },
   { code: 'es', label: 'Español' },
@@ -5513,6 +6116,13 @@ function obBuildLangGrid() {
   });
 }
 
+/**
+ * Navigate to onboarding step n.  Shows/hides the step panels, updates the
+ * progress pip row, and runs step-specific setup:
+ *   Step 2: update the connection-status message to name the chosen transport.
+ *   Step 6: populate the channel list from current posts; auto-skip if empty.
+ *   Step 7: populate community blocklist/followlist picker; auto-skip if empty.
+ */
 function obShowStep(n) {
   obCurrentStep = n;
   document.querySelectorAll('.ob-step').forEach((el, i) => {
@@ -5623,7 +6233,12 @@ function obShowStep(n) {
 
 function obNext(n) { obShowStep(n); }
 
-// Find peers who have published a blocklist post that we already received
+/**
+ * Scan in-memory posts for blocklist broadcasts published by peers.
+ * Used in onboarding step 7 to show community blocklists the user can subscribe to.
+ * Only the most-recent post per (pubkey, listName) pair is returned, and our
+ * own posts are excluded.
+ */
 function obFindPeerBlocklists() {
   const seen = {}; // key: "pubkey::listname"
   posts.forEach(p => {
@@ -5647,7 +6262,8 @@ function obFindPeerBlocklists() {
   return Object.values(seen);
 }
 
-// Discover channels that have posts on the network
+// Scan in-memory posts for channel posts.  Returns an array of { name, postCount }
+// sorted by activity (most posts first) for the onboarding channel step.
 function obFindChannels() {
   const counts = {};
   posts.forEach(p => {
@@ -5660,7 +6276,8 @@ function obFindChannels() {
     .sort((a, b) => b.postCount - a.postCount);
 }
 
-// Discover follow lists published by peers
+// Scan in-memory posts for follow list broadcasts published by peers.
+// Same logic as obFindPeerBlocklists() but for follow lists.
 function obFindPeerFollowlists() {
   const seen = {};
   posts.forEach(p => {
@@ -5684,7 +6301,8 @@ function obFindPeerFollowlists() {
   return Object.values(seen);
 }
 
-// Store selected channels and proceed to community step
+// Advance from the channel selection step.  The actual following of selected
+// channels happens in obFinish() via setActiveChannel(), not here.
 function obJoinSelectedChannels() {
   obShowStep(7);
 }
@@ -5731,8 +6349,13 @@ async function obSaveAvatar() {
   obShowStep(6); // → blocklists
 }
 
+/**
+ * Called when the user clicks "Apply & Next" on the community lists step.
+ * Imports all selected blocklists and follow lists, subscribes the user to
+ * auto-update when those peers re-broadcast, then advances to the first-post step.
+ */
 function obImportSelected() {
-  // Import selected blocklists
+  // Import selected blocklists into "Imported from <author>" lists
   obFindPeerBlocklists().forEach(item => {
     const selKey = subKey(item.pubkey, item.listName);
     if (obBlocklistSelections[selKey]) {
@@ -5768,6 +6391,13 @@ async function obPublishFirstPost() {
   obFinish();
 }
 
+/**
+ * Finalise onboarding:
+ *   1. Persist the 'agora_onboarded' flag so the wizard never shows again.
+ *   2. Hide the overlay.
+ *   3. If any channels were selected, navigate to the feed and open the first
+ *      channel after a short delay (to let the overlay fade out).
+ */
 function obFinish() {
   try { localStorage.setItem('agora_onboarded', '1'); } catch {}
   document.getElementById('onboarding-overlay').classList.add('hidden');
@@ -5779,7 +6409,9 @@ function obFinish() {
   }
 }
 
-// Wire up the avatar file picker for onboarding
+// Wire up the onboarding avatar file picker.  Same crop-to-square-128px logic
+// as the main avatar picker but operating on obPendingAvatar state instead of
+// pendingAvatarDataUrl.
 function obInitAvatarPicker() {
   const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
   document.getElementById('ob-avatar-file')?.addEventListener('change', e => {
@@ -5811,6 +6443,25 @@ function obInitAvatarPicker() {
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────────────
+/**
+ * DOMContentLoaded handler — wires up all event listeners and starts the app.
+ *
+ * Sets up:
+ *   - Auto-resize for all textareas (msg, post, comment inputs).
+ *   - Embed URL auto-detection on the post composer input.
+ *   - Keyboard shortcuts:
+ *       Ctrl/Cmd+Enter — send message / submit post / submit comment
+ *       Enter          — save username / dial peer
+ *       Escape         — cancel modals (username input)
+ *   - File input listeners for post images, DM images, comment images, and
+ *     the profile avatar picker.
+ *   - Outside-click handler to close the notification panel.
+ *   - Initialises the VPN modal file picker and drag-and-drop.
+ *   - Keyboard shortcuts for onboarding inputs.
+ *
+ * After all wiring, calls init() which loads state from the daemon, then
+ * starts the onboarding wizard if this is the first run.
+ */
 document.addEventListener('DOMContentLoaded', async () => {
   // Auto-resize textareas
   ['msg-input', 'post-input'].forEach(id => {
@@ -5928,6 +6579,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ── Demo data (when running outside Electron) ─────────────────────────────────
+/**
+ * Populate synthetic state so the UI is functional for screenshot/dev purposes
+ * when `window.agora` is not available (plain browser, no daemon).
+ *
+ * loadDemoData() is called by init() when the IPC bridge is absent.  It
+ * populates myIdentity, peers, posts, and messages with hardcoded values,
+ * then renders all the same components that a real startup would.
+ */
 function loadDemoData() {
   myIdentity = { username: 'demo_user', fingerprint: 'AB:CD:EF:12:34:56:78:90', pubkey: 'demokey123', account_name: 'default', avatar: null };
   document.getElementById('my-name').textContent = 'demo_user';

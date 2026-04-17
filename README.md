@@ -200,6 +200,9 @@ These are on the roadmap but not currently being worked on.
 | **Android app** | A native mobile client distributed as an APK so people can use Agora without needing a desktop. |
 | **A local feed algorithm** | Ranking and filtering that runs entirely on your own machine, with no remote black box deciding what you see. |
 | **Monero wallet integration for private payments** | Peer-to-peer tipping and payments between users using Monero, with no payment processor in the middle. |
+| **All the good features you are used to** | This is an extremely long-term goal, and something we probably won't see for years, but Agora will continue to develop and add more features like P2P voice calls, screen sharing, file sharing etc. |
+| **Developer friendliness** | Agora welcomes developers to create their own custom frontend, custom daemons with new features etc. |
+
 
 ## A note on pace
 

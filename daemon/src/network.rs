@@ -1,6 +1,20 @@
 //! Network layer: TCP listener, outbound connections, handshake, IPC events.
 //!
-//! Connection modes:
+//! ## Wire framing
+//! Every message is length-prefixed: a 4-byte big-endian `u32` followed by
+//! that many bytes of JSON.  This lets us use a single persistent TCP
+//! connection for multiple sequential messages (send Hello, send DM, etc.)
+//! without any ambiguity about message boundaries.
+//!
+//! ## Connection flow
+//!  1. Both sides send a `Hello` immediately after the connection is established.
+//!  2. The listener reads the remote Hello, verifies its signature, and inserts
+//!     the peer into the DHT.
+//!  3. After the handshake, the listener enters a read loop waiting for more
+//!     messages.  Most outbound connections are short-lived (send one message
+//!     then close), but the listener side can receive arbitrarily many messages.
+//!
+//! ## Connection modes
 //!   Raw — direct TCP connection, exposes the real IP address to peers.
 //!   Tor — outbound connections are made through an embedded Tor client (arti).
 //!         No external Tor daemon is required; the daemon bootstraps its own
@@ -32,24 +46,34 @@ use crate::{
     types::{HelloPayload, P2pError, Result, WireMessage},
 };
 
+/// Default TCP port for peer-to-peer connections.
 pub const DEFAULT_PORT: u16 = 7777;
 /// SOCKS5 port exposed by the I2P router (Java I2P and i2pd both default to 4447).
 const I2P_SOCKS5_PORT: u16 = 4447;
 
+/// Maximum age of a Hello timestamp.  Prevents replaying a captured Hello to
+/// impersonate a peer.
 const MAX_MESSAGE_AGE: Duration = Duration::from_secs(30);
+/// Timeout for the full handshake (Hello exchange) on each new connection.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 /// Tor circuits take longer to build than raw TCP.
 const TOR_CONNECT_TIMEOUT: Duration = Duration::from_secs(60);
+/// Hard cap on incoming frame size to prevent memory exhaustion.
+/// 4 MiB is generous for messages that are mostly JSON text.
 const MAX_FRAME_LEN: u32 = 4 * 1024 * 1024;
 
 // ── Stream abstraction ────────────────────────────────────────────────────────
 
 /// Combined supertrait so we can erase the concrete stream type (TcpStream,
 /// DataStream, etc.) behind a single Box.
+/// `Unpin` is required by tokio's `AsyncReadExt`/`AsyncWriteExt` helpers.
 pub trait ReadWrite: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> ReadWrite for T {}
 
 /// Heap-allocated peer stream, type-erased.
+/// Using a trait object lets the same `handle_connection` / `send_to_pubkey`
+/// code work regardless of whether the underlying transport is raw TCP, a Tor
+/// DataStream, or a SOCKS5-wrapped stream.
 pub type PeerStream = Box<dyn ReadWrite>;
 
 // ── ConnMode ──────────────────────────────────────────────────────────────────
@@ -86,27 +110,42 @@ impl std::fmt::Display for ConnMode {
 
 // ── Network ───────────────────────────────────────────────────────────────────
 
+/// A function that handles an inbound `WireMessage`.
+/// `Arc<dyn Fn…>` so it is clone-able and shareable across tasks.
+/// The return type is a boxed future because async closures aren't stable yet.
 pub type MessageHandler = Arc<
     dyn Fn(WireMessage, SocketAddr) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
         + Send
         + Sync,
 >;
 
+/// The network layer — manages the TCP listener, outbound connections, and
+/// dispatches inbound messages to registered handlers.
+///
+/// Clone-able: all fields are cheaply-cloned `Arc` handles so multiple tasks
+/// can share the same network state.
 #[derive(Clone)]
 pub struct Network {
     pub identity: Arc<RwLock<Identity>>,
     dht: Dht,
     port: u16,
+    /// List of registered message handlers.  The messenger registers itself
+    /// here to receive all inbound wire messages.
     handlers: Arc<RwLock<Vec<MessageHandler>>>,
+    /// Set of pubkeys with active outbound connections (prevents duplicates).
     active_peers: Arc<RwLock<std::collections::HashSet<String>>>,
+    /// Optional IPC broadcaster for pushing `peers_updated` events.
     ipc: Option<IpcBroadcaster>,
+    /// Optional post store — included in Hello payloads for gossip propagation.
     post_store: Option<PostStore>,
+    /// Current connection mode (Raw / Tor / I2p).
     pub conn_mode: Arc<RwLock<ConnMode>>,
     /// Embedded Tor client.  None until bootstrap_tor() succeeds.
     tor_client: Arc<Mutex<Option<TorClient<PreferredRuntime>>>>,
 }
 
 impl Network {
+    /// Create a new Network with Raw mode and an empty handler list.
     pub fn new(identity: Arc<RwLock<Identity>>, dht: Dht, port: u16) -> Self {
         Self {
             identity,
@@ -170,6 +209,10 @@ impl Network {
     }
 
     /// Open an outbound stream according to the current ConnMode.
+    ///
+    /// - Raw: plain `TcpStream::connect` with a handshake timeout.
+    /// - Tor: uses the embedded Arti client to build a Tor circuit.
+    /// - I2p: SOCKS5 connect through the local I2P router at port 4447.
     async fn open_stream(&self, addr: SocketAddr) -> Result<PeerStream> {
         match *self.conn_mode.read().await {
             ConnMode::Raw => {
@@ -182,6 +225,7 @@ impl Network {
                 Ok(Box::new(stream))
             }
             ConnMode::Tor => {
+                // The Tor client must be bootstrapped before we can make connections.
                 let guard = self.tor_client.lock().await;
                 let tor = guard.as_ref().ok_or_else(|| P2pError::Network(
                     std::io::Error::new(
@@ -206,6 +250,7 @@ impl Network {
                 Ok(Box::new(stream))
             }
             ConnMode::I2p => {
+                // Connect to the target via the I2P SOCKS5 proxy.
                 let proxy = SocketAddr::from(([127, 0, 0, 1], I2P_SOCKS5_PORT));
                 tracing::debug!("network: routing {} through I2P SOCKS5 proxy", addr);
                 let socks = time::timeout(
@@ -243,7 +288,8 @@ impl Network {
         const REQUEST: &str =
             "GET / HTTP/1.1\r\nHost: checkip.amazonaws.com\r\nConnection: close\r\n\r\n";
 
-        // Extract the IP from a raw HTTP response.  The body is plain text: "1.2.3.4\n".
+        /// Extract the IP from a raw HTTP response.  The body is plain text: "1.2.3.4\n".
+        /// Splits on the blank line separating headers from body.
         fn parse_ip(buf: &[u8]) -> Option<String> {
             let text = std::str::from_utf8(buf).ok()?;
             let body = if let Some(idx) = text.find("\r\n\r\n") {
@@ -299,7 +345,7 @@ impl Network {
                     .await;
                     let mut stream = match stream_res {
                         Ok(Ok(s)) => s,
-                        _ => continue,
+                        _ => continue,  // try the next resolved address
                     };
                     if stream.write_all(REQUEST.as_bytes()).await.is_err() {
                         continue;
@@ -317,18 +363,24 @@ impl Network {
         }
     }
 
+    /// Attach a `PostStore` so recent posts are included in Hello payloads.
     pub fn set_post_store(&mut self, ps: PostStore) {
         self.post_store = Some(ps);
     }
 
+    /// Attach the IPC broadcaster for pushing `peers_updated` events.
     pub fn set_ipc(&mut self, ipc: IpcBroadcaster) {
         self.ipc = Some(ipc);
     }
 
+    /// Register a message handler.  All handlers are called (in order) for
+    /// every inbound message after the handshake.
     pub async fn on_message(&self, handler: MessageHandler) {
         self.handlers.write().await.push(handler);
     }
 
+    /// Start the TCP listener on `0.0.0.0:{port}`.
+    /// Inbound connections are handled in spawned tasks so accept() never blocks.
     pub async fn listen(&self) -> Result<()> {
         let addr = SocketAddr::from(([0, 0, 0, 0], self.port));
         let listener = TcpListener::bind(addr).await?;
@@ -340,6 +392,7 @@ impl Network {
                     Ok((stream, peer_addr)) => {
                         let net2 = net.clone();
                         tokio::spawn(async move {
+                            // Box the stream to erase the TcpStream type.
                             let boxed: PeerStream = Box::new(stream);
                             if let Err(e) = net2.handle_connection(boxed, peer_addr).await {
                                 tracing::warn!("connection from {} error: {}", peer_addr, e);
@@ -353,6 +406,8 @@ impl Network {
         Ok(())
     }
 
+    /// Spawn a task that reads from `rx` and calls `dial()` for each discovered address.
+    /// Each dial is spawned independently so a slow dial doesn't block others.
     pub fn spawn_dialer(&self, mut rx: mpsc::Receiver<DiscoveredAddr>) {
         let net = self.clone();
         tokio::spawn(async move {
@@ -367,30 +422,39 @@ impl Network {
         });
     }
 
+    /// Open a connection to `addr`, perform the handshake, and enter the
+    /// message-receive loop.
     pub async fn dial(&self, addr: SocketAddr) -> Result<()> {
         let stream = self.open_stream(addr).await?;
         tracing::info!("network: outbound connection to {} ({})", addr, self.conn_mode.read().await);
         self.handle_connection(stream, addr).await
     }
 
+    /// Send a single wire message to the peer with the given pubkey.
+    ///
+    /// Opens a fresh connection, sends our Hello (so the peer updates their
+    /// DHT entry for us), sends the message, then reads the peer's Hello back
+    /// before closing.
+    ///
+    /// **Why we read the Hello back:**
+    /// If we close the stream with unread data in our receive buffer, the OS
+    /// sends a TCP RST instead of a graceful FIN.  The peer receives that RST
+    /// and tears down the connection before reading our message, causing
+    /// intermittent delivery failures.  Reading the Hello back also lets us
+    /// pick up any gossip the peer has (keeping their DHT entry fresh).
     pub async fn send_to_pubkey(&self, pubkey: &str, msg: WireMessage) -> Result<()> {
         let peer = self.dht.get(pubkey).await
             .ok_or_else(|| P2pError::PeerNotFound(pubkey[..8.min(pubkey.len())].to_string()))?;
 
         let mut stream = self.open_stream(peer.addr).await?;
 
+        // Send our Hello first so the remote knows who we are.
         let hello = self.build_hello().await?;
         write_frame(&mut stream, &WireMessage::Hello(hello)).await?;
         write_frame(&mut stream, &msg).await?;
         stream.flush().await?;
-        // Read and process the server's Hello before closing. The server always
-        // writes its Hello first in handle_connection. If we drop the stream
-        // with unread data still in our receive buffer, the OS sends a TCP RST
-        // instead of a graceful FIN. The server receives that RST and tears
-        // down the connection before it has a chance to read our message —
-        // causing intermittent DM and broadcast delivery failures. Processing
-        // the Hello also lets us pick up gossip and keeps the peer fresh in the
-        // DHT so it isn't evicted before the next discovery cycle.
+
+        // Read and discard the server's Hello to allow a graceful TCP close.
         if let Ok(Ok(WireMessage::Hello(their_hello))) =
             time::timeout(HANDSHAKE_TIMEOUT, read_frame(&mut stream)).await
         {
@@ -400,6 +464,8 @@ impl Network {
         Ok(())
     }
 
+    /// Fan out a message to all currently-known peers.
+    /// Each send is spawned in its own task so a slow peer doesn't block others.
     pub async fn broadcast(&self, msg: WireMessage) {
         let peers = self.dht.peers().await;
         for peer in peers {
@@ -413,14 +479,26 @@ impl Network {
         }
     }
 
+    // ── Internal connection handling ──────────────────────────────────────────
+
+    /// Handle a single peer connection (inbound or outbound).
+    ///
+    /// Protocol:
+    ///  1. Send our Hello immediately.
+    ///  2. Wait up to `HANDSHAKE_TIMEOUT` for the peer's Hello.
+    ///  3. Verify the Hello signature and insert/update the peer in the DHT.
+    ///  4. Loop: read frames, touch the peer's `last_seen`, dispatch to handlers.
     async fn handle_connection(&self, mut stream: PeerStream, peer_addr: SocketAddr) -> Result<()> {
+        // Step 1: Send our Hello.
         let hello = self.build_hello().await?;
         write_frame(&mut stream, &WireMessage::Hello(hello)).await?;
 
+        // Step 2: Receive the peer's Hello with a timeout.
         let their_hello = time::timeout(HANDSHAKE_TIMEOUT, read_frame(&mut stream))
             .await
             .map_err(|_| P2pError::Network(std::io::Error::new(std::io::ErrorKind::TimedOut, "handshake timed out")))??;
 
+        // Step 3: Verify and process the Hello.
         let peer_pubkey = match their_hello {
             WireMessage::Hello(ref h) => {
                 self.process_hello(h, peer_addr).await?;
@@ -431,25 +509,38 @@ impl Network {
             ))),
         };
 
+        // Step 4: Message receive loop.
         loop {
             match read_frame(&mut stream).await {
                 Ok(msg) => {
+                    // Update last_seen so this peer isn't evicted while we're talking.
                     self.dht.touch(&peer_pubkey).await;
+                    // For DMs: send an Ack so the sender knows the frame was received.
                     if let WireMessage::DirectMessage(ref dm) = msg {
                         let ack = WireMessage::Ack { message_id: dm.message_id.clone() };
                         let _ = write_frame(&mut stream, &ack).await;
                     }
+                    // Dispatch to all registered handlers (e.g. the Messenger).
                     self.dispatch(msg, peer_addr).await;
                 }
                 Err(e) => {
                     tracing::debug!("connection to {} closed: {}", peer_addr, e);
-                    break;
+                    break;  // EOF or read error — peer disconnected
                 }
             }
         }
         Ok(())
     }
 
+    /// Build a Hello payload for the current identity.
+    ///
+    /// Includes:
+    ///  - Our Ed25519 public key and X25519 public key.
+    ///  - A timestamp + signature (so the receiver can verify freshness and
+    ///    that the Hello is genuine).
+    ///  - Our known peer list (for gossip propagation).
+    ///  - Up to 50 recent posts and 200 recent comments (24h gossip window).
+    ///  - Our username, avatar, and bio.
     async fn build_hello(&self) -> Result<HelloPayload> {
         let identity = self.identity.read().await;
         let timestamp = Utc::now();
@@ -460,6 +551,8 @@ impl Network {
         let avatar = identity.avatar.clone();
         let bio = identity.bio.clone();
 
+        // Sign (pubkey || x25519_pubkey || timestamp) so the receiver can verify
+        // the Hello is genuine and freshly created.
         let to_sign = format!("{}{}{}", sender_pubkey, sender_x25519_pubkey, timestamp.to_rfc3339());
         let sig: ed25519_dalek::Signature = identity.signing_key.sign(to_sign.as_bytes());
 
@@ -488,7 +581,17 @@ impl Network {
         })
     }
 
+    /// Process an inbound Hello payload.
+    ///
+    ///  1. Reject Hellos with stale timestamps (anti-replay).
+    ///  2. Verify the Ed25519 signature.
+    ///  3. Upsert the sender into the DHT (updates address + profile data).
+    ///  4. Merge the sender's known-peers list into our DHT (gossip).
+    ///  5. Dispatch any gossiped posts and comments through the message handler
+    ///     so the post store picks them up.
+    ///  6. Notify IPC clients that the peer list changed.
     async fn process_hello(&self, hello: &HelloPayload, peer_addr: SocketAddr) -> Result<()> {
+        // Check timestamp freshness.
         let age = Utc::now()
             .signed_duration_since(hello.timestamp)
             .to_std()
@@ -497,6 +600,7 @@ impl Network {
             return Err(P2pError::MessageExpired);
         }
 
+        // Verify Ed25519 signature.
         let vk = crate::identity::verifying_key_from_b64(&hello.sender_pubkey)?;
         let sig_bytes = B64.decode(&hello.signature).map_err(|_| P2pError::InvalidSignature)?;
         let sig_arr: [u8; 64] = sig_bytes.try_into().map_err(|_| P2pError::InvalidSignature)?;
@@ -507,12 +611,15 @@ impl Network {
 
         tracing::info!("network: handshake OK with {} @ {}", &hello.sender_pubkey[..8], peer_addr);
 
+        // Use DEFAULT_PORT for the peer's listen address, not the ephemeral
+        // source port on the incoming connection.
         let listen_addr = SocketAddr::new(peer_addr.ip(), DEFAULT_PORT);
         self.dht.upsert(listen_addr, hello.sender_pubkey.clone(), crate::types::DiscoveryMethod::Gossip, hello.username.clone(), hello.avatar.clone(), hello.bio.clone(), Some(hello.sender_x25519_pubkey.clone())).await;
+        // Merge the sender's peer list into ours (network-wide gossip).
         self.dht.merge_gossip(hello.known_peers.clone()).await;
 
-        // Dispatch any gossiped posts through the message handler so the post
-        // store picks them up (messenger.handle_broadcast deduplicates).
+        // Dispatch gossiped posts through the message handler so the post
+        // store picks them up (messenger.handle_broadcast deduplicates them).
         for post in &hello.recent_posts {
             self.dispatch(WireMessage::Broadcast(post.clone()), peer_addr).await;
         }
@@ -521,7 +628,7 @@ impl Network {
             self.dispatch(WireMessage::Comment(comment.clone()), peer_addr).await;
         }
 
-        // Notify IPC clients that peer list changed.
+        // Notify IPC clients that peer list changed so the front-end updates.
         if let Some(ref ipc) = self.ipc {
             let peers = self.dht.peers().await;
             let _ = ipc.send(crate::types::IpcEvent {
@@ -533,6 +640,7 @@ impl Network {
         Ok(())
     }
 
+    /// Call all registered message handlers for a given inbound message.
     async fn dispatch(&self, msg: WireMessage, from: SocketAddr) {
         let handlers = self.handlers.read().await;
         for handler in handlers.iter() {
@@ -541,17 +649,31 @@ impl Network {
     }
 }
 
+// ── Wire framing ──────────────────────────────────────────────────────────────
+
+/// Serialise `msg` to JSON and write it as a length-prefixed frame.
+///
+/// Frame format: `[4-byte big-endian length][JSON bytes]`
+///
+/// The length prefix lets the reader know exactly how many bytes to read
+/// for the next message without needing a delimiter.
 pub async fn write_frame<W: AsyncWriteExt + Unpin>(writer: &mut W, msg: &WireMessage) -> Result<()> {
     let json = serde_json::to_vec(msg)?;
     let len = json.len() as u32;
     if len > MAX_FRAME_LEN {
         return Err(P2pError::Network(std::io::Error::new(std::io::ErrorKind::InvalidData, "message too large")));
     }
+    // Write the 4-byte length header, then the JSON body.
     writer.write_all(&len.to_be_bytes()).await?;
     writer.write_all(&json).await?;
     Ok(())
 }
 
+/// Read a single length-prefixed frame from `reader` and deserialise it.
+///
+/// Reads 4 bytes for the length, then exactly that many bytes for the body.
+/// Returns an error if the frame is larger than `MAX_FRAME_LEN` (to prevent
+/// memory exhaustion from a malicious peer sending a huge length value).
 pub async fn read_frame<R: AsyncReadExt + Unpin>(reader: &mut R) -> Result<WireMessage> {
     let mut len_buf = [0u8; 4];
     reader.read_exact(&mut len_buf).await?;

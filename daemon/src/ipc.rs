@@ -1,6 +1,23 @@
 //! IPC server: local TCP on port 7779.
 //!
-//! Methods:
+//! ## Protocol
+//! The IPC server speaks line-delimited JSON over a plain TCP socket bound to
+//! localhost (127.0.0.1).  Each line is a self-contained JSON object:
+//!
+//! **Request** (client → daemon):
+//!   `{ "id": <number>, "method": "<name>", "params": { … } }`
+//!
+//! **Response** (daemon → client):
+//!   `{ "id": <number>, "result": <any> | null, "error": "<string>" | null }`
+//!
+//! **Event** (daemon → client, unsolicited):
+//!   `{ "event": "<name>", "data": { … } }`
+//!
+//! The Electron front-end holds a single persistent TCP connection to this port.
+//! All renderer IPC calls are multiplexed over that one connection using the `id`
+//! field for response correlation.
+//!
+//! ## Methods
 //!   whoami                 → { pubkey, fingerprint, username, account_name }
 //!   peers                  → [Peer, ...]
 //!   send_dm                → params: { recipient, content, image? }
@@ -38,41 +55,62 @@ use crate::{
     types::{IpcEvent, IpcRequest, IpcResponse},
 };
 
+/// Default port the IPC server listens on.  Only accessible from localhost.
 pub const DEFAULT_IPC_PORT: u16 = 7779;
 
+/// Cheap clone-able handle for broadcasting unsolicited events to all
+/// connected IPC clients (e.g. "new message", "peer list changed").
 #[derive(Clone)]
 pub struct IpcBroadcaster {
     tx: broadcast::Sender<IpcEvent>,
 }
 
 impl IpcBroadcaster {
+    /// Send an event to all current IPC subscribers.
+    /// Returns `true` if at least one receiver got the message.
     pub fn send(&self, event: IpcEvent) -> bool { self.tx.send(event).is_ok() }
 }
 
+/// The IPC server.  One instance per daemon, runs a `TcpListener` on localhost
+/// and spawns a task per connected client.
 pub struct IpcServer {
     port: u16,
+    /// Shared identity — read for `whoami`, written for `set_username`, etc.
     identity: Arc<RwLock<Identity>>,
+    /// Peer table — read for `peers`, used in `send_dm` to resolve recipients.
     dht: Dht,
+    /// Messaging layer — used for send_dm, broadcast, like, comment.
     messenger: Messenger,
+    /// Network layer — used for `connect` and connection-mode commands.
     network: Network,
+    /// Used to push events to all connected clients.
     broadcaster: IpcBroadcaster,
+    /// Receiver end of the event channel — cloned for each new client connection.
     event_rx: broadcast::Receiver<IpcEvent>,
 }
 
 impl IpcServer {
+    /// Construct an IPC server and return it together with the `IpcBroadcaster`
+    /// handle (so the rest of the daemon can push events into connected clients).
     pub fn new(port: u16, identity: Arc<RwLock<Identity>>, dht: Dht, messenger: Messenger, network: Network) -> (Self, IpcBroadcaster) {
+        // broadcast::channel(256) creates a multi-producer multi-consumer channel
+        // with a buffer of 256 events before the oldest gets dropped.
         let (tx, event_rx) = broadcast::channel(256);
         let broadcaster = IpcBroadcaster { tx };
         let server = Self { port, identity, dht, messenger, network, broadcaster: broadcaster.clone(), event_rx };
         (server, broadcaster)
     }
 
+    /// Bind the TCP listener and accept connections in a loop.
+    /// Each accepted connection is handled in its own spawned task.
     pub async fn listen(self) {
         let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
         let listener = match TcpListener::bind(addr).await {
             Ok(l) => { tracing::info!("IPC: listening on {}", addr); l }
             Err(e) => { tracing::error!("IPC: failed to bind {}: {}", addr, e); return; }
         };
+        // Wrap in Arc so we can share the immutable server state across tasks
+        // without cloning the full struct.
         let server = Arc::new(self);
         loop {
             match listener.accept().await {
@@ -82,9 +120,18 @@ impl IpcServer {
         }
     }
 
+    /// Handle one connected IPC client.
+    ///
+    /// Runs a `tokio::select!` loop with two branches:
+    ///  - **line from client**: parse as `IpcRequest`, dispatch, write response.
+    ///  - **event from broadcaster**: write the event to the client.
+    ///
+    /// The loop exits when either the client disconnects (line read returns None)
+    /// or a write fails.
     async fn handle_client(self: Arc<Self>, stream: tokio::net::TcpStream) {
         let (read_half, mut write_half) = stream.into_split();
         let mut lines = BufReader::new(read_half).lines();
+        // Subscribe to the broadcaster — every client gets its own receiver.
         let mut events = self.broadcaster.tx.subscribe();
         loop {
             tokio::select! {
@@ -93,10 +140,10 @@ impl IpcServer {
                         Ok(Some(raw)) => {
                             let resp = self.handle_request(&raw).await;
                             let mut out = serde_json::to_string(&resp).unwrap_or_default();
-                            out.push('\n');
+                            out.push('\n'); // newline delimiter for the client's line reader
                             if write_half.write_all(out.as_bytes()).await.is_err() { break; }
                         }
-                        _ => break,
+                        _ => break, // EOF or read error — client disconnected
                     }
                 }
                 event = events.recv() => {
@@ -105,11 +152,15 @@ impl IpcServer {
                         out.push('\n');
                         if write_half.write_all(out.as_bytes()).await.is_err() { break; }
                     }
+                    // Lagged (buffer overflow) errors are silently ignored —
+                    // the client just misses some events, which is acceptable.
                 }
             }
         }
     }
 
+    /// Parse and dispatch an incoming JSON request line.
+    /// Returns an `IpcResponse` that will be serialised and written back.
     async fn handle_request(&self, raw: &str) -> IpcResponse {
         let req: IpcRequest = match serde_json::from_str(raw) {
             Ok(r) => r,
@@ -118,6 +169,8 @@ impl IpcServer {
         let id = req.id;
 
         match req.method.as_str() {
+            // ── whoami ───────────────────────────────────────────────────────
+            // Return the current identity's public key, fingerprint, and profile.
             "whoami" => {
                 let identity = self.identity.read().await;
                 IpcResponse { id, result: Some(json!({
@@ -129,14 +182,22 @@ impl IpcServer {
                     "bio": identity.bio,
                 })), error: None }
             }
+            // ── peers ────────────────────────────────────────────────────────
+            // Return a snapshot of the DHT peer table.
             "peers" => {
                 let peers = self.dht.peers().await;
                 IpcResponse { id, result: Some(serde_json::to_value(&peers).unwrap_or_default()), error: None }
             }
+            // ── send_dm ──────────────────────────────────────────────────────
+            // Encrypt and send a direct message to a peer.
+            // `recipient` is either a full pubkey (base64) or a fingerprint prefix.
+            // `image` is an optional base64 data URL; only JPEG/PNG/WebP allowed.
             "send_dm" => {
                 let recipient = req.params.get("recipient").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let content = req.params.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let image = req.params.get("image").and_then(|v| v.as_str()).map(|s| s.to_string());
+                // Validate image media type before sending to avoid propagating
+                // unsupported formats to peers that may not handle them.
                 if let Some(ref img) = image {
                     let allowed = ["data:image/jpeg;base64,", "data:image/png;base64,", "data:image/webp;base64,"];
                     if !allowed.iter().any(|prefix| img.starts_with(prefix)) {
@@ -148,6 +209,11 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── broadcast ────────────────────────────────────────────────────
+            // Sign and broadcast a public post to all connected peers.
+            // Posts are gossiped for 24 hours via Hello messages.
+            // `embed_url` is an optional media embed (YouTube, Spotify, etc.)
+            // only from whitelisted domains.
             "broadcast" => {
                 let content = req.params.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let image = req.params.get("image").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -158,6 +224,7 @@ impl IpcServer {
                         return IpcResponse { id, result: None, error: Some("image must be a JPEG, PNG, or WebP data URL".into()) };
                     }
                 }
+                // Whitelist embed domains to prevent arbitrary URL embedding.
                 if let Some(ref url) = embed_url {
                     let allowed_domains = ["youtube.com", "youtu.be", "twitter.com", "x.com", "open.spotify.com", "soundcloud.com", "vimeo.com"];
                     let is_valid = url.starts_with("https://") && {
@@ -175,6 +242,9 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── like_post ────────────────────────────────────────────────────
+            // Sign and broadcast a like for a post.
+            // Returns the new total like count for the post.
             "like_post" => {
                 let post_id = req.params.get("post_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 if post_id.is_empty() {
@@ -185,6 +255,10 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── dm_history ───────────────────────────────────────────────────
+            // Return DM history from the on-disk JSONL log.
+            // Optionally filtered by peer pubkey.  Returns the most recent
+            // `limit` records (default 500).
             "dm_history" => {
                 let peer_filter = req.params.get("peer_pubkey").and_then(|v| v.as_str()).map(|s| s.to_string());
                 let limit = req.params.get("limit").and_then(|v| v.as_u64()).unwrap_or(500) as usize;
@@ -201,9 +275,13 @@ impl IpcServer {
                         }
                     }
                 }
+                // Keep only the most recent `limit` entries.
                 if out.len() > limit { let skip = out.len() - limit; out = out.split_off(skip); }
                 IpcResponse { id, result: Some(json!(out)), error: None }
             }
+            // ── posts ────────────────────────────────────────────────────────
+            // Return all known posts sorted newest-first, enriched with
+            // sender profile data from the DHT for display in the feed.
             "posts" => {
                 let mut posts = self.messenger.post_store().all_posts().await;
                 posts.sort_by(|a, b| b.payload.timestamp.cmp(&a.payload.timestamp));
@@ -213,10 +291,13 @@ impl IpcServer {
                 };
                 let mut value: Vec<serde_json::Value> = Vec::with_capacity(posts.len());
                 for p in &posts {
+                    // Compute a human-readable fingerprint for each post's sender.
                     let fp = crate::identity::pubkey_fingerprint(
                         &base64::engine::general_purpose::STANDARD.decode(&p.payload.sender_pubkey).unwrap_or_default()
                     );
                     let is_own = p.payload.sender_pubkey == own_pubkey;
+                    // Fetch sender profile: use our own identity for our posts,
+                    // otherwise look up the DHT for the sender's username/avatar.
                     let (sender_username, sender_avatar) = if is_own {
                         (own_username.clone(), own_avatar.clone())
                     } else {
@@ -241,6 +322,10 @@ impl IpcServer {
                 }
                 IpcResponse { id, result: Some(json!(value)), error: None }
             }
+            // ── set_username ─────────────────────────────────────────────────
+            // Update the display username for the current identity.
+            // Persists to disk and broadcasts a `username_changed` event so
+            // connected clients can update their UI immediately.
             "set_username" => {
                 let username = req.params.get("username").and_then(|v| v.as_str()).map(|s| s.to_string());
                 {
@@ -253,6 +338,9 @@ impl IpcServer {
                 self.broadcaster.send(IpcEvent { event: "username_changed".into(), data: json!({ "username": username }) });
                 IpcResponse { id, result: Some(json!({"ok": true, "username": username})), error: None }
             }
+            // ── set_avatar ───────────────────────────────────────────────────
+            // Update the avatar for the current identity.
+            // Accepts a base64 data URL (JPEG/PNG/WebP only) or null to clear.
             "set_avatar" => {
                 // avatar param is either a base64 data URL string or null/missing to clear
                 let avatar = match req.params.get("avatar") {
@@ -276,6 +364,9 @@ impl IpcServer {
                 self.broadcaster.send(IpcEvent { event: "avatar_changed".into(), data: json!({ "avatar": avatar }) });
                 IpcResponse { id, result: Some(json!({"ok": true})), error: None }
             }
+            // ── set_bio ──────────────────────────────────────────────────────
+            // Update the bio string for the current identity.
+            // Server-side truncation to 500 chars as a safety net.
             "set_bio" => {
                 let bio = match req.params.get("bio") {
                     Some(v) if v.is_string() => v.as_str().map(|s| {
@@ -295,6 +386,9 @@ impl IpcServer {
                 self.broadcaster.send(IpcEvent { event: "bio_changed".into(), data: json!({ "bio": bio }) });
                 IpcResponse { id, result: Some(json!({"ok": true})), error: None }
             }
+            // ── connect ──────────────────────────────────────────────────────
+            // Manually dial a peer at the given host:port.
+            // The dial happens in a background task so this returns immediately.
             "connect" => {
                 let addr_str = req.params.get("addr").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 use std::net::ToSocketAddrs;
@@ -311,12 +405,16 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── list_identities ──────────────────────────────────────────────
+            // List all saved identities (account names, usernames, fingerprints).
             "list_identities" => {
                 match Identity::list_identities() {
                     Ok(list) => IpcResponse { id, result: Some(serde_json::to_value(&list).unwrap_or_default()), error: None },
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── create_identity ──────────────────────────────────────────────
+            // Create a new identity (generates a new keypair) without switching to it.
             "create_identity" => {
                 let account_name = req.params.get("account_name").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let username = req.params.get("username").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -343,6 +441,10 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── switch_identity ──────────────────────────────────────────────
+            // Hot-swap the active identity: load the new keys and profile into
+            // the shared `Arc<RwLock<Identity>>` so all subsystems pick them up
+            // immediately without restarting the daemon.
             "switch_identity" => {
                 let account_name = req.params.get("account_name").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 if account_name.is_empty() {
@@ -350,7 +452,8 @@ impl IpcServer {
                 }
                 match Identity::switch_to(&account_name) {
                     Ok(new_id) => {
-                        // Update the shared identity in place
+                        // Update the shared identity in place — atomic because we
+                        // hold the write lock for the whole update.
                         let mut identity = self.identity.write().await;
                         identity.signing_key = new_id.signing_key;
                         identity.verifying_key = new_id.verifying_key;
@@ -369,6 +472,8 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── delete_identity ──────────────────────────────────────────────
+            // Delete a saved identity.  Refuses to delete the active one.
             "delete_identity" => {
                 let account_name = req.params.get("account_name").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 match Identity::delete_named(&account_name) {
@@ -417,10 +522,12 @@ impl IpcServer {
                             data:  json!({ "status": "ready" }),
                         });
                     } else {
+                        // Immediately notify the front-end that bootstrap has started.
                         bc.send(IpcEvent {
                             event: "tor_status".into(),
                             data:  json!({ "status": "bootstrapping" }),
                         });
+                        // Run the potentially-slow bootstrap in the background.
                         tokio::spawn(async move {
                             match net.bootstrap_tor().await {
                                 Ok(()) => {
@@ -444,15 +551,18 @@ impl IpcServer {
                 self.network.set_conn_mode(mode).await;
                 IpcResponse { id, result: Some(json!({ "ok": true, "type": type_str })), error: None }
             }
+            // ── get_conn_type ────────────────────────────────────────────────
+            // Return the current connection mode string.
             "get_conn_type" => {
                 let type_str = self.network.get_conn_mode().await.as_str();
                 IpcResponse { id, result: Some(json!({ "type": type_str })), error: None }
             }
 
+            // ── get_local_ip ─────────────────────────────────────────────────
+            // Determine the outbound local IP by "connecting" a UDP socket to a
+            // public address (no packets are sent — this just lets the OS pick the
+            // right interface and reports back which local IP it chose).
             "get_local_ip" => {
-                // Determine the outbound local IP by "connecting" a UDP socket to a
-                // public address (no packets are sent — this just lets the OS pick the
-                // right interface and reports back which local IP it chose).
                 let ip = std::net::UdpSocket::bind("0.0.0.0:0")
                     .and_then(|s| { s.connect("8.8.8.8:80")?; s.local_addr() })
                     .map(|a| a.ip().to_string())
@@ -460,14 +570,18 @@ impl IpcServer {
                 IpcResponse { id, result: Some(json!({ "ip": ip })), error: None }
             }
 
+            // ── get_public_ip ────────────────────────────────────────────────
+            // Fetch the current exit IP via whichever connection mode is active.
+            // In Tor mode this goes through the Tor circuit, so the returned
+            // address is the exit-node IP, not the user's real IP.
             "get_public_ip" => {
-                // Fetch the current exit IP via whichever connection mode is active.
-                // In Tor mode this goes through the Tor circuit, so the returned
-                // address is the exit-node IP, not the user's real IP.
                 let ip = self.network.get_public_ip().await;
                 IpcResponse { id, result: Some(json!({ "ip": ip })), error: None }
             }
 
+            // ── comment_post ─────────────────────────────────────────────────
+            // Post a comment on an existing broadcast.
+            // Requires either content, an image, or both.
             "comment_post" => {
                 let post_id = req.params.get("post_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let content = req.params.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -489,6 +603,8 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── like_comment ─────────────────────────────────────────────────
+            // Like a specific comment.  Requires both comment_id and post_id.
             "like_comment" => {
                 let comment_id = req.params.get("comment_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 let post_id = req.params.get("post_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -500,6 +616,9 @@ impl IpcServer {
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
             }
+            // ── get_comments ─────────────────────────────────────────────────
+            // Return all comments for a post, sorted by like count descending.
+            // Enriches each comment with sender profile data from the DHT.
             "get_comments" => {
                 let post_id = req.params.get("post_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
                 if post_id.is_empty() {
@@ -518,6 +637,8 @@ impl IpcServer {
                                 &base64::engine::general_purpose::STANDARD.decode(&c.payload.sender_pubkey).unwrap_or_default()
                             );
                             let is_own = c.payload.sender_pubkey == own_pubkey;
+                            // Fetch profile from our own identity if it's our comment,
+                            // otherwise from the DHT.
                             let (sender_username, sender_avatar) = if is_own {
                                 (own_username.clone(), own_avatar.clone())
                             } else {
@@ -538,7 +659,7 @@ impl IpcServer {
                                 "is_own": is_own,
                             }));
                         }
-                        // Sort by like count descending
+                        // Sort by like count descending so popular comments float to the top
                         comments_json.sort_by(|a, b| {
                             let ca = a["like_count"].as_u64().unwrap_or(0);
                             let cb = b["like_count"].as_u64().unwrap_or(0);
