@@ -80,6 +80,11 @@ pub struct PostStore {
     path: PathBuf,
 }
 
+/// Default maximum number of broadcast posts held in memory.
+/// The frontend sends `set_post_limit` immediately on connect, so this value
+/// is only active for the brief window before the frontend connects.
+const DEFAULT_POST_LIMIT: usize = 50;
+
 /// The actual mutable data, guarded by an async RwLock.
 struct PostStoreInner {
     /// post_id → StoredPost
@@ -88,6 +93,9 @@ struct PostStoreInner {
     seen: HashSet<String>,
     /// Set of comment_ids we've already seen.
     seen_comments: HashSet<String>,
+    /// Maximum number of posts to store.  Posts arriving after the limit is
+    /// reached are added to `seen` (so we do not relay them) but not to `posts`.
+    post_limit: usize,
 }
 
 impl PostStore {
@@ -102,7 +110,7 @@ impl PostStore {
             .flat_map(|p| p.comments.iter().map(|c| c.payload.comment_id.clone()))
             .collect();
         let store = Self {
-            inner: Arc::new(RwLock::new(PostStoreInner { posts, seen, seen_comments })),
+            inner: Arc::new(RwLock::new(PostStoreInner { posts, seen, seen_comments, post_limit: DEFAULT_POST_LIMIT })),
             path,
         };
         store.spawn_eviction();
@@ -110,14 +118,29 @@ impl PostStore {
     }
 
     /// Insert a new post. Returns `true` if this is a new (unseen) post,
-    /// `false` if it was already in our store (duplicate).
+    /// `false` if it was already in our store or was rejected by the post limit.
+    ///
+    /// When the store is at `post_limit` capacity, the post_id is still added
+    /// to `seen` so that we neither store nor relay the post.  This ensures
+    /// that a post exceeding the limit does not propagate through this node.
     pub async fn insert(&self, payload: BroadcastPayload) -> bool {
         let mut inner = self.inner.write().await;
-        // Check `seen` before inserting to deduplicate.
+        // Deduplicate: if we have seen this post before, ignore it.
         if inner.seen.contains(&payload.message_id) { return false; }
+        // Enforce post limit: mark as seen (suppresses relay) but do not store.
+        if inner.posts.len() >= inner.post_limit {
+            inner.seen.insert(payload.message_id.clone());
+            return false;
+        }
         inner.seen.insert(payload.message_id.clone());
         inner.posts.insert(payload.message_id.clone(), StoredPost { payload, likes: vec![], comments: vec![] });
         true
+    }
+
+    /// Update the maximum number of posts to keep.  Takes effect immediately
+    /// for all subsequent `insert` calls; existing posts are not evicted.
+    pub async fn set_post_limit(&self, limit: usize) {
+        self.inner.write().await.post_limit = limit;
     }
 
     /// Insert a new comment. Returns `(is_new, post_author_pubkey)`.

@@ -154,7 +154,17 @@ function handleDaemonEvent(ev) {
     case 'like_update': {
       const d = ev.data;
       const post = posts.find(p => p.post_id === d.post_id);
-      if (post) { post.like_count = d.like_count; renderFeed(); }
+      if (post) {
+        post.like_count = d.like_count;
+        // Keep post.likes in sync so the scoring algorithm has liker identity data
+        // without needing a full refreshPosts() call.
+        if (!Array.isArray(post.likes)) post.likes = [];
+        if (d.liker_pubkey && !post.likes.some(l => l.liker_pubkey === d.liker_pubkey)) {
+          post.likes.push({ liker_pubkey: d.liker_pubkey, liker_username: d.liker_username || null });
+        }
+        renderFeed();
+        renderFollowingFeed();
+      }
       break;
     }
 

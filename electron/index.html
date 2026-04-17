@@ -173,6 +173,18 @@
       <div id="feed-header">
         <h2 id="feed-title">📢 Public Feed</h2>
         <span class="feed-hint" id="feed-hint">Posts propagate for 24h</span>
+        <button class="btn-sm" onclick="refreshPosts()" title="Reload feed from daemon">↺ Refresh</button>
+        <div class="post-limit-wrap">
+          <button class="btn-sm post-limit-btn" id="post-limit-btn" onclick="togglePostLimitDropdown(event)" title="Max posts loaded into feed">📊 <span id="post-limit-label">50</span></button>
+          <div class="post-limit-dropdown" id="post-limit-dropdown">
+            <div class="post-limit-label">Max posts in feed</div>
+            <button class="post-limit-item" data-val="10"   onclick="selectPostLimit(10)">10</button>
+            <button class="post-limit-item" data-val="50"   onclick="selectPostLimit(50)">50</button>
+            <button class="post-limit-item" data-val="100"  onclick="selectPostLimit(100)">100</button>
+            <button class="post-limit-item" data-val="500"  onclick="selectPostLimit(500)">500</button>
+            <button class="post-limit-item post-limit-custom" onclick="openCustomLimitModal()">Custom…</button>
+          </div>
+        </div>
         <button id="ch-menu-btn" class="ch-menu-btn" onclick="toggleChannelMenu(event)" style="display:none" title="Channel options">☰</button>
         <div id="ch-dropdown" class="ch-dropdown">
           <button class="ch-dropdown-item" id="ch-follow-item" onclick="toggleFollowActiveChannel()">Follow Channel</button>
@@ -595,6 +607,18 @@
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Custom post limit modal -->
+<div class="modal-backdrop" id="custom-limit-modal">
+  <div class="modal">
+    <h3>Custom Post Limit</h3>
+    <p class="hint">Enter how many posts the daemon should load (0 – 1,000,000).</p>
+    <input type="number" id="custom-limit-input" min="0" max="1000000" step="1" placeholder="e.g. 250"/>
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeModal('custom-limit-modal')">Cancel</button>
+      <button class="btn-ok" onclick="applyCustomLimit()">Apply</button>
+    </div>
+  </div>
+</div>
 
 <!-- Scripts — loaded in dependency order; all share the global window namespace -->
 <script src="js/state.js"></script>
@@ -605,6 +629,7 @@
 <script src="js/lists.js"></script>
 <script src="js/profile.js"></script>
 <script src="js/events.js"></script>
+<script src="js/score.js"></script>
 <script src="js/render.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/comments.js"></script>

@@ -75,6 +75,9 @@ let pendingAvatarDataUrl = null;
 // Pending images for post and DM composers
 let pendingPostImage = null;
 let pendingDmImage = null;
+// Maximum posts the daemon should store/relay (synced to daemon on init).
+// Persisted in localStorage so the preference survives page reloads.
+let postLimit = Number(localStorage.getItem('agora_post_limit')) || 50;
 // Pending embed URL auto-detected from post compose text
 let pendingEmbedUrl = null;
 // True when the user has explicitly dismissed the embed preview for the current draft
@@ -126,6 +129,8 @@ async function init() {
   setConnected(true);
   // Push the persisted connection mode to the daemon so it routes correctly
   await window.agora.request('set_conn_type', { type: connType });
+  // Push the persisted post limit so the daemon enforces it immediately
+  await window.agora.request('set_post_limit', { limit: postLimit });
   // Auto-reconnect WireGuard/OpenVPN if a saved config exists
   if (VPN_TYPES.includes(connType) && window.agora?.vpnStart) {
     const saved = getStoredVpnConfig(connType);

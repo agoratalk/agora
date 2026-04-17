@@ -544,6 +544,10 @@ function obInitAvatarPicker() {
  * starts the onboarding wizard if this is the first run.
  */
 document.addEventListener('DOMContentLoaded', async () => {
+  // Seed the post-limit button label from the persisted preference
+  const limitLabel = document.getElementById('post-limit-label');
+  if (limitLabel) limitLabel.textContent = postLimit;
+
   // Auto-resize textareas
   ['msg-input', 'post-input'].forEach(id => {
     const ta = document.getElementById(id);
@@ -653,6 +657,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initVpnModal();
   // Keyboard shortcuts inside onboarding steps
   document.getElementById('ob-bootstrap-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') obBootstrapNext(); });
+  document.getElementById('custom-limit-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') applyCustomLimit(); });
   document.getElementById('ob-username-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') obSaveUsername(); });
   document.getElementById('ob-first-post')?.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') obPublishFirstPost(); });
   await init();

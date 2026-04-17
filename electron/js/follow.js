@@ -537,9 +537,11 @@ function renderFollowingFeed() {
       list.innerHTML = '<div class="feed-empty">No posts from people or channels you follow yet.</div>';
       return;
     }
-    const sorted = [...arr].sort((a, b) =>
-      (new Date(b?.timestamp || 0).getTime() || 0) - (new Date(a?.timestamp || 0).getTime() || 0)
-    );
+    // Sort by ranking score descending, same algorithm as the public feed.
+    const scored = arr.map(p => ({ p, score: scorePost(p) }));
+    scored.sort((a, b) => b.score - a.score);
+    const sorted = scored.map(x => x.p);
+    const scoreMap = Object.fromEntries(scored.map(x => [x.p.post_id, x.score]));
     list.innerHTML = sorted.map(p => {
       if (!p || typeof p !== 'object') return '';
       const postId      = String(p.post_id || '');
@@ -560,6 +562,7 @@ function renderFollowingFeed() {
       const channelTag = chParsed ? `<span class="post-channel-tag">#${escHtml(chParsed.channel)}</span>` : '';
       const imageHtml = p.image ? `<div class="post-image"><img src="${escHtml(p.image)}" alt="attached image" onclick="openImageViewer(this.src)"/></div>` : '';
       const embedHtml = p.embed_url ? renderEmbedHtml(p.embed_url) : '';
+      const scoreDisplay = Math.round(scoreMap[postId] ?? scorePost(p));
       return `<div class="post-card${isOwn ? ' own-post' : ''}" id="fw-post-${escHtml(postId)}">
         <div class="post-header">
           <div class="post-avatar${isOwn ? ' own' : ''}">${escHtml((name || '?')[0].toUpperCase())}</div>
@@ -579,6 +582,7 @@ function renderFollowingFeed() {
           <button class="comment-btn" onclick="openPostComments('${escHtml(postId)}')" title="Comments">
             💬 <span>${Number.isFinite(p.comment_count) ? p.comment_count : 0}</span>
           </button>
+          <button class="score-btn" onclick="showScoreInfo(event)" title="Ranking score — click for explanation">🧮 ${scoreDisplay}</button>
           <span class="post-id-tag">${escHtml(shortId)}</span>
         </div>
       </div>`;

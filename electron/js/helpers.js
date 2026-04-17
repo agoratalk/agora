@@ -411,3 +411,59 @@ function toast(msg, type = 'info') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.className = ''; }, 3500);
 }
+
+// ── Post limit dropdown ───────────────────────────────────────────────────────
+
+function togglePostLimitDropdown(event) {
+  event.stopPropagation();
+  const dd = document.getElementById('post-limit-dropdown');
+  if (!dd) return;
+  const isOpen = dd.classList.contains('open');
+  dd.classList.toggle('open', !isOpen);
+  if (!isOpen) {
+    // Mark the currently active option
+    dd.querySelectorAll('.post-limit-item[data-val]').forEach(btn => {
+      btn.classList.toggle('active', Number(btn.dataset.val) === postLimit);
+    });
+    // Close when clicking anywhere outside
+    setTimeout(() => {
+      document.addEventListener('click', function _close() {
+        dd.classList.remove('open');
+        document.removeEventListener('click', _close);
+      }, { once: true });
+    }, 0);
+  }
+}
+
+// Apply a numeric post limit: persist, sync to daemon, refresh feed.
+async function selectPostLimit(n) {
+  document.getElementById('post-limit-dropdown')?.classList.remove('open');
+  postLimit = n;
+  localStorage.setItem('agora_post_limit', String(n));
+  document.getElementById('post-limit-label').textContent = n;
+  if (window.agora?.request) {
+    await window.agora.request('set_post_limit', { limit: n });
+  }
+  await refreshPosts();
+  toast(`Post limit set to ${n}`, 'success');
+}
+
+function openCustomLimitModal() {
+  document.getElementById('post-limit-dropdown')?.classList.remove('open');
+  const input = document.getElementById('custom-limit-input');
+  if (input) input.value = postLimit;
+  openModal('custom-limit-modal');
+  setTimeout(() => input?.focus(), 80);
+}
+
+async function applyCustomLimit() {
+  const input = document.getElementById('custom-limit-input');
+  const raw = input?.value.trim();
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0 || n > 1_000_000 || raw !== String(n)) {
+    toast('Enter a whole number between 0 and 1,000,000', 'error');
+    return;
+  }
+  closeModal('custom-limit-modal');
+  await selectPostLimit(n);
+}

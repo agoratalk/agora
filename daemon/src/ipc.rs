@@ -28,6 +28,7 @@
 //!   get_comments           → params: { post_id }  → [] of { comment_id, post_id, sender_pubkey, sender_fingerprint, content, image?, timestamp, like_count, is_own }
 //!   posts                  → [] of { post_id, sender_pubkey, sender_fingerprint, content, image?, timestamp, like_count, comment_count, likes }
 //!   set_username           → params: { username }
+//!   set_post_limit         → params: { limit: u64 }  → { ok, limit }
 //!   connect                → params: { addr }
 //!   list_identities        → [IdentitySummary, ...]
 //!   switch_identity        → params: { account_name }  (restarts daemon internals)
@@ -668,6 +669,17 @@ impl IpcServer {
                         IpcResponse { id, result: Some(json!(comments_json)), error: None }
                     }
                 }
+            }
+
+            // ── set_post_limit ───────────────────────────────────────────────
+            // Set the maximum number of broadcast posts the daemon will store
+            // and relay.  Posts arriving after the limit is reached are silently
+            // dropped and not forwarded to other peers.  DMs are unaffected.
+            // A limit of 0 discards all incoming posts.
+            "set_post_limit" => {
+                let limit = req.params.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+                self.messenger.post_store().set_post_limit(limit).await;
+                IpcResponse { id, result: Some(json!({ "ok": true, "limit": limit })), error: None }
             }
 
             other => IpcResponse { id, result: None, error: Some(format!("unknown method: {other}")) },
