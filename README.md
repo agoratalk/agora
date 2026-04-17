@@ -170,6 +170,20 @@ decide things in the open. That's the idea. Come build it.
 
 ---
 
+## Current features
+
+Those features are currently working but they can and will be improved.
+| Feature | Notes |
+|---|---|
+| **Following and blocking, and shareable lists** | Follow users and organise them into named follow lists you can publish for others to subscribe to. Block individual users and share blocklists curated by you or imported from peers you trust. Moderation that lives with the user, not a central authority. |
+| **Channels for different topics** | Topic-scoped channels inside the public feed, so conversations can be organised without central moderators. Posts in a channel only appear in that channel; the public feed stays uncluttered. |
+| **Multilanguage support** | Full UI localisation covering a range of languages so Agora is accessible to a wider global audience without needing to read English. If a translation feels off or you are fluent in a language not yet covered, contributions are very welcome. |
+| **Group chats** | Encrypted group messaging built on top of the existing DM layer, with admin roles, invite/kick controls, and forward secrecy inherited from the per-message key exchange. |
+| **Profile pictures and richer profile metadata** | Upload an avatar and write a short bio that other peers can see when they open your profile. |
+| **A local feed algorithm** | Ranking and filtering that runs entirely on your own machine, with no remote black box deciding what you see. |
+
+---
+
 ## Features currently being worked on
 
 Everything in this list is actively being worked on right now.
@@ -178,13 +192,9 @@ Everything in this list is actively being worked on right now.
 |---|---|
 | **Secure connections that hide your IP** | Route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings. Note: this does not work yet as of writing. |
 | **Fixing all the bugs** | The ever-present one. |
-| **Following and blocking, and shareable lists** | Follow users and organise them into named follow lists you can publish for others to subscribe to. Block individual users and share blocklists curated by you or imported from peers you trust. Moderation that lives with the user, not a central authority. This feature is almost done. |
-| **Channels for different topics** | Topic-scoped channels inside the public feed, so conversations can be organised without central moderators. Posts in a channel only appear in that channel; the public feed stays uncluttered. |
-| **Multilanguage support** | Full UI localisation covering a range of languages so Agora is accessible to a wider global audience without needing to read English. If a translation feels off or you are fluent in a language not yet covered, contributions are very welcome. |
-| **Group chats** | Encrypted group messaging built on top of the existing DM layer, with admin roles, invite/kick controls, and forward secrecy inherited from the per-message key exchange. |
-| **Profile pictures and richer profile metadata** | Upload an avatar and write a short bio that other peers can see when they open your profile. |
 | **Embedding content from other platforms** | Paste a link into a post and have it rendered as a preview (video player, image, or link card) inline in the feed. |
-| **Logo design** | Agora doesn't have a logo yet. A proper identity is in progress. |
+| **Social media accounts to promote the project and Monero donation wallet** | Public accounts on major platforms to grow awareness of Agora, and a Monero wallet address for anyone who wants to support development with a private donation. If you want to help even just getting the word out would be appreciated. |
+
 
 ---
 
@@ -192,17 +202,16 @@ Everything in this list is actively being worked on right now.
 
 These are on the roadmap but not currently being worked on.
 
+
 | Feature | Notes |
 |---|---|
-| **Social media accounts to promote the project and Monero donation wallet** | Public accounts on major platforms to grow awareness of Agora, and a Monero wallet address for anyone who wants to support development with a private donation. If you want to help even just getting the word out would be appreciated. |
+| **Logo design** | Agora doesn't have a logo yet. A proper identity is in progress. |
 | **Windows desktop app** | A native `.exe` installer so Windows users can run Agora without a terminal or manual setup. A non-Electron app for performance would be good too but I would need contributors with desktop dev experience to build something good. |
 | **Linux packages** | Packaged releases for major distros (`.deb`, `.rpm`, and others) so Agora can be installed through standard system package managers. |
 | **Android app** | A native mobile client distributed as an APK so people can use Agora without needing a desktop. |
-| **A local feed algorithm** | Ranking and filtering that runs entirely on your own machine, with no remote black box deciding what you see. |
 | **Monero wallet integration for private payments** | Peer-to-peer tipping and payments between users using Monero, with no payment processor in the middle. |
 | **All the good features you are used to** | This is an extremely long-term goal, and something we probably won't see for years, but Agora will continue to develop and add more features like P2P voice calls, screen sharing, file sharing etc. |
 | **Developer friendliness** | Agora welcomes developers to create their own custom frontend, custom daemons with new features etc. |
-
 
 ## A note on pace
 
