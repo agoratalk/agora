@@ -136,13 +136,6 @@ function scorePost(post) {
 
 // ── Score info popup ──────────────────────────────────────────────────────────
 
-const SCORE_EXPLANATION = `This score is calculated just for you. It combines your relationship to the person who posted, how people interacted with the post, a bit of randomness, and how old the post is.
-
-Posts from people you're closer to (follows and mutual follows) start with a higher base. Likes and comments increase the score, and interactions from people you follow count more than those from people you don't. Comments generally boost a post more than likes.
-
-A small amount of randomness helps surface different posts, so the feed isn't always the same. Over time, all posts lose points and eventually disappear, even if they're popular.
-
-Everything is computed locally on your device, so your feed may look different from someone else's.`;
 
 /**
  * showScoreInfo(event) — toggle the ranking explanation popover.
@@ -158,7 +151,7 @@ function showScoreInfo(event) {
   const popup = document.createElement('div');
   popup.id = 'score-info-popup';
   popup.className = 'score-info-popup';
-  popup.textContent = SCORE_EXPLANATION;
+  popup.textContent = t('score_explanation');
   document.body.appendChild(popup);
 
   // Always centre on screen regardless of which post was clicked

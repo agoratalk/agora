@@ -71,6 +71,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'Drop config file here or click to browse',
     vpn_or_paste:'— or paste config below —',
     vpn_paste_ph:'Paste WireGuard .conf or OpenVPN .ovpn content…', vpn_connect:'Connect',
+    score_explanation:'This score is calculated just for you. It combines your relationship to the person who posted, how people interacted with the post, a bit of randomness, and how old the post is.\n\nPosts from people you\'re closer to (follows and mutual follows) start with a higher base. Likes and comments increase the score, and interactions from people you follow count more than those from people you don\'t. Comments generally boost a post more than likes.\n\nA small amount of randomness helps surface different posts, so the feed isn\'t always the same. Over time, all posts lose points and eventually disappear, even if they\'re popular.\n\nEverything is computed locally on your device, so your feed may look different from someone else\'s.',
   },
   es: {
     settings_title:'Configuración', settings_conn_type:'Tipo de conexión', settings_language:'Idioma',
@@ -121,6 +122,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'Arrastra el archivo aquí o haz clic',
     vpn_or_paste:'— o pega la configuración abajo —',
     vpn_paste_ph:'Pega el contenido de WireGuard .conf o OpenVPN .ovpn…', vpn_connect:'Conectar',
+    score_explanation:'Esta puntuación se calcula solo para ti. Combina tu relación con quien publicó, cómo la gente interactuó con la publicación, un poco de aleatoriedad y la antigüedad del post.\n\nLas publicaciones de personas con las que tienes más relación (seguidos y mutuos) comienzan con una base más alta. Los "me gusta" y comentarios aumentan la puntuación, y las interacciones de personas que sigues cuentan más. Los comentarios generalmente impulsan más que los "me gusta".\n\nUna pequeña aleatoriedad ayuda a mostrar publicaciones diferentes, para que el feed no sea siempre el mismo. Con el tiempo, todas las publicaciones pierden puntos y desaparecen.\n\nTodo se calcula localmente en tu dispositivo, por lo que tu feed puede verse diferente al de otros.',
   },
   fr: {
     settings_title:'Paramètres', settings_conn_type:'Type de connexion', settings_language:'Langue',
@@ -171,6 +173,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'Déposez le fichier ici ou cliquez',
     vpn_or_paste:'— ou collez la configuration ci-dessous —',
     vpn_paste_ph:'Collez le contenu WireGuard .conf ou OpenVPN .ovpn…', vpn_connect:'Connecter',
+    score_explanation:'Ce score est calculé rien que pour vous. Il combine votre relation avec l\'auteur, les interactions des autres avec le post, une part d\'aléatoire et l\'ancienneté du post.\n\nLes posts de personnes dont vous êtes plus proches (abonnements et mutuels) commencent avec une base plus élevée. Les likes et commentaires augmentent le score, et les interactions de personnes que vous suivez comptent davantage. Les commentaires boostent généralement plus que les likes.\n\nUne part d\'aléatoire aide à faire remonter des posts différents, pour que le fil ne soit pas toujours identique. Avec le temps, tous les posts perdent des points et disparaissent.\n\nTout est calculé localement sur votre appareil, donc votre fil peut être différent de celui des autres.',
   },
   de: {
     settings_title:'Einstellungen', settings_conn_type:'Verbindungstyp', settings_language:'Sprache',
@@ -221,6 +224,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'Konfigurationsdatei hier ablegen oder klicken',
     vpn_or_paste:'— oder Konfiguration unten einfügen —',
     vpn_paste_ph:'WireGuard .conf oder OpenVPN .ovpn Inhalt einfügen…', vpn_connect:'Verbinden',
+    score_explanation:'Dieser Score wird nur für dich berechnet. Er kombiniert deine Beziehung zur Person, die gepostet hat, wie andere mit dem Beitrag interagiert haben, etwas Zufall und das Alter des Beitrags.\n\nBeiträge von Personen, denen du folgst (oder die dir folgen), starten mit einer höheren Basis. Likes und Kommentare erhöhen den Score, wobei Interaktionen von gefolgten Personen mehr zählen. Kommentare steigern den Score stärker als Likes.\n\nEtwas Zufälligkeit hilft, verschiedene Beiträge zu zeigen, damit der Feed nicht immer gleich ist. Mit der Zeit verlieren alle Beiträge Punkte und verschwinden.\n\nAlles wird lokal auf deinem Gerät berechnet, daher kann dein Feed anders aussehen als der eines anderen.',
   },
   pt: {
     settings_title:'Configurações', settings_conn_type:'Tipo de conexão', settings_language:'Idioma',
@@ -271,6 +275,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'Solte o arquivo aqui ou clique',
     vpn_or_paste:'— ou cole a configuração abaixo —',
     vpn_paste_ph:'Cole o conteúdo WireGuard .conf ou OpenVPN .ovpn…', vpn_connect:'Conectar',
+    score_explanation:'Esta pontuação é calculada só para você. Combina sua relação com quem postou, como as pessoas interagiram com o post, um pouco de aleatoriedade e a idade do post.\n\nPosts de pessoas com quem você tem mais proximidade (seguidores e mútuos) começam com uma base mais alta. Curtidas e comentários aumentam a pontuação, e interações de pessoas que você segue contam mais. Comentários geralmente impulsionam mais que curtidas.\n\nUma pequena aleatoriedade ajuda a mostrar posts diferentes, para o feed não ser sempre igual. Com o tempo, todos os posts perdem pontos e desaparecem.\n\nTudo é calculado localmente no seu dispositivo, então seu feed pode parecer diferente do de outros.',
   },
   zh: {
     settings_title:'设置', settings_conn_type:'连接类型', settings_language:'语言',
@@ -321,6 +326,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'拖放配置文件或点击浏览',
     vpn_or_paste:'— 或在下方粘贴配置 —',
     vpn_paste_ph:'粘贴 WireGuard .conf 或 OpenVPN .ovpn 内容…', vpn_connect:'连接',
+    score_explanation:'此分数仅为您个人计算。它综合了您与发帖者的关系、他人与帖子的互动、一点随机性以及帖子的发布时间。\n\n来自您更亲近的人（关注和互相关注）的帖子起始分数更高。点赞和评论会提高分数，您关注的人的互动比陌生人更有分量。评论通常比点赞提升更多。\n\n少量随机性有助于呈现不同的帖子，使动态不总是相同。随着时间推移，所有帖子都会失分并最终消失。\n\n一切均在您的设备本地计算，因此您的动态可能与他人不同。',
   },
   ar: {
     settings_title:'الإعدادات', settings_conn_type:'نوع الاتصال', settings_language:'اللغة',
@@ -371,6 +377,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'أسقط ملف الإعداد هنا أو انقر للتصفح',
     vpn_or_paste:'— أو الصق الإعداد أدناه —',
     vpn_paste_ph:'الصق محتوى WireGuard .conf أو OpenVPN .ovpn…', vpn_connect:'اتصال',
+    score_explanation:'يُحسب هذا التقييم خصيصًا لك. يجمع بين علاقتك بصاحب المنشور، وتفاعل الآخرين معه، وقدر من العشوائية، وعمر المنشور.\n\nالمنشورات من أشخاص أقرب إليك (المتابَعون والمتبادَلون) تبدأ بقاعدة أعلى. الإعجابات والتعليقات ترفع التقييم، وتفاعلات من تتابعهم تُحتسب أكثر. التعليقات تعزز المنشور أكثر من الإعجابات عادةً.\n\nقدر بسيط من العشوائية يساعد على إظهار منشورات مختلفة حتى لا يكون الموجز متكررًا دائمًا. بمرور الوقت، تفقد جميع المنشورات نقاطها وتختفي.\n\nيُحسب كل شيء محليًا على جهازك، لذا قد يبدو موجزك مختلفًا عن موجز شخص آخر.',
   },
   ru: {
     settings_title:'Настройки', settings_conn_type:'Тип соединения', settings_language:'Язык',
@@ -421,6 +428,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'Перетащите файл конфигурации сюда или нажмите',
     vpn_or_paste:'— или вставьте конфигурацию ниже —',
     vpn_paste_ph:'Вставьте содержимое WireGuard .conf или OpenVPN .ovpn…', vpn_connect:'Подключить',
+    score_explanation:'Этот рейтинг рассчитывается только для вас. Он учитывает ваши отношения с автором поста, взаимодействие других с публикацией, долю случайности и возраст поста.\n\nПосты от людей, с которыми вы ближе (подписки и взаимные подписки), начинают с более высокой базы. Лайки и комментарии повышают рейтинг, причём взаимодействия от тех, на кого вы подписаны, весят больше. Комментарии, как правило, поднимают пост сильнее, чем лайки.\n\nНебольшая случайность помогает показывать разные посты, чтобы лента не была всегда одинаковой. Со временем все посты теряют очки и исчезают.\n\nВсё вычисляется локально на вашем устройстве, поэтому ваша лента может отличаться от чужой.',
   },
   ja: {
     settings_title:'設定', settings_conn_type:'接続タイプ', settings_language:'言語',
@@ -471,6 +479,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'設定ファイルをここにドロップするかクリック',
     vpn_or_paste:'— または設定を下に貼り付け —',
     vpn_paste_ph:'WireGuard .conf または OpenVPN .ovpn の内容を貼り付け…', vpn_connect:'接続',
+    score_explanation:'このスコアはあなただけのために計算されます。投稿者との関係、他の人の反応、少しのランダム性、そして投稿の古さを組み合わせています。\n\nより親しい人（フォロー・相互フォロー）の投稿は基本スコアが高くなります。いいねとコメントでスコアが上がり、フォローしている人の反応はそれ以外より重く評価されます。コメントはいいねよりもスコアへの影響が大きい傾向があります。\n\nわずかなランダム性により、フィードが常に同じにならないよう異なる投稿が浮かび上がります。時間が経つにつれ、すべての投稿はポイントを失い最終的に消えます。\n\nすべてはあなたのデバイスでローカルに計算されるため、あなたのフィードは他の人と異なる場合があります。',
   },
   hi: {
     settings_title:'सेटिंग्स', settings_conn_type:'कनेक्शन प्रकार', settings_language:'भाषा',
@@ -521,6 +530,7 @@ const TRANSLATIONS = {
     vpn_drop_hint:'कॉन्फ़िग फ़ाइल यहाँ खींचें या क्लिक करें',
     vpn_or_paste:'— या नीचे कॉन्फ़िग पेस्ट करें —',
     vpn_paste_ph:'WireGuard .conf या OpenVPN .ovpn सामग्री पेस्ट करें…', vpn_connect:'जुड़ें',
+    score_explanation:'यह स्कोर सिर्फ आपके लिए गणना किया जाता है। यह पोस्ट करने वाले व्यक्ति से आपके संबंध, लोगों की पोस्ट से बातचीत, थोड़ी यादृच्छिकता और पोस्ट की उम्र को मिलाता है।\n\nजिन लोगों के आप करीबी हैं (फ़ॉलो और म्यूचुअल फ़ॉलो) उनकी पोस्ट उच्च आधार से शुरू होती हैं। लाइक और कमेंट स्कोर बढ़ाते हैं, और जिन्हें आप फ़ॉलो करते हैं उनकी बातचीत ज़्यादा मायने रखती है। कमेंट आमतौर पर लाइक से ज़्यादा स्कोर बढ़ाते हैं।\n\nथोड़ी यादृच्छिकता अलग-अलग पोस्ट दिखाने में मदद करती है ताकि फ़ीड हमेशा एक जैसी न रहे। समय के साथ, सभी पोस्ट अंक खो देती हैं और गायब हो जाती हैं।\n\nसब कुछ आपके डिवाइस पर स्थानीय रूप से गणना किया जाता है, इसलिए आपका फ़ीड किसी और से अलग दिख सकता है।',
   },
 };
 
