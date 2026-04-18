@@ -178,6 +178,11 @@ impl Network {
     /// Safe to call multiple times — if a client is already ready it is
     /// reused and this function returns immediately without creating a second
     /// Arti instance (which would fight over the state-file lock).
+    ///
+    /// A hard 120-second timeout is applied.  Arti's default bootstrap retries
+    /// indefinitely; without the timeout the daemon would spin forever in
+    /// restricted environments (Docker without internet, corporate firewalls,
+    /// etc.) and never send `tor_status: "failed"` to the frontend.
     pub async fn bootstrap_tor(&self) -> Result<()> {
         // Reuse an existing ready client to avoid lock contention on Arti's
         // state files.  A second TorClient::create_bootstrapped() call while
@@ -192,12 +197,20 @@ impl Network {
         }
         tracing::info!("network: starting Tor bootstrap (this may take up to a minute)…");
         let config = TorClientConfig::default();
-        let client = TorClient::create_bootstrapped(config)
-            .await
-            .map_err(|e| P2pError::Network(std::io::Error::new(
+
+        const TOR_BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(120);
+        let client = match time::timeout(TOR_BOOTSTRAP_TIMEOUT, TorClient::create_bootstrapped(config)).await {
+            Ok(Ok(c)) => c,
+            Ok(Err(e)) => return Err(P2pError::Network(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Tor bootstrap failed: {e}"),
-            )))?;
+            ))),
+            Err(_) => return Err(P2pError::Network(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Tor bootstrap timed out after 120 s — check your internet connection",
+            ))),
+        };
+
         *self.tor_client.lock().await = Some(client);
         tracing::info!("network: Tor client ready");
         Ok(())

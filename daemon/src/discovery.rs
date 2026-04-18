@@ -13,7 +13,10 @@
 
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
@@ -74,6 +77,10 @@ pub struct Discoverer {
     dht: Dht,
     /// Bootstrap node addresses supplied via CLI or config.
     bootstrap_addrs: Vec<SocketAddr>,
+    /// When true the node is using an anonymising transport (Tor, I2P).
+    /// LAN discovery (mDNS advertisement + subnet scan) is suppressed so the
+    /// real IP address is never broadcast to neighbours.
+    privacy_mode: AtomicBool,
 }
 
 impl Discoverer {
@@ -83,7 +90,15 @@ impl Discoverer {
         tx: mpsc::Sender<DiscoveredAddr>,
         dht: Dht,
     ) -> Self {
-        Self { port, own_pubkey, tx, dht, bootstrap_addrs: Vec::new() }
+        Self { port, own_pubkey, tx, dht, bootstrap_addrs: Vec::new(), privacy_mode: AtomicBool::new(false) }
+    }
+
+    /// Enable or disable privacy mode.  Must be called before `spawn_periodic`.
+    /// When true, mDNS advertisement and subnet scanning are suppressed — only
+    /// bootstrap nodes are dialled.  Intended for Tor / I2P users who must not
+    /// broadcast their real LAN IP address to neighbours.
+    pub fn set_private(&self, private: bool) {
+        self.privacy_mode.store(private, Ordering::Relaxed);
     }
 
     /// Add bootstrap node addresses that will be dialled on startup and
@@ -152,20 +167,31 @@ impl Discoverer {
 
     /// Spawn a background task that re-runs discovery every `SCAN_INTERVAL`.
     /// Bootstrap nodes are re-dialled each cycle so we reconnect if they restart.
+    ///
+    /// When privacy mode is active (Tor / I2P), mDNS and subnet scanning are
+    /// skipped — only bootstrap nodes are dialled so the real IP stays hidden.
     pub fn spawn_periodic(self: Arc<Self>) {
+        let private = self.privacy_mode.load(Ordering::Relaxed);
+        if private {
+            tracing::info!("discovery: privacy mode — LAN scan suppressed, bootstrap only");
+        }
         tokio::spawn(async move {
             // Bootstrap dial runs first so internet peers are ready before
             // local mDNS/subnet scan completes.
             self.dial_bootstrap_nodes().await;
-            self.run_once().await;
+            if !private {
+                self.run_once().await;
+            }
 
             let mut ticker = time::interval(SCAN_INTERVAL);
             ticker.tick().await; // consume the first immediate tick so we don't scan twice
             loop {
                 ticker.tick().await;
-                tracing::info!("discovery: periodic re-scan");
                 self.dial_bootstrap_nodes().await;
-                self.run_once().await;
+                if !private {
+                    tracing::info!("discovery: periodic re-scan");
+                    self.run_once().await;
+                }
             }
         });
     }

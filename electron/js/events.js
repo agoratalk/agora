@@ -36,6 +36,14 @@ function handleDaemonEvent(ev) {
         if (p.pubkey && p.bio) peerBios[p.pubkey] = p.bio;
       }
       renderPeerList();
+      // Onboarding step 4: auto-advance to username step once at least one peer is found
+      if (obCurrentStep === 4 && peers.length > 0) {
+        const msg = document.getElementById('ob-peers-msg');
+        const spinner = document.getElementById('ob-peers-spinner');
+        if (msg) msg.textContent = `Found ${peers.length} peer${peers.length !== 1 ? 's' : ''} — continuing…`;
+        if (spinner) spinner.style.display = 'none';
+        setTimeout(() => { if (obCurrentStep === 4) obShowStep(5); }, 900);
+      }
       break;
 
     case 'message': {
@@ -258,6 +266,11 @@ function handleDaemonEvent(ev) {
           lbl.textContent = 'TOR — bootstrapping…';
         }
         toast('Tor: building circuits… (may take up to a minute)', 'info');
+        // Update onboarding step 2 transport status
+        if (obCurrentStep === 2) {
+          const msg = document.getElementById('ob-transport-msg');
+          if (msg) msg.textContent = 'Bootstrapping Tor… building circuits.';
+        }
       } else if (s === 'ready') {
         const lbl = document.getElementById('conn-label');
         if (lbl) lbl.textContent = 'connected - TOR';
@@ -265,10 +278,29 @@ function handleDaemonEvent(ev) {
         // Refresh the exit IP if the connection menu is open
         const menu = document.getElementById('conn-menu');
         if (menu && menu.style.display !== 'none') fetchAndShowIps();
+        // Onboarding step 2: Tor is ready — enable the Next button and auto-advance
+        if (obCurrentStep === 2) {
+          const msg     = document.getElementById('ob-transport-msg');
+          const spinner = document.getElementById('ob-transport-spinner');
+          const nextBtn = document.getElementById('ob-transport-next');
+          if (msg)     msg.textContent = 'Tor ready — circuits built.';
+          if (spinner) spinner.style.display = 'none';
+          if (nextBtn) nextBtn.disabled = false;
+          setTimeout(() => { if (obCurrentStep === 2) obTransportNext(); }, 800);
+        }
       } else if (s === 'failed') {
         toast(`Tor bootstrap failed: ${ev.data.error || 'unknown error'}`, 'error');
         const lbl = document.getElementById('conn-label');
         if (lbl) lbl.textContent = 'TOR — bootstrap failed';
+        // Onboarding step 2: show failure and enable Next so the user can proceed anyway
+        if (obCurrentStep === 2) {
+          const msg     = document.getElementById('ob-transport-msg');
+          const spinner = document.getElementById('ob-transport-spinner');
+          const nextBtn = document.getElementById('ob-transport-next');
+          if (msg)     msg.textContent = `Tor bootstrap failed: ${ev.data.error || 'unknown error'} — you can continue and retry later in Settings.`;
+          if (spinner) spinner.style.display = 'none';
+          if (nextBtn) nextBtn.disabled = false;
+        }
       }
       break;
     }

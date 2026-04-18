@@ -497,14 +497,16 @@
       </div>
     </div>
 
-    <!-- Step 2: connecting -->
+    <!-- Step 2: transport connection status (skipped for raw / skipped connection type) -->
     <div class="ob-step" id="ob-step-2">
-      <div class="ob-connecting" id="ob-conn-status">
-        <div class="ob-spinner"></div>
-        <span>Connecting to network…</span>
+      <div class="ob-title" id="ob-transport-title">Connecting…</div>
+      <div class="ob-hint" id="ob-transport-hint"></div>
+      <div class="ob-connecting" style="margin:16px 0">
+        <div class="ob-spinner" id="ob-transport-spinner"></div>
+        <span id="ob-transport-msg">Connecting…</span>
       </div>
       <div class="ob-row">
-        <button class="ob-btn" onclick="obNext(3)">Next →</button>
+        <button class="ob-btn" id="ob-transport-next" onclick="obTransportNext()" disabled>Next →</button>
       </div>
     </div>
 
@@ -519,19 +521,32 @@
       </div>
     </div>
 
-    <!-- Step 4: username -->
+    <!-- Step 4: peer discovery (auto-skipped once a peer is found) -->
     <div class="ob-step" id="ob-step-4">
+      <div class="ob-title">Finding peers</div>
+      <div class="ob-hint">Searching for other Agora nodes on the network.</div>
+      <div class="ob-connecting" style="margin:16px 0">
+        <div class="ob-spinner" id="ob-peers-spinner"></div>
+        <span id="ob-peers-msg">Scanning for peers…</span>
+      </div>
+      <div class="ob-row">
+        <button class="ob-skip" onclick="obNext(5)">Skip →</button>
+      </div>
+    </div>
+
+    <!-- Step 5: username -->
+    <div class="ob-step" id="ob-step-5">
       <div class="ob-title">Username</div>
       <div class="ob-hint">Pick a display name. Your cryptographic fingerprint is always shown alongside it.</div>
       <input class="ob-input" id="ob-username-input" type="text" placeholder="your_username  (optional)" maxlength="32" autocomplete="off"/>
       <div class="ob-row">
         <button class="ob-btn" onclick="obSaveUsername()">Next →</button>
-        <button class="ob-skip" onclick="obNext(5)">Skip →</button>
+        <button class="ob-skip" onclick="obNext(6)">Skip →</button>
       </div>
     </div>
 
-    <!-- Step 5: avatar -->
-    <div class="ob-step" id="ob-step-5">
+    <!-- Step 6: avatar -->
+    <div class="ob-step" id="ob-step-6">
       <div class="ob-title">Profile picture</div>
       <div class="ob-hint">Upload an avatar so peers can recognise you. Visible to everyone on the network.</div>
       <div class="ob-row" style="gap:16px">
@@ -546,34 +561,34 @@
       <input type="file" id="ob-avatar-file" accept="image/jpeg,image/png,image/webp" style="display:none"/>
       <div class="ob-row">
         <button class="ob-btn" onclick="obSaveAvatar()">Next →</button>
-        <button class="ob-skip" onclick="obNext(6)">Skip →</button>
+        <button class="ob-skip" onclick="obNext(7)">Skip →</button>
       </div>
     </div>
 
-    <!-- Step 6: join a channel (shown only if channels found) -->
-    <div class="ob-step" id="ob-step-6">
+    <!-- Step 7: join a channel (shown only if channels found) -->
+    <div class="ob-step" id="ob-step-7">
       <div class="ob-title">Join a channel</div>
       <div class="ob-hint">These channels have activity on the network. Select any you'd like to follow.</div>
       <div id="ob-channel-list" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto"></div>
       <div class="ob-row">
         <button class="ob-btn" onclick="obJoinSelectedChannels()">Join &amp; Next →</button>
-        <button class="ob-skip" onclick="obNext(7)">Skip →</button>
+        <button class="ob-skip" onclick="obNext(8)">Skip →</button>
       </div>
     </div>
 
-    <!-- Step 7: community lists — blocklists + followlists (shown only if found) -->
-    <div class="ob-step" id="ob-step-7">
+    <!-- Step 8: community lists — blocklists + followlists (shown only if found) -->
+    <div class="ob-step" id="ob-step-8">
       <div class="ob-title">Community lists</div>
       <div class="ob-hint">Subscribe to blocklists and follow lists from trusted peers on the network.</div>
       <div id="ob-community-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto"></div>
       <div class="ob-row">
         <button class="ob-btn" onclick="obImportSelected()">Apply &amp; Next →</button>
-        <button class="ob-skip" onclick="obNext(8)">Skip →</button>
+        <button class="ob-skip" onclick="obNext(9)">Skip →</button>
       </div>
     </div>
 
-    <!-- Step 8: first post -->
-    <div class="ob-step" id="ob-step-8">
+    <!-- Step 9: first post -->
+    <div class="ob-step" id="ob-step-9">
       <div class="ob-title">Say hello</div>
       <div class="ob-hint">Make your first post to the public feed. Anyone on the network will see it for 24 hours.</div>
       <textarea class="ob-input ob-textarea" id="ob-first-post" placeholder="What's on your mind?  (optional)"></textarea>

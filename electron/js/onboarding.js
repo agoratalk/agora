@@ -2,16 +2,18 @@
 /**
  * First-run onboarding wizard — a multi-step overlay shown only once.
  *
- * Steps (0-indexed, OB_TOTAL_STEPS = 9):
+ * Steps (0-indexed, OB_TOTAL_STEPS = 10):
  *   0  Language selection
  *   1  Connection type + optional VPN config
- *   2  "Connecting…" waiting screen (auto-advances when init() completes)
+ *   2  Transport connection status — blocks until the chosen overlay network
+ *      is ready (skipped for raw / skipped connection type)
  *   3  Bootstrap server (optional — lets user enter a known peer to connect to)
- *   4  Username (optional)
- *   5  Avatar (optional)
- *   6  Channel discovery — channels found from peers, auto-skipped if none
- *   7  Community lists — peer blocklists/followlists, auto-skipped if none
- *   8  First post (optional)
+ *   4  Peer discovery — auto-skipped once at least one peer is found; skippable
+ *   5  Username (optional)
+ *   6  Avatar (optional)
+ *   7  Channel discovery — channels found from peers, auto-skipped if none
+ *   8  Community lists — peer blocklists/followlists, auto-skipped if none
+ *   9  First post (optional)
  *
  * Completion is tracked via localStorage key 'agora_onboarded'.  Once set,
  * obIsFirstRun() returns false and the wizard is never shown again.
@@ -31,11 +33,13 @@ const OB_LANGUAGES = [
   { code: 'ja', label: '日本語' },
   { code: 'hi', label: 'हिन्दी' },
 ];
-const OB_TOTAL_STEPS = 9; // steps 0-8
+const OB_TOTAL_STEPS = 10; // steps 0-9
 let obCurrentStep = 0;
 let obSelectedLang = 'en';
 let obSelectedConnType = connType;
 let obPendingAvatar = null;
+// Result of the VPN start attempt in step 1 — used by step 2 to show status.
+let obVpnStartResult = null; // null | { ok: true } | { ok: false, error: string }
 let obBlocklistSelections = {};  // subKey → bool
 let obFollowlistSelections = {}; // "pk::fl::listname" → bool
 let obChannelSelections = new Set(); // channel names the user wants to join
@@ -123,6 +127,7 @@ function obBuildConnTypeGrid() {
 
 async function obSaveConnType() {
   const type = obSelectedConnType;
+  obVpnStartResult = null;
 
   if (VPN_TYPES.includes(type)) {
     const config = document.getElementById('ob-vpn-paste')?.value.trim() || '';
@@ -141,24 +146,41 @@ async function obSaveConnType() {
       if (status) { status.className = 'vpn-status'; status.textContent = ''; }
       const resp = await window.agora?.vpnStart(type, config);
       if (resp?.error) {
+        obVpnStartResult = { ok: false, error: resp.error };
         if (status) { status.className = 'vpn-status err'; status.textContent = resp.error; }
         // Non-blocking: let the user skip past the VPN error and continue
-      } else if (status) {
-        status.className = 'vpn-status ok';
-        status.textContent = `${type} tunnel up`;
+      } else {
+        obVpnStartResult = { ok: true };
+        if (status) { status.className = 'vpn-status ok'; status.textContent = `${type} tunnel up`; }
       }
     }
     // If no config provided, just set the type without starting — user can configure later
   }
 
   setConnType(type);
-  obNext(2);
+
+  // Raw connections need no transport confirmation — start discovery and go straight to bootstrap.
+  if (type === 'raw') {
+    await window.agora?.request('start_discovery', { transport: 'raw' });
+    obNext(3);
+  } else {
+    // All other types show the transport status step first.
+    obNext(2);
+  }
 }
 
-// Skip conn-type step: use raw, proceed to connecting
-function obSaveConnTypeSkip() {
+// Skip conn-type step: use raw, start discovery, proceed to bootstrap.
+async function obSaveConnTypeSkip() {
   setConnType('raw');
-  obNext(2);
+  await window.agora?.request('start_discovery', { transport: 'raw' });
+  obNext(3);
+}
+
+// Called when the user (or auto-logic) confirms the transport is ready.
+// Starts peer discovery and advances to the bootstrap step.
+async function obTransportNext() {
+  await window.agora?.request('start_discovery', { transport: obSelectedConnType });
+  obNext(3);
 }
 
 function obBuildProgress() {
@@ -200,9 +222,13 @@ function obBuildLangGrid() {
 /**
  * Navigate to onboarding step n.  Shows/hides the step panels, updates the
  * progress pip row, and runs step-specific setup:
- *   Step 2: update the connection-status message to name the chosen transport.
- *   Step 6: populate the channel list from current posts; auto-skip if empty.
- *   Step 7: populate community blocklist/followlist picker; auto-skip if empty.
+ *   Step 2: configure the transport-status UI based on the chosen type; blocks
+ *           until the overlay network confirms it is ready (TOR) or shows
+ *           instructions (i2p) / tunnel result (VPN types).
+ *   Step 4: check if any peers are already known; auto-skip to step 5 if so,
+ *           otherwise show the scanning UI and wait for a peers_updated event.
+ *   Step 7: populate the channel list from current posts; auto-skip if empty.
+ *   Step 8: populate community blocklist/followlist picker; auto-skip if empty.
  */
 function obShowStep(n) {
   obCurrentStep = n;
@@ -211,24 +237,79 @@ function obShowStep(n) {
   });
   obUpdateProgress(n);
 
-  // Step 2: update the connecting-status text to reflect the chosen transport
+  // Step 2: transport connection status
   if (n === 2) {
-    const span = document.querySelector('#ob-conn-status span');
-    if (span) {
-      if (connType === 'TOR') {
-        span.textContent = 'Bootstrapping Tor… (embedded — no system Tor required)';
-      } else if (connType === 'i2p') {
-        span.textContent = 'Routing through I2P… (I2P router must be running with SOCKS5 on port 4447)';
+    const type = obSelectedConnType;
+    const title  = document.getElementById('ob-transport-title');
+    const hint   = document.getElementById('ob-transport-hint');
+    const msg    = document.getElementById('ob-transport-msg');
+    const spinner = document.getElementById('ob-transport-spinner');
+    const nextBtn = document.getElementById('ob-transport-next');
+
+    if (type === 'TOR') {
+      if (title)  title.textContent  = 'Bootstrapping Tor';
+      if (hint)   hint.textContent   = 'Building Tor circuits — this usually takes 10–60 seconds. No system Tor required.';
+      if (msg)    msg.textContent    = 'Bootstrapping Tor…';
+      if (spinner) spinner.style.display = '';
+      if (nextBtn) nextBtn.disabled = true;
+      // Enabled by the tor_status:"ready" or "failed" event handled in events.js.
+      // Fallback: if no status event arrives within 90 s (e.g. Arti keeps retrying
+      // without ever reporting failure), unlock the button so the user isn't stuck.
+      setTimeout(() => {
+        if (obCurrentStep === 2) {
+          const nb = document.getElementById('ob-transport-next');
+          if (nb && nb.disabled) {
+            const m = document.getElementById('ob-transport-msg');
+            const sp = document.getElementById('ob-transport-spinner');
+            if (m)  m.textContent = 'Tor is taking a long time — you can continue and configure it later in Settings.';
+            if (sp) sp.style.display = 'none';
+            nb.disabled = false;
+          }
+        }
+      }, 90000);
+    } else if (type === 'i2p') {
+      if (title)  title.textContent  = 'I2P Setup';
+      if (hint)   hint.textContent   = 'Agora routes I2P traffic through your local I2P router.';
+      if (msg)    msg.textContent    = 'Make sure your I2P router is running with SOCKS5 on port 4447.';
+      if (spinner) spinner.style.display = 'none';
+      if (nextBtn) nextBtn.disabled = false;
+    } else if (VPN_TYPES.includes(type)) {
+      if (title)  title.textContent  = `${type} Tunnel`;
+      if (hint)   hint.textContent   = `Status of your ${type} tunnel.`;
+      if (spinner) spinner.style.display = 'none';
+      if (obVpnStartResult?.ok) {
+        if (msg)  msg.textContent = `${type} tunnel up.`;
+        if (nextBtn) nextBtn.disabled = false;
+        // Auto-advance after a brief confirmation pause
+        setTimeout(() => { if (obCurrentStep === 2) obTransportNext(); }, 1200);
+      } else if (obVpnStartResult?.error) {
+        if (msg)  msg.textContent = `Error: ${obVpnStartResult.error}`;
+        if (nextBtn) nextBtn.disabled = false; // allow skipping past the error
       } else {
-        span.textContent = 'Connecting to network…';
+        if (msg)  msg.textContent = 'No config provided — you can configure the VPN later in Settings.';
+        if (nextBtn) nextBtn.disabled = false;
       }
+    } else {
+      // nym, QUIC, or anything without dedicated transport bootstrapping — skip through
+      obTransportNext();
+      return;
     }
   }
 
-  // Step 6: populate channels discovered from peers; auto-skip if none
-  if (n === 6) {
+  // Step 4: peer discovery — auto-skip if we already have at least one peer
+  if (n === 4) {
+    if (peers.length > 0) { obShowStep(5); return; }
+    const msg    = document.getElementById('ob-peers-msg');
+    const spinner = document.getElementById('ob-peers-spinner');
+    if (msg)    msg.textContent = 'Scanning for peers…';
+    if (spinner) spinner.style.display = '';
+    // Auto-advance is triggered by the peers_updated event handler in events.js
+  }
+
+  // Step 7: populate channels discovered from peers; auto-skip if none
+  if (n === 7) {
     const channels = obFindChannels();
-    if (channels.length === 0) { obShowStep(7); return; }
+    if (channels.length === 0) { obShowStep(8); return; }
     const list = document.getElementById('ob-channel-list');
     list.innerHTML = '';
     obChannelSelections.clear();
@@ -250,11 +331,11 @@ function obShowStep(n) {
     });
   }
 
-  // Step 7: populate community lists (blocklists + followlists); auto-skip if none
-  if (n === 7) {
+  // Step 8: populate community lists (blocklists + followlists); auto-skip if none
+  if (n === 8) {
     const bls = obFindPeerBlocklists();
     const fls = obFindPeerFollowlists();
-    if (bls.length === 0 && fls.length === 0) { obShowStep(8); return; }
+    if (bls.length === 0 && fls.length === 0) { obShowStep(9); return; }
     const list = document.getElementById('ob-community-list');
     list.innerHTML = '';
     obBlocklistSelections = {};
@@ -385,7 +466,7 @@ function obFindPeerFollowlists() {
 // Advance from the channel selection step.  The actual following of selected
 // channels happens in obFinish() via setActiveChannel(), not here.
 function obJoinSelectedChannels() {
-  obShowStep(7);
+  obShowStep(8);
 }
 
 async function obBootstrapNext(skip = false) {
@@ -397,7 +478,7 @@ async function obBootstrapNext(skip = false) {
       else { toast('Dialling ' + addr + '…', 'success'); }
     }
   }
-  obShowStep(4); // → username
+  obShowStep(4); // → peer discovery
 }
 
 async function obSaveUsername() {
@@ -409,7 +490,7 @@ async function obSaveUsername() {
     document.getElementById('my-name').textContent = uname;
     document.getElementById('ob-avatar-initial').textContent = uname.charAt(0).toUpperCase();
   }
-  obShowStep(5); // → avatar
+  obShowStep(6); // → avatar
 }
 
 function obClearAvatar() {
@@ -427,7 +508,7 @@ async function obSaveAvatar() {
     renderIdentityAvatar();
     obPendingAvatar = null;
   }
-  obShowStep(6); // → blocklists
+  obShowStep(7); // → channel discovery
 }
 
 /**
@@ -459,7 +540,7 @@ function obImportSelected() {
   });
   saveFollowlists();
   updateFollowingIndicator();
-  obShowStep(8); // → first post
+  obShowStep(9); // → first post
 }
 
 async function obPublishFirstPost() {
@@ -661,7 +742,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('ob-username-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') obSaveUsername(); });
   document.getElementById('ob-first-post')?.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') obPublishFirstPost(); });
   await init();
-  if (obIsFirstRun()) obStart();
+  if (obIsFirstRun()) {
+    obStart();
+  } else {
+    // Not a first run — transport type is already configured in localStorage.
+    // Start peer discovery immediately without waiting for onboarding gating.
+    window.agora?.request('start_discovery', { transport: obSelectedConnType || 'raw' });
+  }
 });
 
 // ── Demo data (when running outside Electron) ─────────────────────────────────

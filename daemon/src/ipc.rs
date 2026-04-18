@@ -30,6 +30,7 @@
 //!   set_username           → params: { username }
 //!   set_post_limit         → params: { limit: u64 }  → { ok, limit }
 //!   connect                → params: { addr }
+//!   start_discovery        → start mDNS/subnet scan + bootstrap dialling (idempotent; called by frontend after transport is confirmed)
 //!   list_identities        → [IdentitySummary, ...]
 //!   switch_identity        → params: { account_name }  (restarts daemon internals)
 //!   create_identity        → params: { account_name, username? }
@@ -38,7 +39,7 @@
 //!   set_bio                → params: { bio }  (string ≤500 chars, or null to clear)
 //!   get_local_ip           → { ip }  (outbound private IP address)
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 
 use base64::Engine;
 use serde_json::json;
@@ -49,6 +50,7 @@ use tokio::{
 };
 
 use crate::{
+    discovery::Discoverer,
     dht::Dht,
     identity::{Identity, IdentitySummary},
     messaging::Messenger,
@@ -88,17 +90,22 @@ pub struct IpcServer {
     broadcaster: IpcBroadcaster,
     /// Receiver end of the event channel — cloned for each new client connection.
     event_rx: broadcast::Receiver<IpcEvent>,
+    /// Peer discoverer — held here so the frontend can trigger discovery via
+    /// `start_discovery` once the transport layer is confirmed ready.
+    discoverer: Arc<Discoverer>,
+    /// Guards against spawning the periodic discovery task more than once.
+    discovery_started: Arc<AtomicBool>,
 }
 
 impl IpcServer {
     /// Construct an IPC server and return it together with the `IpcBroadcaster`
     /// handle (so the rest of the daemon can push events into connected clients).
-    pub fn new(port: u16, identity: Arc<RwLock<Identity>>, dht: Dht, messenger: Messenger, network: Network) -> (Self, IpcBroadcaster) {
+    pub fn new(port: u16, identity: Arc<RwLock<Identity>>, dht: Dht, messenger: Messenger, network: Network, discoverer: Arc<Discoverer>) -> (Self, IpcBroadcaster) {
         // broadcast::channel(256) creates a multi-producer multi-consumer channel
         // with a buffer of 256 events before the oldest gets dropped.
         let (tx, event_rx) = broadcast::channel(256);
         let broadcaster = IpcBroadcaster { tx };
-        let server = Self { port, identity, dht, messenger, network, broadcaster: broadcaster.clone(), event_rx };
+        let server = Self { port, identity, dht, messenger, network, broadcaster: broadcaster.clone(), event_rx, discoverer, discovery_started: Arc::new(AtomicBool::new(false)) };
         (server, broadcaster)
     }
 
@@ -405,6 +412,29 @@ impl IpcServer {
                     }
                     Err(e) => IpcResponse { id, result: None, error: Some(e.to_string()) },
                 }
+            }
+            // ── start_discovery ──────────────────────────────────────────────
+            // Called by the frontend once the transport layer is confirmed ready.
+            // Starts mDNS/subnet scanning and dials any CLI-configured bootstrap
+            // nodes.  Idempotent — safe to call multiple times; only the first
+            // call actually spawns the background task.
+            //
+            // Optional param: `transport` — the connection type string chosen by
+            // the user ("TOR", "i2p", "raw", …).  Anonymising transports (Tor,
+            // I2P) enable privacy mode, which suppresses mDNS advertisement and
+            // subnet scanning so the node's real LAN IP is never exposed to peers.
+            "start_discovery" => {
+                let transport = req.params
+                    .get("transport")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("raw");
+                let private = matches!(transport.to_lowercase().as_str(), "tor" | "i2p");
+                if !self.discovery_started.swap(true, Ordering::SeqCst) {
+                    self.discoverer.set_private(private);
+                    self.discoverer.clone().spawn_periodic();
+                    tracing::info!("peer discovery started (transport={transport}, private={private})");
+                }
+                IpcResponse { id, result: Some(json!({ "ok": true })), error: None }
             }
             // ── list_identities ──────────────────────────────────────────────
             // List all saved identities (account names, usernames, fingerprints).

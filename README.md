@@ -22,22 +22,23 @@ Agora is **early, experimental, and actively buggy**. Things will crash. State
 will occasionally corrupt. Features half-exist. APIs will change without warning.
 Do not rely on it for anything that matters yet.
 
-### 🔴 It will leak your IP address
+### 🟡 IP hiding is implemented but unstable
 
-The current networking layer connects your machine directly to other peers. That
-means **other peers on the network can see your real IP address**. There is no
-onion routing, no mixnet, and no traffic obfuscation in this build.
+Ways to hide your IP address are implemented — you can select Tor, I2P, WireGuard,
+OpenVPN, or other transports during onboarding or in Settings. In Tor mode the
+daemon runs an embedded Tor client (via [arti](https://gitlab.torproject.org/tpo/core/arti))
+with no external `tor` binary required, and LAN discovery (mDNS + subnet scan)
+is suppressed so your local IP is not broadcast to neighbours.
 
-**If you care at all about your privacy or your safety, run Agora behind a VPN.**
-A trustworthy VPN, Tor routing at the OS level, or a dedicated VPS you treat as
-disposable are all reasonable options. Running it raw from your home connection
-is not.
+**However, this is currently unstable.** Due to limitations in the peer discovery
+and DHT gossip layer, your real IP address may still be exposed to other peers
+in some situations — for example when connecting through a bootstrap node, or
+if a timing edge-case causes a raw connection before the transport is fully up.
+**Do not rely on these features for strong anonymity yet.**
 
-Tor transport is being actively worked on. The daemon now includes an embedded
-Tor client (via [arti](https://gitlab.torproject.org/tpo/core/arti)) — no
-external `tor` binary required. When you switch to Tor mode the daemon
-bootstraps its own Tor circuits in the background (takes 10–60 s). This is
-not yet functional, assume every peer you talk to knows where you are.
+Contributions to harden IP privacy are very welcome — see the Contributing
+section below. Until this is solid, running Agora behind a trusted VPN or Tor
+at the OS level remains the safest option.
 
 ---
 
@@ -190,10 +191,9 @@ Everything in this list is actively being worked on right now.
 
 | Feature | Notes |
 |---|---|
-| **Secure connections that hide your IP** | Route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings. Note: this does not work yet as of writing. |
+| **Secure connections that hide your IP** | Route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings. Note: this is extremely unstable as of writing. |
 | **Fixing all the bugs** | The ever-present one. |
 | **Embedding content from other platforms** | Paste a link into a post and have it rendered as a preview (video player, image, or link card) inline in the feed. |
-| **Social media accounts to promote the project and Monero donation wallet** | Public accounts on major platforms to grow awareness of Agora, and a Monero wallet address for anyone who wants to support development with a private donation. If you want to help even just getting the word out would be appreciated. |
 
 
 ---
@@ -230,3 +230,9 @@ Users from such regions are not permitted to use Agora. The developers of Agora 
 Agora should only be used in a manner that complies with the laws of the user's location. The developers of Agora Software will not be held liable for any misuse of the software, and users are solely responsible for ensuring their use of Agora does not violate any local, state, or national regulations.
 
 Once again, we won't check but by using this software you pinky promise to not do anything stupid.
+
+## Other
+
+Backup (may not be up to date) : https://gitlab.com/ryan_agora-group
+X / Twitter : https://x.com/ryan_agora
+More accounts and a Monero donation wallet coming soon.

@@ -194,9 +194,25 @@ async fn main() -> anyhow::Result<()> {
     let (inbound_tx, mut inbound_rx) = mpsc::channel(64);
     let mut messenger = Messenger::new(identity.clone(), dht.clone(), network.clone(), post_store.clone(), inbound_tx);
 
+    // ── Discovery ─────────────────────────────────────────────────────────────
+    // The discoverer produces socket addresses; the network dialler consumes
+    // them and performs handshakes.  They are decoupled by an mpsc channel.
+    // Created before the IPC server so a reference can be passed to it —
+    // the frontend calls `start_discovery` once the transport is confirmed ready,
+    // which is when `spawn_periodic()` is actually invoked.
+    let (discovered_tx, discovered_rx) = mpsc::channel(64);
+    let own_pubkey2 = identity.read().await.pubkey_b64();
+    let mut discoverer = Discoverer::new(cli.port, own_pubkey2, discovered_tx, dht.clone());
+    if !cli.bootstrap.is_empty() { discoverer.add_bootstrap_addrs(&cli.bootstrap); }
+    let discoverer = Arc::new(discoverer);
+    // The dialler task reads from discovered_rx and calls network.dial() for each.
+    network.spawn_dialer(discovered_rx);
+
     // ── IPC ───────────────────────────────────────────────────────────────────
     // Start the JSON-RPC server that the Electron front-end connects to.
-    let (ipc_server, broadcaster) = IpcServer::new(cli.ipc_port, identity.clone(), dht.clone(), messenger.clone(), network.clone());
+    // The discoverer reference is passed so the frontend can trigger discovery
+    // via `start_discovery` after confirming the transport layer is ready.
+    let (ipc_server, broadcaster) = IpcServer::new(cli.ipc_port, identity.clone(), dht.clone(), messenger.clone(), network.clone(), discoverer.clone());
     // Give messenger and network a handle to the broadcaster so they can push
     // events (new DMs, peer updates, etc.) to connected front-ends.
     messenger.set_ipc(broadcaster.clone());
@@ -207,19 +223,6 @@ async fn main() -> anyhow::Result<()> {
     messenger.register_with_network().await;
     tokio::spawn(async move { ipc_server.listen().await; });
     tracing::info!("IPC server started on port {}", cli.ipc_port);
-
-    // ── Discovery ─────────────────────────────────────────────────────────────
-    // The discoverer produces socket addresses; the network dialler consumes
-    // them and performs handshakes.  They are decoupled by an mpsc channel.
-    let (discovered_tx, discovered_rx) = mpsc::channel(64);
-    let own_pubkey2 = identity.read().await.pubkey_b64();
-    let mut discoverer = Discoverer::new(cli.port, own_pubkey2, discovered_tx, dht.clone());
-    if !cli.bootstrap.is_empty() { discoverer.add_bootstrap_addrs(&cli.bootstrap); }
-    let discoverer = Arc::new(discoverer);
-    // The dialler task reads from discovered_rx and calls network.dial() for each.
-    network.spawn_dialer(discovered_rx);
-    // The periodic discovery task runs mDNS/subnet scan every 60 s.
-    discoverer.spawn_periodic();
 
     println!("\n  Type 'help' for available commands.\n");
 
