@@ -171,7 +171,7 @@ Agora is an unusually broad engineering challenge. Contributors can work on:
 - Internationalization
 - Protocol design
 
-If you like hard problems and open systems, you'll probably enjoy this project. If you dont know where to start look at the feature lists below, let something grab your intention and work on it, basically everything needs more work.
+If you like hard problems and open systems, you'll probably enjoy this project. If you dont know where to start look at the feature lists below, let something grab your attention and work on it, basically everything needs more work.
 
 ---
 
