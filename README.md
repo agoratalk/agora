@@ -1,28 +1,30 @@
 # Agora
 
-**A decentralized platform for free speech.**
+**Speak freely. Moderate locally. Own your identity.**
 
-Agora is a peer-to-peer social network with no central servers, no moderators, no
-corporate gatekeepers, and no kill switch. Identities are cryptographic, messages
-and posts are carried across a DHT-based overlay, and every participant runs the
-full stack themselves. Nobody can ban you, shadow-ban you, throttle your reach,
-or take the network down — because there is no "they" in the middle.
+Agora is not just a social network, it's an open-source distributed systems project building censorship-resistant social infrastructure, no central servers, no moderators, no corporate gatekeepers, and no kill switch. Identities are cryptographic, messages and posts are carried across a DHT-based overlay, and every participant runs the full stack themselves. Nobody can ban you, shadow-ban you, throttle your reach, or take the network down — because there is no "they" in the middle.
 
-Agora exists because the places where people used to argue, joke, organize, and
-think out loud have been quietly fenced in. This is an attempt to build somewhere
-that can't be fenced.
+Agora exists because the places where people used to argue, joke, organize, and think out loud have been quietly fenced in. This is an attempt to build somewhere that can't be fenced.
 
 ![Agora screenshot](agora_example_picture.png)
 
 ---
 
-## ⚠️ Work in progress — read this before you run it
+## Easy installers coming soon
 
-Agora is **early, experimental, and actively buggy**. Things will crash. State
-will occasionally corrupt. Features half-exist. APIs will change without warning.
-Do not rely on it for anything that matters yet.
+One-click installers for **Windows** and **Linux** are in the works, so you'll
+be able to get up and running without a terminal or a Rust toolchain. For now,
+see the Docker and build-from-source instructions below.
 
-### 🟡 IP hiding is implemented but unstable
+---
+
+## Alpha release — read this before you run it
+
+Agora is **usable for testing, but expect rough edges**. Some things will crash.
+APIs may change. Features are still being hardened. Do not rely on it for
+anything critical yet.
+
+### 🟡 IP hiding is implemented but needs more work
 
 Ways to hide your IP address are implemented — you can select Tor, I2P, WireGuard,
 OpenVPN, or other transports during onboarding or in Settings. In Tor mode the
@@ -30,7 +32,7 @@ daemon runs an embedded Tor client (via [arti](https://gitlab.torproject.org/tpo
 with no external `tor` binary required, and LAN discovery (mDNS + subnet scan)
 is suppressed so your local IP is not broadcast to neighbours.
 
-**However, this is currently unstable.** Due to limitations in the peer discovery
+**However, this is still being hardened.** Due to limitations in the peer discovery
 and DHT gossip layer, your real IP address may still be exposed to other peers
 in some situations — for example when connecting through a bootstrap node, or
 if a timing edge-case causes a raw connection before the transport is fully up.
@@ -137,6 +139,8 @@ ambitions, and essentially every area has open problems: networking, privacy,
 storage, moderation tooling at the client level, UX, docs, packaging, tests,
 and of course the long road toward hiding your IP properly.
 
+Please check ARCHITECTURE.md to learn more about how the software itself works. Contributions to ARCHITECTURE.md itself is of course also very welcome.
+
 Good ways to contribute:
 
 - **File issues.** Crashes, weird behavior, confusing UI, documentation gaps —
@@ -152,6 +156,22 @@ Good ways to contribute:
 
 There's no CLA. Be decent to other contributors. That's the whole code of
 conduct.
+
+## Why contribute?
+
+Agora is an unusually broad engineering challenge. Contributors can work on:
+
+- Rust networking + P2P systems
+- Cryptographic identity
+- Desktop UI / Electron
+- Web frontend
+- Spam resistance
+- Local moderation systems
+- Packaging / installers
+- Internationalization
+- Protocol design
+
+If you like hard problems and open systems, you'll probably enjoy this project. If you dont know where to start look at the feature lists below, let something grab your intention and work on it, basically everything needs more work.
 
 ---
 
@@ -182,6 +202,8 @@ Those features are currently working but they can and will be improved.
 | **Group chats** | Encrypted group messaging built on top of the existing DM layer, with admin roles, invite/kick controls, and forward secrecy inherited from the per-message key exchange. |
 | **Profile pictures and richer profile metadata** | Upload an avatar and write a short bio that other peers can see when they open your profile. |
 | **A local feed algorithm** | Ranking and filtering that runs entirely on your own machine, with no remote black box deciding what you see. |
+| **Post cap** | Set a maximum number of posts your daemon will store and process. Once the cap is reached, new incoming posts are acknowledged (so they aren't re-relayed through you) but not stored, keeping memory and CPU usage predictable. Configurable at any time from Settings. |
+| **User-friendly onboarding** | A guided first-run flow that walks new users through generating an identity, choosing a display name, and connecting to the network — no command-line knowledge required. |
 
 ---
 
@@ -194,6 +216,8 @@ Everything in this list is actively being worked on right now.
 | **Secure connections that hide your IP** | Route daemon traffic through Tor, I2P, WireGuard, OpenVPN, Nym, or QUIC so peers no longer see your real IP address. All options are selectable per-session from Settings. Note: this is extremely unstable as of writing. |
 | **Fixing all the bugs** | The ever-present one. |
 | **Embedding content from other platforms** | Paste a link into a post and have it rendered as a preview (video player, image, or link card) inline in the feed. |
+| **Proof of work per post and DM** | Each post and direct message will require a small proof-of-work stamp before it is accepted by the network, making automated spam campaigns computationally expensive while remaining invisible to normal users. |
+| **Mnemonic backup for identity recovery** | Your identity keypair will be representable as a human-readable mnemonic phrase you can write down and use to restore your account on any device, so losing a device no longer means losing your identity permanently. |
 
 
 ---
@@ -223,16 +247,13 @@ issue, or bit of testing moves things forward faster than I can alone.
 
 ## Legal Notice for Agora
 
-By using Agora, you acknowledge and agree that this software may only be used in countries where its use does not violate any local laws. Specifically, Agora should not be used in any jurisdiction with laws that require age verification, digital identification, restrictions on free speech, or any other law that directly conflicts with the functionality or purpose of this software.
-
-Users from such regions are not permitted to use Agora. The developers of Agora will not actively monitor or enforce compliance with these restrictions.
-
-Agora should only be used in a manner that complies with the laws of the user's location. The developers of Agora Software will not be held liable for any misuse of the software, and users are solely responsible for ensuring their use of Agora does not violate any local, state, or national regulations.
-
-Once again, we won't check but by using this software you pinky promise to not do anything stupid.
+Users are responsible for complying with local laws.
+Agora is provided as-is without warranty.
 
 ## Other
 
 Backup (may not be up to date) : https://gitlab.com/ryan_agora-group
+
 X / Twitter : https://x.com/ryan_agora
+
 More accounts and a Monero donation wallet coming soon.
